@@ -742,12 +742,16 @@ function commit(opts){
 }
 
 /* ---------------- Cloud: Firebase (Realtime DB أو Firestore) عبر REST ---------------- */
-const FB_DEFAULT = {
-  projectId: 'ahmedfathy-def0f',
-  dbUrl: 'https://ahmedfathy-def0f-default-rtdb.europe-west1.firebasedatabase.app',
-  authDomain: 'ahmedfathy-def0f.firebaseapp.com',
-  code: 'ahmedfathy-def0f'
-};
+/* المشاريع المضمّنة — مفيش حاجة تتكتب في المنصة، والاتصال تلقائي.
+   الاتنين شغالين على Realtime Database، والأوروبي أسرع من مصر فبيتجرّب الأول،
+   ولو حصلت أي مشكلة بيحوّل للتاني لوحده. */
+const FB_PROJECTS = [
+  { projectId: 'ahmedfathy-def0f', dbUrl: 'https://ahmedfathy-def0f-default-rtdb.europe-west1.firebasedatabase.app',
+    authDomain: 'ahmedfathy-def0f.firebaseapp.com', code: 'ahmedfathy-def0f', nick: 'الأساسي · أوروبا ⚡' },
+  { projectId: 'ahmedfathy-95c10', dbUrl: 'https://ahmedfathy-95c10-default-rtdb.asia-southeast1.firebasedatabase.app',
+    authDomain: 'ahmedfathy-95c10.firebaseapp.com', code: 'ahmedfathy-95c10', nick: 'الاحتياطي · آسيا' }
+];
+const FB_DEFAULT = FB_PROJECTS[0];
 const FB_GEN = 3;   // رقم جيل الإعدادات المضمّنة — بيتغير لما نغيّر المشروع، فأي إعدادات قديمة محفوظة على الأجهزة بتتجاهل تلقائيًا
 const FB_RULES_RTDB = `{
   "rules": {
@@ -813,11 +817,13 @@ const Cloud = {
   },
 
   /* ---------- الوضع والمسارات ---------- */
-  dbUrl(){ return String(this.merged().dbUrl || '').replace(/\/+$/,''); },
+  // الإعدادات الفعّالة: المرشّح اللي بنجرّبه دلوقتي، أو الإعدادات المحفوظة/المضمّنة
+  cfgNow(){ return (this._active && this._active.projectId) ? this._active : this.merged(); },
+  dbUrl(){ return String(this.cfgNow().dbUrl || '').replace(/\/+$/,''); },
   mode(){ return this.dbUrl() ? 'rtdb' : 'firestore'; },
-  rootPath(){ return 'platforms/' + encodeURIComponent(this.merged().code || 'default'); },
+  rootPath(){ return 'platforms/' + encodeURIComponent(this.cfgNow().code || 'default'); },
   root(){ return this.rootPath(); },
-  base(){ return 'https://firestore.googleapis.com/v1/projects/' + encodeURIComponent(this.merged().projectId) + '/databases/(default)/documents/'; },
+  base(){ return 'https://firestore.googleapis.com/v1/projects/' + encodeURIComponent(this.cfgNow().projectId) + '/databases/(default)/documents/'; },
 
   /* ---------- نقل Realtime Database ---------- */
   async rtdb(method, path, body, retry){
@@ -846,7 +852,7 @@ const Cloud = {
 
   /* ---------- نقل Firestore ---------- */
   async req(method, path, body, extra){
-    const c = this.merged();
+    const c = this.cfgNow();
     if (!c.apiKey || !c.projectId) throw Object.assign(new Error('إعدادات Firestore ناقصة (API Key / Project ID)'), { kind:'cfg' });
     const url = this.base() + path + '?key=' + encodeURIComponent(c.apiKey) + (extra ? '&' + extra : '');
     let res;
@@ -992,12 +998,24 @@ const Cloud = {
     if (!cfg.dbUrl && (!cfg.apiKey || !cfg.projectId)){ this.setStatus('off'); toast('إعدادات السحابة ناقصة', 'bad'); return false; }
     S.fb.cfg = cfg;
     this.setStatus('busy');
-    let hasData = false, remoteRev = 0, err = null;
-    try{
-      const meta = await this.readMeta();
-      hasData = !!meta.exists; remoteRev = meta.rev || 0;
-    }catch(e){ err = e; }
-    S.fb.cfg = cfg; S.fb.remoteRev = remoteRev;
+    // نجرب المشروع الحالي، وبعدين أي مشروع تاني مضمّن (تبديل تلقائي لو فيه مشكلة)
+    const list = [cfg].concat(FB_PROJECTS.filter(p => p.projectId !== cfg.projectId));
+    let hasData = false, remoteRev = 0, err = null, used = cfg;
+    for (let i = 0; i < list.length; i++){
+      S.fb.cfg = list[i];
+      this._active = list[i];
+      try{
+        const meta = await this.readMeta();
+        hasData = !!meta.exists; remoteRev = meta.rev || 0; err = null; used = list[i];
+        break;
+      }catch(e){ err = e; }
+    }
+    this._active = null;
+    S.fb.cfg = used; S.fb.remoteRev = remoteRev;
+    if (!err && used.projectId !== cfg.projectId){
+      this.writeCfg(used);                       // نحفظ المشروع الشغال
+      if (!opts.silent) toast('اتصلنا بالمشروع ' + (used.nick || used.projectId) + ' تلقائيًا', 'info', 'السحابة');
+    }
     if (err){
       this.setStatus('error', err.message);
       S.fb.errKind = err.kind;
@@ -1005,6 +1023,7 @@ const Cloud = {
       // مفيش نوافذ تلقائية — التنبيه في شريحة السحابة وفي الإعدادات، والتفاصيل عند الضغط على "اختبار الاتصال"
       return false;
     }
+    if (used && used.projectId) this.writeCfg(used);      // الإعدادات الشغالة تتحفظ تلقائيًا
     S.fb.errKind = ''; S.fb.remoteRev = remoteRev; S.fb.cloudEmpty = !hasData;
     this.setStatus('live');
     this.startPolling();
@@ -1028,6 +1047,7 @@ const Cloud = {
     }
   },
   disconnect(){
+    this._active = null;
     this.stopPolling();
     S.fb.remoteRev = null; S.fb.behind = false; S.fb.ahead = false;
     this.setStatus('off');
@@ -1286,6 +1306,9 @@ function copyText(txt, okMsg){
 }
 /* ---------------- لوجو المنصة ---------------- */
 const LOGO_KEY = AF_LOGO_KEY;
+const LOGO_ICON_KEY = 'mostar_logo_icon';
+function logoIcon(){ try{ return localStorage.getItem(LOGO_ICON_KEY) || ''; }catch(e){ return ''; } }
+function setLogoIcon(v){ try{ v ? localStorage.setItem(LOGO_ICON_KEY, v) : localStorage.removeItem(LOGO_ICON_KEY); }catch(e){} }
 function logoRef(){ try { return localStorage.getItem(LOGO_KEY) || ''; } catch(e){ return ''; } }
 function logoKB(){ const v = logoRef(); return v ? Math.max(1, Math.round(v.length * 0.75 / 1024)) : 0; }
 function paintLogo(){
@@ -1294,11 +1317,13 @@ function paintLogo(){
     im.onerror = function(){ AF_logoNext(this); };
     if (im.getAttribute('src') !== src){ im.style.visibility = ''; im.src = src; }
   });
+  const icon = logoIcon();                                  // نسخة صغيرة للأيقونات
+  const iconSafe = (icon && icon.length < 400000) ? icon : '';   // لو ضخمة، ما نستعملهاش
   $$('link[rel="icon"], link[rel="apple-touch-icon"]').forEach(l => {
     if (!l.dataset.afOrig) l.dataset.afOrig = l.getAttribute('href') || '';
-    l.setAttribute('href', custom || l.dataset.afOrig);
+    l.setAttribute('href', iconSafe || l.dataset.afOrig);
   });
-  paintManifest(custom);
+  paintManifest(iconSafe);
 }
 /* المانيفست: أيقونة التطبيق المثبّت / الشاشة الرئيسية / التاسكبار تتبع نفس اللوجو */
 let AF_MANIFEST_OBJ = null, AF_MANIFEST_URL = '';
@@ -1306,6 +1331,7 @@ function paintManifest(custom){
   const link = $('link[rel="manifest"]');
   if (!link) return;
   if (!link.dataset.afOrig) link.dataset.afOrig = link.getAttribute('href') || 'manifest.webmanifest';
+  if (custom && custom.length > 400000) custom = '';      // حماية: أيقونة ضخمة = كراش المتصفح
   if (!custom){                                   // مفيش لوجو مخصص → المانيفست الأصلي
     if (AF_MANIFEST_URL){ try{ URL.revokeObjectURL(AF_MANIFEST_URL); }catch(e){} AF_MANIFEST_URL = ''; }
     link.setAttribute('href', link.dataset.afOrig);
@@ -1314,16 +1340,19 @@ function paintManifest(custom){
   const build = base => {
     const man = Object.assign({}, base);
     man.icons = [
-      { src: custom, sizes: '512x512', type: (custom.indexOf('data:image/png') === 0) ? 'image/png' : 'image/jpeg', purpose: 'any' },
-      { src: custom, sizes: '192x192', type: (custom.indexOf('data:image/png') === 0) ? 'image/png' : 'image/jpeg', purpose: 'any' },
-      { src: custom, sizes: '512x512', type: (custom.indexOf('data:image/png') === 0) ? 'image/png' : 'image/jpeg', purpose: 'maskable' }
+      { src: custom, sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: custom, sizes: '192x192', type: 'image/png', purpose: 'any' }
     ];
     if (man.shortcuts) man.shortcuts = man.shortcuts.map(sc => Object.assign({}, sc, { icons: [man.icons[0]] }));
     try{
-      const blob = new Blob([JSON.stringify(man)], { type: 'application/manifest+json' });
+      const txt = JSON.stringify(man);
       if (AF_MANIFEST_URL){ try{ URL.revokeObjectURL(AF_MANIFEST_URL); }catch(e){} }
-      AF_MANIFEST_URL = URL.createObjectURL(blob);
-      link.setAttribute('href', AF_MANIFEST_URL);
+      AF_MANIFEST_URL = '';
+      try{ AF_MANIFEST_URL = URL.createObjectURL(new Blob([txt], { type: 'application/manifest+json' })); }catch(e){}
+      if (!AF_MANIFEST_URL){
+        try{ AF_MANIFEST_URL = 'data:application/manifest+json;charset=utf-8,' + encodeURIComponent(txt); }catch(e){}
+      }
+      if (AF_MANIFEST_URL) link.setAttribute('href', AF_MANIFEST_URL);
     }catch(e){}
   };
   if (AF_MANIFEST_OBJ){ build(AF_MANIFEST_OBJ); return; }
@@ -1333,9 +1362,49 @@ function paintManifest(custom){
 function setLogo(dataUrl){
   try { localStorage.setItem(LOGO_KEY, dataUrl); }
   catch(e){ return false; }            // المساحة مش كافية
-  paintLogo(); return true;
+  setLogoIcon('');                     // الأيقونة القديمة اتشالت لحد ما تتبني الجديدة
+  paintLogo();
+  makeLogoIcon(dataUrl);               // أيقونة التطبيق (مقاس صغير) — منعًا لأي كراش
+  return true;
 }
-function clearLogo(){ try { localStorage.removeItem(LOGO_KEY); } catch(e){} paintLogo(); }
+function clearLogo(){
+  try { localStorage.removeItem(LOGO_KEY); } catch(e){}
+  setLogoIcon('');
+  paintLogo();
+}
+/* أيقونة التطبيق: نسخة مربعة بمقاس صغير (٥١٢) — الأيقونات مينفعش تبقى صورة ضخمة */
+function makeLogoIcon(src){
+  const finish = url => {
+    if (!url) return;
+    setLogoIcon(url);
+    paintLogo();
+    toast('أيقونة التطبيق اتحدثت بالصورة الجديدة ✅', 'ok', 'اللوجو');
+  };
+  const im = new Image();
+  let done = false;
+  const guard = setTimeout(() => { if (!done){ done = true; } }, 8000);
+  im.onload = () => {
+    if (done) return; done = true; clearTimeout(guard);
+    try{
+      [512, 192, 180].some(size => {                       // نجرّب مقاسات لحد ما نلاقي حجم معقول
+        const c = document.createElement('canvas');
+        c.width = size; c.height = size;
+        const ctx = c.getContext ? c.getContext('2d') : null;
+        if (!ctx) return true;
+        ctx.fillStyle = '#0b0b0d'; ctx.fillRect(0, 0, size, size);
+        const w = im.naturalWidth || 1, h = im.naturalHeight || 1;
+        const k = Math.min(size / w, size / h);
+        const dw = Math.max(1, Math.round(w * k)), dh = Math.max(1, Math.round(h * k));
+        ctx.drawImage(im, Math.round((size - dw) / 2), Math.round((size - dh) / 2), dw, dh);
+        const out = c.toDataURL('image/png');
+        if (out && out.length < 400000){ finish(out); return true; }
+        return false;
+      });
+    }catch(e){}
+  };
+  im.onerror = () => { done = true; clearTimeout(guard); };
+  im.src = src;
+}
 function shrinkImg(src, maxDim, outType, quality, cb){
   let done = false, timer = null;
   const finish = v => { if (done) return; done = true; if (timer) clearTimeout(timer); cb(v); };
@@ -1366,13 +1435,15 @@ function readLogoFile(file){
   const rd = new FileReader();
   rd.onload = () => {
     const raw = rd.result, name = file.name;
-    if (setLogo(raw)){ logoDone(name, false); return; }            // تُخزَّن زي ما هي بالبايت
+    const rawSize = raw.length * 0.75;                             // الحجم التقريبي بالبايت
+    if (rawSize <= 1.2 * 1024 * 1024 && setLogo(raw)){ logoDone(name, false); return; }   // صورة معقولة → تُخزَّن زي ما هي
     const isPng = /png$/i.test(file.type || '');
     const steps = [
-      [1400, isPng ? 'image/png' : 'image/jpeg', 0.95],
-      [1024, isPng ? 'image/png' : 'image/jpeg', 0.95],
-      [1024, 'image/jpeg', 0.92],
-      [768,  'image/jpeg', 0.88]
+      [1600, isPng ? 'image/png' : 'image/jpeg', 0.92],
+      [1200, isPng ? 'image/png' : 'image/jpeg', 0.92],
+      [1024, 'image/jpeg', 0.9],
+      [768,  'image/jpeg', 0.85],
+      [512,  'image/jpeg', 0.82]
     ];
     (function attempt(i){
       if (i >= steps.length){ toast('الصورة كبيرة جدًا على التخزين — جرّب صورة أصغر', 'bad'); resetLogoInput(); return; }
@@ -2379,43 +2450,43 @@ Views.settings = function(){
   </div>
 
   <div class="grid g-2 mt">
-      <div class="card-h"><h3>${icon('cloud')} المزامنة السحابية (Firebase)</h3>
-        <span class="sp"></span><span class="badge ${S.fb.status === 'live' ? (S.fb.err ? 'b-warn' : 'b-ok') : S.fb.status === 'error' ? 'b-bad' : S.fb.status === 'busy' ? 'b-warn' : 'b-gray'}">
-        ${S.fb.status === 'live' ? (S.fb.syncing ? 'جارٍ المزامنة' : 'متصل ✅') : S.fb.status === 'error' ? 'فيه مشكلة' : S.fb.status === 'busy' ? 'بيدخل...' : 'غير متصل'}</span></div>
+      <div class="card-h"><h3>${icon('cloud')} المزامنة بين الأجهزة</h3>
+        <span class="sp"></span><span class="badge ${S.fb.status === 'live' ? (S.fb.syncing ? 'b-warn' : 'b-ok') : S.fb.status === 'error' ? 'b-bad' : S.fb.status === 'busy' ? 'b-warn' : 'b-gray'}">
+        ${S.fb.status === 'live' ? (S.fb.syncing ? 'جارٍ المزامنة' : 'متصل ✅') : S.fb.status === 'error' ? 'مشكلة' : S.fb.status === 'busy' ? 'بيدخل...' : 'غير متصل'}</span></div>
       <div class="card-b">
-        ${Cloud.cfgIsStale() ? `<div class="alert-row warn" style="margin-bottom:11px"><span class="ai">${icon('alert')}</span>
-          <span class="at"><b>الإعدادات القديمة اتتجاهلت تلقائيًا</b>
-          <span>كان فيه إعدادات محفوظة من مشروع فايربيز قديم، والمنصة بتستخدم الإعدادات المضمّنة دلوقتي (${(Cloud.merged().dbUrl ? 'Realtime Database' : 'Firestore')}). مفيش حاجة مطلوبة منك.</span></span></div>` : ''}
-        <div class="help ${S.fb.status === 'error' ? '' : 'brand'}" style="margin-bottom:12px;line-height:1.9">
-          ${S.fb.status === 'error'
-            ? `<b style="color:var(--bad)">${icon('alert')} ${esc(S.fb.err || 'فيه مشكلة في الاتصال')}</b><br>
-               اضغط <b>اختبار الاتصال</b> وهيقولك السبب والحل خطوة بخطوة.`
-            : `الإعدادات جاهزة جوه الكود (${Cloud.mode() === 'rtdb' ? 'Realtime Database' : 'Firestore'}) — <b>مش محتاج تكتب أي حاجة</b>.<br>
-               أول ما تفتح المنصة بتتصل تلقائيًا. أول جهاز فيه بيانات → اضغط <b>رفع الكل</b>. أي جهاز تاني → اضغط <b>تنزيل</b> وهتلاقي كل حاجة زي ما هي.`}
+        ${S.fb.status === 'error'
+          ? `<div class="help" style="margin-bottom:12px;line-height:1.9">
+               <b style="color:var(--bad)">${icon('alert')} ${esc(S.fb.err || 'فيه مشكلة في الاتصال')}</b><br>
+               اضغط <b>"اختبار الاتصال"</b> وهيقولك السبب والحل خطوة بخطوة.
+             </div>`
+          : `<div class="help brand" style="margin-bottom:12px;line-height:1.9">
+               <b>${icon('check')} كل حاجة متظبطة — مش محتاج تكتب أي حاجة</b><br>
+               المنصة بتتصل لوحدها أول ما تفتح، وأي تعديل بيترفع تلقائي، وأي جهاز تاني بينزّل التحديثات لوحده.
+             </div>`}
+
+        <div class="grid g-2" style="gap:11px">
+          <div class="field"><label>المشروع المتصل</label>
+            <div class="flex" style="gap:8px;align-items:center"><b>${esc(S.fb.cfg && S.fb.cfg.nick || (S.fb.cfg && S.fb.cfg.projectId) || FB_DEFAULT.nick)}</b>
+            <span class="badge b-gray">${esc((S.fb.cfg && S.fb.cfg.dbUrl) ? 'Realtime Database' : 'Firestore')}</span></div></div>
+          <div class="field"><label>كود المنصة <span class="small muted">(اسم تخزين البيانات)</span></label>
+            <div><b class="code">${esc((S.fb.cfg && S.fb.cfg.code) || FB_DEFAULT.code)}</b></div></div>
         </div>
-        <div class="frow">
-          <div class="field"><label>API Key</label><input class="inp code" data-fb="apiKey" value="${esc(fb.apiKey || '')}" placeholder="AIza..."></div>
-          <div class="field"><label>Project ID</label><input class="inp code" data-fb="projectId" value="${esc(fb.projectId || '')}" placeholder="ahmedfathy-95c10"></div>
-        </div>
-        <div class="frow">
-          <div class="field"><label>كود المنصة <span class="small muted">(الاسم اللي بتتخزن بيه البيانات)</span></label><input class="inp code" data-fb="code" value="${esc(fb.code || '')}" placeholder="ahmedfathy-95c10"></div>
-          <div class="field"><label>Auth Domain</label><input class="inp code" data-fb="authDomain" value="${esc(fb.authDomain || '')}"></div>
-        </div>
-        <div class="btn-row">
+
+        <div class="btn-row" style="margin-top:12px">
           <button class="btn pri" data-act="fbTest">${icon('check-square')} اختبار الاتصال</button>
-          <button class="btn" data-act="fbConnect">${icon('link')} ${S.fb.status === 'live' ? 'إعادة الاتصال' : 'اتصال ورفع تلقائي'}</button>
-          <button class="btn" data-act="fbPull">${icon('download')} تنزيل البيانات من السحابة</button>
           <button class="btn" data-act="fbPushAll">${icon('upload')} رفع الكل للسحابة</button>
-          <button class="btn ghost" data-act="fbDisconnect">${icon('x')} فصل</button>
+          <button class="btn" data-act="fbPull">${icon('download')} تنزيل البيانات من السحابة</button>
+          <button class="btn ghost" data-act="fbConnect">${icon('refresh')} إعادة الاتصال</button>
         </div>
-        <div class="sep"></div>
-        <div class="btn-row">
-          <button class="btn sm pri" data-act="fbPasteCfg">${icon('upload')} لصق إعدادات مشروع Firebase</button>
-          ${(Cloud.cfgIsStale() || Cloud.readCfg()) ? `<button class="btn sm" data-act="fbCfgReset">${icon('refresh')} امسح الإعدادات المحفوظة وارجع للمضمّنة</button>` : ''}
-          <button class="btn sm ghost" data-act="swUpdate">${icon('download')} تحديث نسخة التطبيق</button>
-          <button class="btn sm ghost" data-act="fbConsole">${icon('link')} فتح إعدادات قاعدة البيانات</button>
+        <div class="btn-row" style="margin-top:9px">
+          <button class="btn sm ghost" data-act="fbProjects">${icon('layers')} المشاريع المتاحة</button>
+          <button class="btn sm ghost" data-act="fbPasteCfg">${icon('upload')} مشروع فايربيز تاني</button>
+          <button class="btn sm ghost" data-act="fbCfgReset">${icon('refresh')} ارجع للمشاريع المضمّنة</button>
           <button class="btn sm ghost" data-act="fbRules">${icon('file')} قواعد الحماية (انسخها)</button>
+          <button class="btn sm ghost" data-act="fbConsole">${icon('link')} فتح كونسول فايربيز</button>
+          <button class="btn sm ghost" data-act="swUpdate">${icon('download')} تحديث نسخة التطبيق</button>
         </div>
+
         <p class="small muted" style="margin-top:12px">
           ${S.fb.lastSync ? 'آخر مزامنة: ' + S.fb.lastSync.toLocaleString('ar-EG') : 'لسه محصلتش مزامنة في الجهاز ده'}
           ${S.fb.remoteRev != null ? ' · نسخة السحابة: ' + S.fb.remoteRev + ' · نسخة الجهاز: ' + nf(S.data.meta.rev || 0) : ''}<br>
@@ -2424,6 +2495,7 @@ Views.settings = function(){
         </p>
       </div>
     </div>
+
     <div class="card">
       <div class="card-h"><h3>${icon('save')} النسخ الاحتياطي والمظهر</h3></div>
       <div class="card-b">
@@ -3424,12 +3496,29 @@ document.addEventListener('click', function(e){
     }
     case 'install': PWA.install(); break;
     case 'swUpdate': PWA.update(); break;
-    case 'fbConnect': {
-      const cfg = {};
-      $$('[data-fb]').forEach(inp => { if (inp.value.trim()) cfg[inp.dataset.fb] = inp.value.trim(); });
-      if (!cfg.apiKey || !cfg.projectId){ toast('API Key و Project ID مطلوبين', 'warn'); return; }
-      if (!cfg.code) cfg.code = FB_DEFAULT.code;
-      Cloud.connect({ config: cfg }); break;
+    case 'fbConnect': Cloud.connect({}); break;
+    case 'fbProjects': {
+      const cur = (S.fb.cfg && S.fb.cfg.projectId) || '';
+      Modal.open({ title:'المشاريع المتاحة', sub:'المنصة بتجرّبهم لوحدها بالترتيب', size:'sm',
+        body: FB_PROJECTS.map(p => `<div class="alert-row ${p.projectId === cur ? 'ok' : 'info'}">
+            <span class="ai">${icon(p.projectId === cur ? 'check' : 'cloud')}</span>
+            <span class="at"><b>${esc(p.nick || p.projectId)}${p.projectId === cur ? ' — متصل دلوقتي' : ''}</b>
+            <span>${esc(p.projectId)} · ${esc(p.dbUrl || 'Firestore')}</span></span></div>`).join('') +
+          `<div class="help brand" style="margin-top:11px;line-height:1.85">المنصة بتجرّب المشاريع بالترتيب من فوق لتحت، وأول واحد يشتغل بتستخدمه وتحفظه على الجهاز.
+            لو الأول وقع، بتحوّل للتاني <b>لوحدها</b> — مفيش حاجة مطلوبة منك.</div>`,
+        footer: `<button class="btn pri" data-act="fbTryNext">${icon('refresh')} جرّب المشروع التالي</button>
+          <button class="btn ghost" data-close>إغلاق</button>` });
+      break;
+    }
+    case 'fbTryNext': {
+      $$('.overlay').forEach(o => o.remove());
+      const cur = (S.fb.cfg && S.fb.cfg.projectId) || FB_DEFAULT.projectId;
+      const idx = FB_PROJECTS.findIndex(p => p.projectId === cur);
+      const next = FB_PROJECTS[(idx + 1 + FB_PROJECTS.length) % FB_PROJECTS.length];
+      Cloud.disconnect();
+      toast('بنجرّب: ' + (next.nick || next.projectId), 'info', 'السحابة');
+      Cloud.connect({ config: next, silent: false });
+      break;
     }
     case 'fbTest': Cloud.test(); break;
     case 'fbHelp': cloudHelpModal(S.fb.errKind || 'rules'); break;
