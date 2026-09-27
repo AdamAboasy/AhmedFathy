@@ -1,11 +1,12 @@
 /* ==========================================================
    منصة المستر — Service Worker (تشغيل أوفلاين + تثبيت PWA)
    ========================================================== */
-const CACHE = 'mostar-v1.0.0';
+const CACHE = 'mostar-v1.1.0';
 const CORE = [
   './',
   './index.html',
   './manifest.webmanifest',
+  './logo.png',
   './logo.jpg',
   './icons/icon-192.png',
   './icons/icon-512.png',
