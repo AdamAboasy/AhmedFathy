@@ -783,8 +783,10 @@ const Cloud = {
     const c0 = this.readCfg() || {};
     const c = (c0.gen === FB_GEN) ? c0 : {};        // إعدادات من مشروع قديم → تتجاهل، ونستخدم المضمّنة
     const m = Object.assign({}, FB_DEFAULT, c);
-    // لو الإعدادات المحفوظة فيها API Key و Project ID من غير رابط قاعدة بيانات → يبقى Firestore
-    if (!('dbUrl' in c) && c.apiKey && c.projectId) m.dbUrl = '';
+    // لو المستخدم لزق إعدادات مشروع تاني (API Key + Project ID مختلف) من غير رابط قاعدة بيانات → Firestore
+    if (!c.dbUrl && c.apiKey && c.projectId && c.projectId !== FB_DEFAULT.projectId) m.dbUrl = '';
+    // غير كده: المشروع المضمّن Realtime Database دايمًا
+    if (!m.dbUrl && (!c.projectId || c.projectId === FB_DEFAULT.projectId)) m.dbUrl = FB_DEFAULT.dbUrl;
     return m;
   },
   setStatus(s, msg){ S.fb.status = s; S.fb.err = msg || ''; paintCloud(); },
@@ -1000,9 +1002,7 @@ const Cloud = {
       this.setStatus('error', err.message);
       S.fb.errKind = err.kind;
       toast(err.message, 'bad', 'السحابة');
-      const flag = 'mostar_fb_help_' + (err.kind || 'x');
-      let shown = false; try{ shown = localStorage.getItem(flag) === '1'; }catch(e){}
-      if (!shown){ try{ localStorage.setItem(flag, '1'); }catch(e){} cloudHelpModal(err.kind); }
+      // مفيش نوافذ تلقائية — التنبيه في شريحة السحابة وفي الإعدادات، والتفاصيل عند الضغط على "اختبار الاتصال"
       return false;
     }
     S.fb.errKind = ''; S.fb.remoteRev = remoteRev; S.fb.cloudEmpty = !hasData;
@@ -1198,8 +1198,8 @@ const Cloud = {
         ? `<button class="btn pri" data-act="fbPushAll">${icon('upload')} رفع الكل</button>
            <button class="btn" data-act="fbPull">${icon('download')} تنزيل</button>
            <button class="btn ghost" data-close>إغلاق</button>`
-        : `<button class="btn pri" data-act="fbRulesPage">${icon('link')} فتح صفحة القواعد</button>
-           <button class="btn" data-act="fbRules">${icon('file')} قواعد الحماية</button>
+        : `<button class="btn pri" data-act="fbHelp">${icon('alert')} الخطوات والحل</button>
+           <button class="btn" data-act="fbRulesPage">${icon('link')} فتح صفحة القواعد</button>
            <button class="btn ghost" data-close>إغلاق</button>`
     });
     return okAll;
@@ -1298,6 +1298,37 @@ function paintLogo(){
     if (!l.dataset.afOrig) l.dataset.afOrig = l.getAttribute('href') || '';
     l.setAttribute('href', custom || l.dataset.afOrig);
   });
+  paintManifest(custom);
+}
+/* المانيفست: أيقونة التطبيق المثبّت / الشاشة الرئيسية / التاسكبار تتبع نفس اللوجو */
+let AF_MANIFEST_OBJ = null, AF_MANIFEST_URL = '';
+function paintManifest(custom){
+  const link = $('link[rel="manifest"]');
+  if (!link) return;
+  if (!link.dataset.afOrig) link.dataset.afOrig = link.getAttribute('href') || 'manifest.webmanifest';
+  if (!custom){                                   // مفيش لوجو مخصص → المانيفست الأصلي
+    if (AF_MANIFEST_URL){ try{ URL.revokeObjectURL(AF_MANIFEST_URL); }catch(e){} AF_MANIFEST_URL = ''; }
+    link.setAttribute('href', link.dataset.afOrig);
+    return;
+  }
+  const build = base => {
+    const man = Object.assign({}, base);
+    man.icons = [
+      { src: custom, sizes: '512x512', type: (custom.indexOf('data:image/png') === 0) ? 'image/png' : 'image/jpeg', purpose: 'any' },
+      { src: custom, sizes: '192x192', type: (custom.indexOf('data:image/png') === 0) ? 'image/png' : 'image/jpeg', purpose: 'any' },
+      { src: custom, sizes: '512x512', type: (custom.indexOf('data:image/png') === 0) ? 'image/png' : 'image/jpeg', purpose: 'maskable' }
+    ];
+    if (man.shortcuts) man.shortcuts = man.shortcuts.map(sc => Object.assign({}, sc, { icons: [man.icons[0]] }));
+    try{
+      const blob = new Blob([JSON.stringify(man)], { type: 'application/manifest+json' });
+      if (AF_MANIFEST_URL){ try{ URL.revokeObjectURL(AF_MANIFEST_URL); }catch(e){} }
+      AF_MANIFEST_URL = URL.createObjectURL(blob);
+      link.setAttribute('href', AF_MANIFEST_URL);
+    }catch(e){}
+  };
+  if (AF_MANIFEST_OBJ){ build(AF_MANIFEST_OBJ); return; }
+  fetch(link.dataset.afOrig).then(r => r.json()).then(base => { AF_MANIFEST_OBJ = base; build(base); })
+    .catch(() => { AF_MANIFEST_OBJ = { name:'منصة المستر', short_name:'منصة المستر', start_url:'./index.html', scope:'./', display:'standalone', background_color:'#0b0b0d', theme_color:'#fac518' }; build(AF_MANIFEST_OBJ); });
 }
 function setLogo(dataUrl){
   try { localStorage.setItem(LOGO_KEY, dataUrl); }
@@ -3401,6 +3432,7 @@ document.addEventListener('click', function(e){
       Cloud.connect({ config: cfg }); break;
     }
     case 'fbTest': Cloud.test(); break;
+    case 'fbHelp': cloudHelpModal(S.fb.errKind || 'rules'); break;
     case 'fbCfgReset': {
       Cloud.disconnect();
       Cloud.clearCfg();
@@ -3612,7 +3644,8 @@ window.addEventListener('resize', throttle(() => {
   const cfg = Cloud.merged();
   S.fb.cfg = cfg;
   if (cfg && (cfg.dbUrl || (cfg.apiKey && cfg.projectId))){
-    setTimeout(() => Cloud.connect({ config: cfg, auto: true, silent: true }), 400);
+    Cloud.writeCfg(cfg);        // تصحيح ذاتي: الإعدادات الصح تتحفظ على الجهاز
+    setTimeout(() => Cloud.connect({ config: cfg, auto: true, silent: true }), 300);
   }
 
   /* فحص فوري لما ترجع للصفحة أو تفتحها تاني */
