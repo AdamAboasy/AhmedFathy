@@ -748,6 +748,7 @@ const FB_DEFAULT = {
   authDomain: 'ahmedfathy-def0f.firebaseapp.com',
   code: 'ahmedfathy-def0f'
 };
+const FB_GEN = 3;   // رقم جيل الإعدادات المضمّنة — بيتغير لما نغيّر المشروع، فأي إعدادات قديمة محفوظة على الأجهزة بتتجاهل تلقائيًا
 const FB_RULES_RTDB = `{
   "rules": {
     "platforms": {
@@ -775,9 +776,12 @@ const FB_DATA_URL  = 'https://console.firebase.google.com/project/ahmedfathy-def
 
 const Cloud = {
   readCfg(){ try{ return JSON.parse(localStorage.getItem(FB_KEY) || 'null'); }catch(e){ return null; } },
-  writeCfg(c){ try{ c ? localStorage.setItem(FB_KEY, JSON.stringify(c)) : localStorage.removeItem(FB_KEY); }catch(e){} },
+  writeCfg(c){ try{ if (c) c.gen = FB_GEN; c ? localStorage.setItem(FB_KEY, JSON.stringify(c)) : localStorage.removeItem(FB_KEY); }catch(e){} },
+  cfgIsStale(){ const c = this.readCfg(); return !!(c && c.gen !== FB_GEN); },   // إعدادات من مشروع قديم
+  clearCfg(){ try{ localStorage.removeItem(FB_KEY); }catch(e){} },
   merged(){
-    const c = this.readCfg() || {};
+    const c0 = this.readCfg() || {};
+    const c = (c0.gen === FB_GEN) ? c0 : {};        // إعدادات من مشروع قديم → تتجاهل، ونستخدم المضمّنة
     const m = Object.assign({}, FB_DEFAULT, c);
     // لو الإعدادات المحفوظة فيها API Key و Project ID من غير رابط قاعدة بيانات → يبقى Firestore
     if (!('dbUrl' in c) && c.apiKey && c.projectId) m.dbUrl = '';
@@ -2348,6 +2352,9 @@ Views.settings = function(){
         <span class="sp"></span><span class="badge ${S.fb.status === 'live' ? (S.fb.err ? 'b-warn' : 'b-ok') : S.fb.status === 'error' ? 'b-bad' : S.fb.status === 'busy' ? 'b-warn' : 'b-gray'}">
         ${S.fb.status === 'live' ? (S.fb.syncing ? 'جارٍ المزامنة' : 'متصل ✅') : S.fb.status === 'error' ? 'فيه مشكلة' : S.fb.status === 'busy' ? 'بيدخل...' : 'غير متصل'}</span></div>
       <div class="card-b">
+        ${Cloud.cfgIsStale() ? `<div class="alert-row warn" style="margin-bottom:11px"><span class="ai">${icon('alert')}</span>
+          <span class="at"><b>الإعدادات القديمة اتتجاهلت تلقائيًا</b>
+          <span>كان فيه إعدادات محفوظة من مشروع فايربيز قديم، والمنصة بتستخدم الإعدادات المضمّنة دلوقتي (${(Cloud.merged().dbUrl ? 'Realtime Database' : 'Firestore')}). مفيش حاجة مطلوبة منك.</span></span></div>` : ''}
         <div class="help ${S.fb.status === 'error' ? '' : 'brand'}" style="margin-bottom:12px;line-height:1.9">
           ${S.fb.status === 'error'
             ? `<b style="color:var(--bad)">${icon('alert')} ${esc(S.fb.err || 'فيه مشكلة في الاتصال')}</b><br>
@@ -2373,6 +2380,8 @@ Views.settings = function(){
         <div class="sep"></div>
         <div class="btn-row">
           <button class="btn sm pri" data-act="fbPasteCfg">${icon('upload')} لصق إعدادات مشروع Firebase</button>
+          ${(Cloud.cfgIsStale() || Cloud.readCfg()) ? `<button class="btn sm" data-act="fbCfgReset">${icon('refresh')} امسح الإعدادات المحفوظة وارجع للمضمّنة</button>` : ''}
+          <button class="btn sm ghost" data-act="swUpdate">${icon('download')} تحديث نسخة التطبيق</button>
           <button class="btn sm ghost" data-act="fbConsole">${icon('link')} فتح إعدادات قاعدة البيانات</button>
           <button class="btn sm ghost" data-act="fbRules">${icon('file')} قواعد الحماية (انسخها)</button>
         </div>
@@ -3392,6 +3401,16 @@ document.addEventListener('click', function(e){
       Cloud.connect({ config: cfg }); break;
     }
     case 'fbTest': Cloud.test(); break;
+    case 'fbCfgReset': {
+      Cloud.disconnect();
+      Cloud.clearCfg();
+      try{ localStorage.removeItem('mostar_fb_help_nodb'); localStorage.removeItem('mostar_fb_help_rules'); }catch(e){}
+      const d = Cloud.merged();
+      S.fb.cfg = d;
+      toast('اتمسحت الإعدادات القديمة — هيتصل بالإعدادات المضمّنة (' + (d.dbUrl ? 'Realtime Database' : 'Firestore') + ')', 'ok', 'السحابة');
+      Cloud.connect({ config: d });
+      break;
+    }
     case 'fbPasteCfg': {
       Modal.open({ title:'إعدادات مشروع Firebase', sub:'الصق كود firebaseConfig من كونسول فايربيز', size:'md',
         body: `<div class="help brand" style="margin-bottom:11px;line-height:1.9">
