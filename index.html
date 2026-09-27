@@ -741,17 +741,25 @@ function commit(opts){
   Cloud.push();
 }
 
-/* ---------------- Cloud (Firebase Firestore عبر REST) ---------------- */
-/* إعدادات المشروع جاهزة جوه الكود — مفيش أي حاجة تتكتب كل مرة */
+/* ---------------- Cloud: Firebase (Realtime DB أو Firestore) عبر REST ---------------- */
 const FB_DEFAULT = {
-  apiKey: 'AIzaSyB6xveePHJ7qB2YuFvb4_S1kfFtUmCTaCA',
-  projectId: 'ahmedfathy-95c10',
-  authDomain: 'ahmedfathy-95c10.firebaseapp.com',
-  code: 'ahmedfathy-95c10'
+  projectId: 'ahmedfathy-def0f',
+  dbUrl: 'https://ahmedfathy-def0f-default-rtdb.europe-west1.firebasedatabase.app',
+  authDomain: 'ahmedfathy-def0f.firebaseapp.com',
+  code: 'ahmedfathy-def0f'
 };
+const FB_RULES_RTDB = `{
+  "rules": {
+    "platforms": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}`;
 const FB_RULES = `rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // بيانات منصة المستر فقط — باقي المشروع مقفول
     match /platforms/{code} {
       allow read, write: if true;
       match /{document=**} {
@@ -760,32 +768,87 @@ service cloud.firestore {
     }
   }
 }`;
-const FB_CONSOLE = 'https://console.firebase.google.com/project/' + FB_DEFAULT.projectId + '/firestore';
-const FB_APILIB  = 'https://console.cloud.google.com/apis/library/firestore.googleapis.com?project=' + FB_DEFAULT.projectId;
+const FB_CONSOLE = 'https://console.firebase.google.com/project/ahmedfathy-def0f/database';
+const FB_APILIB  = 'https://console.cloud.google.com/apis/library/firestore.googleapis.com?project=ahmedfathy-def0f';
+const FB_RULES_URL = 'https://console.firebase.google.com/project/ahmedfathy-def0f/database/ahmedfathy-def0f-default-rtdb/rules';
+const FB_DATA_URL  = 'https://console.firebase.google.com/project/ahmedfathy-def0f/database/ahmedfathy-def0f-default-rtdb/data';
 
 const Cloud = {
   readCfg(){ try{ return JSON.parse(localStorage.getItem(FB_KEY) || 'null'); }catch(e){ return null; } },
   writeCfg(c){ try{ c ? localStorage.setItem(FB_KEY, JSON.stringify(c)) : localStorage.removeItem(FB_KEY); }catch(e){} },
-  merged(){ return Object.assign({}, FB_DEFAULT, this.readCfg() || {}); },
+  merged(){
+    const c = this.readCfg() || {};
+    const m = Object.assign({}, FB_DEFAULT, c);
+    // لو الإعدادات المحفوظة فيها API Key و Project ID من غير رابط قاعدة بيانات → يبقى Firestore
+    if (!('dbUrl' in c) && c.apiKey && c.projectId) m.dbUrl = '';
+    return m;
+  },
   setStatus(s, msg){ S.fb.status = s; S.fb.err = msg || ''; paintCloud(); },
 
-  /* ---------- مسارات وعناوين ---------- */
-  root(){ return 'platforms/' + encodeURIComponent(this.merged().code || 'default'); },
+  /* ---------- قراءة إعدادات ملزوقة (firebaseConfig / JSON / رابط قاعدة بيانات) ---------- */
+  parseCfg(text){
+    const t = String(text || '');
+    const grab = key => {
+      let m = t.match(new RegExp(key + `\\s*[:=]\\s*["'\`]([^"'\`]+)["'\`]`, 'i'));
+      if (!m) m = t.match(new RegExp('"' + key + '"\\s*:\\s*"([^"]+)"', 'i'));
+      return m ? m[1].trim() : '';
+    };
+    let apiKey = grab('apiKey'), projectId = grab('projectId'), authDomain = grab('authDomain'), dbUrl = grab('databaseURL');
+    if (!apiKey){ const m = t.match(/AIza[0-9A-Za-z_\-]{30,}/); if (m) apiKey = m[0]; }
+    if (!dbUrl){ const m = t.match(/https?:\/\/[^\s"']*(firebasedatabase\.app|firebaseio\.com)/i); if (m) dbUrl = m[0].replace(/\/+$/,''); }
+    if (!dbUrl && projectId && !apiKey) dbUrl = 'https://' + projectId + '-default-rtdb.firebaseio.com';
+    if (!projectId){
+      const host = (dbUrl || authDomain || '').replace(/^https?:\/\//,'');
+      const m = host.match(/^([a-z0-9\-]+?)(-default-rtdb)?(\.|$)/i);
+      if (m) projectId = m[1];
+    }
+    if (!authDomain && projectId) authDomain = projectId + '.firebaseapp.com';
+    return { apiKey: apiKey, projectId: projectId, authDomain: authDomain, dbUrl: dbUrl, code: projectId || '' };
+  },
+
+  /* ---------- الوضع والمسارات ---------- */
+  dbUrl(){ return String(this.merged().dbUrl || '').replace(/\/+$/,''); },
+  mode(){ return this.dbUrl() ? 'rtdb' : 'firestore'; },
+  rootPath(){ return 'platforms/' + encodeURIComponent(this.merged().code || 'default'); },
+  root(){ return this.rootPath(); },
   base(){ return 'https://firestore.googleapis.com/v1/projects/' + encodeURIComponent(this.merged().projectId) + '/databases/(default)/documents/'; },
 
-  /* ---------- طلب REST واحد ---------- */
+  /* ---------- نقل Realtime Database ---------- */
+  async rtdb(method, path, body, retry){
+    const base = this.dbUrl();
+    if (!base) throw Object.assign(new Error('رابط قاعدة البيانات ناقص'), { kind:'cfg' });
+    let res;
+    try{
+      res = await fetch(base + '/' + path + '.json', { method: method, cache:'no-store',
+        headers: body ? { 'Content-Type':'application/json' } : undefined,
+        body: body ? JSON.stringify(body) : undefined });
+    }catch(e){ throw Object.assign(new Error('مفيش اتصال بالسحابة — راجع الإنترنت'), { kind:'net', raw:String(e && e.message || e) }); }
+    const txt = await res.text();
+    let j = null; try{ j = txt ? JSON.parse(txt) : null; }catch(e){ j = null; }
+    // المشروع في منطقة تانية → السيرفر بيرجّع العنوان الصح، نحدّث نفسنا ونكرر مرة واحدة
+    if (j && j.correctUrl && !retry){
+      const c = this.merged(); c.dbUrl = String(j.correctUrl).replace(/\/+$/,'');
+      this.writeCfg(c); S.fb.cfg = c;
+      return this.rtdb(method, path, body, true);
+    }
+    if (!res.ok || (j && j.error)){
+      const raw = (j && (j.error || j.message)) || ('HTTP ' + res.status);
+      throw Object.assign(new Error(this.diagnose(raw, res.status).msg), { kind: this.diagnose(raw, res.status).kind, raw: raw, http: res.status });
+    }
+    return j;
+  },
+
+  /* ---------- نقل Firestore ---------- */
   async req(method, path, body, extra){
     const c = this.merged();
-    if (!c.apiKey || !c.projectId) throw Object.assign(new Error('إعدادات Firebase ناقصة (API Key / Project ID)'), { kind:'cfg' });
+    if (!c.apiKey || !c.projectId) throw Object.assign(new Error('إعدادات Firestore ناقصة (API Key / Project ID)'), { kind:'cfg' });
     const url = this.base() + path + '?key=' + encodeURIComponent(c.apiKey) + (extra ? '&' + extra : '');
     let res;
     try{
       res = await fetch(url, { method: method, cache:'no-store',
         headers: body ? { 'Content-Type':'application/json' } : undefined,
         body: body ? JSON.stringify(body) : undefined });
-    }catch(e){
-      throw Object.assign(new Error('مفيش اتصال بالسحابة — راجع الإنترنت أو اتصال المتصفح'), { kind:'net', raw: String(e && e.message || e) });
-    }
+    }catch(e){ throw Object.assign(new Error('مفيش اتصال بالسحابة — راجع الإنترنت أو اتصال المتصفح'), { kind:'net', raw: String(e && e.message || e) }); }
     let j = null; try{ j = await res.json(); }catch(e){}
     if (!res.ok){
       const raw = (j && j.error && j.error.message) || ('HTTP ' + res.status);
@@ -796,21 +859,20 @@ const Cloud = {
   },
   diagnose(raw, http){
     const m = String(raw || '');
-    if (/database \(default\) does not exist|Please visit https:\/\/console\.cloud\.google\.com\/datastore\/setup/i.test(m))
-      return { kind:'nodb', msg:'قاعدة بيانات Firestore لسه مش متعملة في المشروع — افتح Firebase Console ← Firestore ← Create database (استخدم زر "فتح إعدادات Firestore" تحت)' };
-    if (/Document .* not found|not found\.$/i.test(m) && http === 404)
+    if (/Permission denied|permission_denied|Missing or insufficient permissions|PERMISSION_DENIED/i.test(m) || http === 403)
+      return { kind:'rules', msg:'قواعد الحماية بتمنع الوصول — افتح تبويب Rules والصق القواعد الجاهزة (زر "قواعد الحماية")' };
+    if (/database \(default\) does not exist|datastore\/setup/i.test(m))
+      return { kind:'nodb', msg:'قاعدة بيانات Firestore لسه مش متعملة — افتح Firebase Console ← Firestore ← Create database' };
+    if (/SERVICE_DISABLED|has not been used in project/i.test(m))
+      return { kind:'apioff', msg:'خدمة Cloud Firestore مش مفعّلة في المشروع' };
+    if (http === 404 || /not found/i.test(m))
       return { kind:'empty', msg:'متصل — لسه مفيش بيانات مرفوعة على السحابة' };
-    if (/SERVICE_DISABLED|Cloud Firestore API has not been used|has not been used in project/i.test(m))
-      return { kind:'apioff', msg:'خدمة Cloud Firestore مش مفعّلة في المشروع —فعّلها من زر "تفعيل الخدمة" تحت' };
-    if (http === 403 || /PERMISSION_DENIED|insufficient permissions|Missing or insufficient/i.test(m))
-      return { kind:'rules', msg:'قواعد الحماية (Rules) بتمنع الوصول للبيانات — انسخ القواعد الجاهزة من زر "قواعد الحماية" والصقها في تبويب Rules ← Publish' };
-    if (http === 401 || /API_KEY_INVALID|API key not valid|invalid API key/i.test(m))
-      return { kind:'key', msg:'مفتاح API غلط — راجع API Key في إعدادات المشروع' };
-    if (http === 400 && /Invalid JSON|Invalid value/i.test(m))
-      return { kind:'data', msg:'البيانات مرفوضة من السحابة (حجم كبير أو صيغة غير صحيحة)' };
+    if (http === 401 && /API key|API_KEY/i.test(m))
+      return { kind:'key', msg:'مفتاح API غلط — راجع API Key' };
+    if (http === 401)
+      return { kind:'rules', msg:'الوصول مرفوض — راجع قواعد الحماية (Rules)' };
     return { kind:'other', msg: (m || ('خطأ رقم ' + http)) };
   },
-  /* ---------- تحويل القيم لصيغة Firestore ---------- */
   toDoc(o){
     const f = {};
     Object.keys(o).forEach(k => {
@@ -835,33 +897,108 @@ const Cloud = {
     return out;
   },
 
+  // كتابة/تحديث مستند في Firestore مع تحديد الحقول (بدون ما يمسح باقي البيانات)
+  upsert(path, obj){
+    const keys = Object.keys(obj).filter(k => obj[k] !== undefined && obj[k] !== null);
+    const mask = keys.map(k => 'updateMask.fieldPaths=' + encodeURIComponent(k)).join('&');
+    return this.req('PATCH', path, this.toDoc(obj), mask);
+  },
+
+  /* ---------- طبقة موحّدة (بتشتغل على النوعين) ---------- */
+  async readMeta(){
+    if (this.mode() === 'rtdb'){
+      const d = await this.rtdb('GET', this.rootPath() + '/meta');
+      if (d && d.correctUrl) return { exists:false, rev:0 };
+      const rev = Number((d && d.rev) || 0);
+      return { exists: !!(d && (d.rev || d.at)), rev: rev, data: d };
+    }
+    try{
+      const doc = await this.req('GET', this.root(), null, 'mask.fieldPaths=rev');
+      const dd = this.fromDoc(doc);
+      return { exists:true, rev:Number(dd.rev || 0), data: dd };
+    }catch(e){
+      if (e.kind === 'empty') return { exists:false, rev:0, data:null };   // لسه مفيش مستند = السحابة فاضية
+      throw e;
+    }
+  },
+  async writeMeta(rev){
+    const obj = { rev: rev, at: new Date().toISOString() };
+    if (this.mode() === 'rtdb') return this.rtdb('PUT', this.rootPath() + '/meta', obj);
+    return this.upsert(this.root(), obj);
+  },
+  async readRoot(){
+    if (this.mode() === 'rtdb'){
+      const d = await this.rtdb('GET', this.rootPath() + '/main');
+      if (!d) return { exists:false, data:null };
+      return { exists:true, data: d, rev: Number(d.rev || 0) };
+    }
+    try{
+      const d = this.fromDoc(await this.req('GET', this.root()));
+      return { exists: !!(d && d.json), data: d, rev: Number((d && d.rev) || 0) };
+    }catch(e){
+      if (e.kind === 'empty') return { exists:false, data:null, rev:0 };
+      throw e;
+    }
+  },
+  async writeRoot(obj){
+    if (this.mode() === 'rtdb') return this.rtdb('PUT', this.rootPath() + '/main', obj);
+    return this.upsert(this.root(), obj);
+  },
+  async readAttendanceAll(){
+    const out = {};
+    if (this.mode() === 'rtdb'){
+      const d = await this.rtdb('GET', this.rootPath() + '/attendance');
+      if (d && typeof d === 'object') Object.keys(d).forEach(k => { if (d[k] && typeof d[k] === 'object') out[k] = d[k]; });
+      return out;
+    }
+    let token = null;
+    do{
+      const r = await this.req('GET', this.root() + '/attendance?pageSize=300' + (token ? '&pageToken=' + encodeURIComponent(token) : ''));
+      (r.documents || []).forEach(doc => {
+        const id = decodeURIComponent(String(doc.name).split('/').pop());
+        const f = this.fromDoc(doc);
+        let rec = null; try{ rec = f.json ? JSON.parse(f.json) : null; }catch(e){}
+        if (rec) out[id] = rec;
+      });
+      token = r.nextPageToken || null;
+    } while (token);
+    return out;
+  },
+  async writeAttendance(){
+    const keys = Object.keys(S.data.attendance || {});
+    if (this.mode() === 'rtdb'){
+      const clean = {};
+      keys.forEach(k => { clean[k] = S.data.attendance[k]; });
+      return this.rtdb('PUT', this.rootPath() + '/attendance', clean);      // كله مرة واحدة — أسرع بكتير
+    }
+    for (let i = 0; i < keys.length; i++){
+      const rec = S.data.attendance[keys[i]] || {};
+      await this.upsert(this.root() + '/attendance/' + encodeURIComponent(keys[i]), { json: JSON.stringify(rec), rev: rec.rev || 0 });
+      if (i % 10 === 9){ S.fb.syncingTxt = (i + 1) + '/' + keys.length; paintCloud(); }
+    }
+  },
+
   /* ---------- الاتصال ---------- */
   async connect(opts){
     opts = opts || {};
     if (opts.config) this.writeCfg(opts.config);
     const cfg = this.merged();
-    if (!cfg.apiKey || !cfg.projectId){ this.setStatus('off'); toast('إعدادات Firebase ناقصة', 'bad'); return false; }
+    if (!cfg.dbUrl && (!cfg.apiKey || !cfg.projectId)){ this.setStatus('off'); toast('إعدادات السحابة ناقصة', 'bad'); return false; }
     S.fb.cfg = cfg;
     this.setStatus('busy');
-    let remoteRev = null, hasData = false, err = null;
+    let hasData = false, remoteRev = 0, err = null;
     try{
-      const doc = await this.req('GET', this.root(), null, 'mask.fieldPaths=rev');
-      const d = this.fromDoc(doc);
-      remoteRev = Number(d.rev || 0); hasData = true;
-    }catch(e){
-      if (e.kind === 'empty'){ remoteRev = 0; hasData = false; }
-      else err = e;
-    }
+      const meta = await this.readMeta();
+      hasData = !!meta.exists; remoteRev = meta.rev || 0;
+    }catch(e){ err = e; }
     S.fb.cfg = cfg; S.fb.remoteRev = remoteRev;
     if (err){
       this.setStatus('error', err.message);
       S.fb.errKind = err.kind;
       toast(err.message, 'bad', 'السحابة');
-      // نافذة الخطوات تظهر أول مرة لكل نوع مشكلة (علشان ما تزعجش في كل فتحة)
       const flag = 'mostar_fb_help_' + (err.kind || 'x');
       let shown = false; try{ shown = localStorage.getItem(flag) === '1'; }catch(e){}
       if (!shown){ try{ localStorage.setItem(flag, '1'); }catch(e){} cloudHelpModal(err.kind); }
-      else if (opts.auto) toast('المزامنة محتاجة ظبط بسيط — اضغط على شريحة السحابة فوق ✋', 'warn', 'السحابة');
       return false;
     }
     S.fb.errKind = ''; S.fb.remoteRev = remoteRev; S.fb.cloudEmpty = !hasData;
@@ -893,7 +1030,7 @@ const Cloud = {
     toast('تم فصل الاتصال — النظام شغال محليًا', 'info');
   },
 
-  /* ---------- الفحص الدوري (بديل الـ realtime) ---------- */
+  /* ---------- الفحص الدوري ---------- */
   startPolling(){
     this.stopPolling();
     S.fb.timer = setInterval(() => { if (!document.hidden) this.checkRemote(); }, 20000);
@@ -902,8 +1039,8 @@ const Cloud = {
   async checkRemote(){
     if (S.fb.status !== 'live' || S.fb.syncing) return;
     try{
-      const doc = await this.req('GET', this.root(), null, 'mask.fieldPaths=rev');
-      const rev = Number(this.fromDoc(doc).rev || 0);
+      const meta = await this.readMeta();
+      const rev = meta.rev || 0;
       S.fb.remoteRev = rev;
       const local = S.data.meta.rev || 0;
       if (rev > local){
@@ -918,31 +1055,30 @@ const Cloud = {
   },
 
   /* ---------- الرفع ---------- */
-  payload(){
-    const p = {
-      appVersion: 2, meta: S.data.meta, settings: S.data.settings, groups: S.data.groups,
-      students: S.data.students, exams: S.data.exams, grades: S.data.grades, attendance: S.data.attendance
-    };
+  payload(withAtt){
+    const p = { appVersion: 2, meta: S.data.meta, settings: S.data.settings, groups: S.data.groups,
+      students: S.data.students, exams: S.data.exams, grades: S.data.grades };
+    if (withAtt) p.attendance = S.data.attendance;
     const lg = logoRef();
-    if (lg && lg.length <= 300000) p._logo = lg;      // اللوجو يمشي مع البيانات لكل الأجهزة
+    if (lg && lg.length <= 300000) p._logo = lg;
     return p;
   },
   async doPush(all){
-    if (!this.merged().apiKey){ toast('إعدادات Firebase ناقصة', 'bad'); return false; }
+    const cfg = this.merged();
+    if (!cfg.dbUrl && !cfg.apiKey){ toast('إعدادات السحابة ناقصة', 'bad'); return false; }
     S.fb.syncing = true; paintCloud();
     try{
       if (all) S.data.meta.rev = (S.data.meta.rev || 0) + 1;
-      const p = this.payload();
-      let json = JSON.stringify(p), split = false;
-      if (json.length > 700000){ split = true; p.attendance = {}; json = JSON.stringify(p); }   // الحضور في مستندات منفصلة
-      await this.req('PATCH', this.root(), this.toDoc({
-        json: json, rev: S.data.meta.rev || 0, updatedAt: new Date().toISOString(), split: split
-      }));
-      if (split) await this.pushAttendance();
+      const rev = S.data.meta.rev || 0;
+      let p = this.payload(this.mode() === 'firestore'), split = this.mode() === 'rtdb';
+      let json = JSON.stringify(p);
+      if (this.mode() === 'firestore' && json.length > 700000){ split = true; p.attendance = {}; json = JSON.stringify(p); }
+      await this.writeRoot(Object.assign({ json: json, rev: rev, updatedAt: new Date().toISOString(), split: split }, {}));
+      await this.writeMeta(rev);
+      if (split) await this.writeAttendance();
       dirty.main = false; S.fb.syncing = false; S.fb.lastSync = new Date();
-      S.fb.remoteRev = S.data.meta.rev || 0; S.fb.behind = false; S.fb.ahead = false;
-      this.setStatus('live');
-      S.fb.errKind = '';
+      S.fb.remoteRev = rev; S.fb.behind = false; S.fb.ahead = false; S.fb.cloudEmpty = false;
+      this.setStatus('live'); S.fb.errKind = '';
       if (all) toast('تم رفع كل البيانات للسحابة ✅', 'ok', 'السحابة');
       return true;
     }catch(e){
@@ -952,27 +1088,19 @@ const Cloud = {
       return false;
     }
   },
-  async pushAttendance(){
-    const keys = Object.keys(S.data.attendance || {});
-    for (let i = 0; i < keys.length; i++){
-      const rec = S.data.attendance[keys[i]] || {};
-      await this.req('PATCH', this.root() + '/attendance/' + encodeURIComponent(keys[i]),
-        this.toDoc({ json: JSON.stringify(rec), rev: rec.rev || 0 }));
-      if (i % 10 === 9){ S.fb.syncingTxt = (i + 1) + '/' + keys.length; paintCloud(); }
-    }
-  },
 
   /* ---------- التنزيل ---------- */
   async doPull(silent){
     S.fb.syncing = true; paintCloud();
     try{
-      const doc = await this.req('GET', this.root());
-      const d = this.fromDoc(doc);
-      if (!d.json){ S.fb.syncing = false; this.setStatus('live'); S.fb.cloudEmpty = true;
+      const r = await this.readRoot();
+      const d = r.data;
+      if (!d || !d.json){ S.fb.syncing = false; this.setStatus('live'); S.fb.cloudEmpty = true;
         if (!silent) toast('مفيش بيانات مرفوعة على السحابة لسه — من الجهاز اللي فيه البيانات اضغط "رفع الكل"', 'warn', 'السحابة');
         return false; }
       const remote = JSON.parse(d.json);
-      if (d.split) remote.attendance = await this.pullAttendance(remote.attendance || {});
+      // الحضور ممكن يكون جوه الملف الأساسي (Firestore) أو في نود منفصل (RTDB) — ندمج الاتنين
+      remote.attendance = Object.assign({}, remote.attendance || {}, await this.readAttendanceAll());
       this.applyRemote(remote, Number(d.rev || 0));
       if (remote._logo){ try{ setLogo(remote._logo); }catch(e){} }
       S.fb.syncing = false; S.fb.lastSync = new Date(); S.fb.cloudEmpty = false;
@@ -986,21 +1114,6 @@ const Cloud = {
       return false;
     }
   },
-  async pullAttendance(local){
-    const out = Object.assign({}, local);
-    let token = null;
-    do{
-      const r = await this.req('GET', this.root() + '/attendance?pageSize=300' + (token ? '&pageToken=' + encodeURIComponent(token) : ''));
-      (r.documents || []).forEach(doc => {
-        const id = decodeURIComponent(String(doc.name).split('/').pop());
-        const f = this.fromDoc(doc);
-        let rec = null; try{ rec = f.json ? JSON.parse(f.json) : null; }catch(e){}
-        if (rec && (rec.rev || 0) >= ((out[id] || {}).rev || 0)) out[id] = rec;
-      });
-      token = r.nextPageToken || null;
-    } while (token);
-    return out;
-  },
   applyRemote(remote, rev){
     const att = Object.assign({}, S.data.attendance, remote.attendance || {});
     S.applyingRemote = true;
@@ -1013,13 +1126,19 @@ const Cloud = {
       });
       attDraft = null;
       saveLocal(); render();
-      S.fb.remoteRev = Number(rev || 0); S.fb.lastPushRev = Number(rev || 0);
+      S.fb.remoteRev = Number(rev || 0);
       S.fb.behind = false; S.fb.ahead = false;
       S.fb.lastSync = new Date();
     } finally { S.applyingRemote = false; }
   },
 
-  /* ---------- أزرار مباشرة (تشغّل الاتصال لوحده لو مش متصل) ---------- */
+  push(force){
+    if (S.fb.status !== 'live' || S.applyingRemote) return;
+    this._push = this._push || debounce(() => { if (!S.applyingRemote) this.doPush(false); }, 1200);
+    if (force) this.doPush(false); else this._push();
+  },
+
+  /* ---------- أزرار مباشرة ---------- */
   async ensure(){
     if (S.fb.status === 'live') return true;
     return await this.connect({ silent:false });
@@ -1038,33 +1157,28 @@ const Cloud = {
     this.doPush(true);
   },
 
-  /* ---------- الربط مع الحفظ المحلي ---------- */
-  push(force){
-    if (S.fb.status !== 'live' || S.applyingRemote) return;
-    this._push = this._push || debounce(() => { if (!S.applyingRemote) this.doPush(false); }, 1200);
-    if (force) this.doPush(false); else this._push();
-  },
-
-  /* ---------- اختبار شامل خطوة بخطوة ---------- */
+  /* ---------- اختبار شامل ---------- */
   async test(){
     const out = [];
     const c = this.merged();
-    out.push(['إعدادات المشروع', '✅ ' + c.projectId + ' · كود المنصة: ' + c.code, 'ok']);
-    let dbOk = false;
+    const kindTxt = this.mode() === 'rtdb' ? 'Realtime Database' : 'Firestore';
+    out.push(['نوع قاعدة البيانات', '✅ ' + kindTxt + ' · ' + (c.projectId || '—') + ' · كود المنصة: ' + (c.code || '—'), 'ok']);
+    let okBase = false;
     try{
-      await this.req('GET', this.root(), null, 'mask.fieldPaths=rev');
-      dbOk = true; out.push(['قاعدة البيانات', '✅ موجودة والوصول شغال', 'ok']);
+      await this.readMeta();
+      okBase = true; out.push(['الاتصال بقاعدة البيانات', '✅ الوصول شغال', 'ok']);
     }catch(e){
-      if (e.kind === 'empty'){ dbOk = true; out.push(['قاعدة البيانات', '✅ موجودة (لسه مفيش مستندات مرفوعة)', 'ok']); }
-      else out.push(['قاعدة البيانات', '❌ ' + e.message, e.kind === 'nodb' ? 'bad' : 'warn']);
+      if (e.kind === 'empty'){ okBase = true; out.push(['الاتصال بقاعدة البيانات', '✅ شغال (لسه مفيش بيانات)', 'ok']); }
+      else out.push(['الاتصال بقاعدة البيانات', '❌ ' + e.message, 'bad']);
     }
-    if (dbOk){
+    if (okBase){
       try{
-        await this.req('PATCH', this.root() + '/_test_connection', this.toDoc({ at: new Date().toISOString(), note: 'اختبار الاتصال من منصة المستر' }));
+        await this.writeMeta((S.data.meta.rev || 0));
         out.push(['الكتابة على السحابة', '✅ الكتابة مسموحة من قواعد الحماية', 'ok']);
       }catch(e){ out.push(['الكتابة على السحابة', '❌ ' + e.message, 'bad']); }
       try{
-        const d = this.fromDoc(await this.req('GET', this.root()));
+        const r = await this.readRoot();
+        const d = r.data || {};
         out.push(['البيانات المرفوعة', d.json ? ('✅ موجودة — آخر تعديل: ' + (d.updatedAt ? new Date(d.updatedAt).toLocaleString('ar-EG') : '—') + ' · نسخة ' + (d.rev || 0)) : '⚠️ لسه مفيش بيانات مرفوعة — اضغط "رفع الكل"', d.json ? 'ok' : 'warn']);
       }catch(e){ out.push(['البيانات المرفوعة', '⚠️ مش قادر أقرأها (' + e.message + ')', 'warn']); }
       const hasLocal = (S.data.students.length + S.data.groups.length) > 0;
@@ -1075,13 +1189,12 @@ const Cloud = {
       title: 'اختبار الاتصال بالسحابة', sub: okAll ? 'كله تمام ✅' : 'فيه خطوة محتاجة ظبط', size: 'sm',
       body: out.map(x => `<div class="alert-row ${x[2]}">
           <span class="ai">${icon(x[2] === 'ok' ? 'check' : x[2] === 'bad' ? 'alert' : 'bell')}</span>
-          <span class="at"><b>${esc(x[0])}</b><span>${esc(x[1])}</span></span></div>`).join('') +
-        (dbOk ? '' : `<div class="help brand" style="margin-top:12px">لو قاعدة البيانات مش متعملة: افتح Firebase Console ← Firestore Database ← Create database ← اختار <b>Start in test mode</b>، وبعدها الصق قواعد الحماية من زر "قواعد الحماية".</div>`),
-      actions: dbOk
-        ? `<button class="btn" data-act="fbRules">${icon('file')} قواعد الحماية</button>
-           <button class="btn pri" data-act="fbPushAll">${icon('upload')} رفع الكل</button>
+          <span class="at"><b>${esc(x[0])}</b><span>${esc(x[1])}</span></span></div>`).join(''),
+      footer: okBase
+        ? `<button class="btn pri" data-act="fbPushAll">${icon('upload')} رفع الكل</button>
+           <button class="btn" data-act="fbPull">${icon('download')} تنزيل</button>
            <button class="btn ghost" data-close>إغلاق</button>`
-        : `<button class="btn pri" data-act="fbConsole">${icon('link')} فتح إعدادات Firestore</button>
+        : `<button class="btn pri" data-act="fbRulesPage">${icon('link')} فتح صفحة القواعد</button>
            <button class="btn" data-act="fbRules">${icon('file')} قواعد الحماية</button>
            <button class="btn ghost" data-close>إغلاق</button>`
     });
@@ -1107,20 +1220,42 @@ function paintCloud(){
   $('#cloudSub').textContent = sub;
 }
 function cloudHelpModal(kind){
-  const bad = kind === 'nodb' || kind === 'apioff';
+  const rules = kind === 'rules', nodb = kind === 'nodb', apioff = kind === 'apioff';
+  const head = rules ? 'قواعد الحماية بتمنع الوصول (Rules = if false)'
+    : nodb ? 'قاعدة بيانات Firestore مش متعملة'
+    : apioff ? 'خدمة Firestore مش مفعّلة'
+    : kind === 'net' ? 'مفيش اتصال بالإنترنت'
+    : kind === 'key' ? 'مفتاح API غلط'
+    : 'مشكلة في الاتصال بالسحابة';
   const body = `
     <div class="alert-row bad"><span class="ai">${icon('alert')}</span>
-      <span class="at"><b>${kind === 'nodb' ? 'قاعدة بيانات Firestore مش متعملة' : kind === 'apioff' ? 'خدمة Firestore مش مفعّلة' : kind === 'rules' ? 'قواعد الحماية بتمنع الوصول' : 'مشكلة في الاتصال'}</b>
-      <span>${esc(S.fb.err || '')}</span></span></div>
-    <div class="help brand" style="margin-top:12px;line-height:1.9">
-      <b>الحل في خطوتين (مرة واحدة بس):</b><br>
-      1) افتح <b>Firebase Console</b> ← <b>Firestore Database</b> ← اضغط <b>Create database</b> (اختار Start in test mode).<br>
-      2) روح تبويب <b>Rules</b> ← الصق <b>قواعد الحماية</b> ← <b>Publish</b>.<br>
-      بعد كده ارجع هنا واضغط <b>اختبار الاتصال</b> — وبعدها "رفع الكل" على الجهاز اللي فيه البيانات، و"تنزيل" على أي جهاز تاني.
-    </div>`;
-  Modal.open({ title:'إعداد السحابة', sub:'خطوات سريعة لتشغيل المزامنة', size:'sm', body: body,
-    actions: `<button class="btn pri" data-act="fbConsole">${icon('link')} فتح إعدادات Firestore</button>
-      <button class="btn" data-act="fbRules">${icon('file')} قواعد الحماية</button>
+      <span class="at"><b>${head}</b><span>${esc(S.fb.err || '')}</span></span></div>
+    ${rules ? `
+    <div class="help brand" style="margin-top:12px;line-height:2">
+      <b>٣ خطوات مرة واحدة بس:</b><br>
+      <b>1)</b> اضغط <b>"فتح صفحة القواعد"</b> تحت (هتفتح تبويب Rules جاهز).<br>
+      <b>2)</b> امسح اللي موجود جوه، واضغط <b>"انسخ قواعد الحماية"</b> هنا والصقه هناك.<br>
+      <b>3)</b> اضغط <b>Publish</b> في الصفحة، وبعدها <b>"تحقق الآن"</b> هنا.
+      <div style="margin-top:9px">القواعد دي بتسمح بالوصول لبيانات منصة المستر بس (<code>platforms</code>) وباقي المشروع بيفضل مقفول.</div>
+    </div>` : nodb ? `
+    <div class="help brand" style="margin-top:12px;line-height:2">
+      <b>خطوتين مرة واحدة بس:</b><br>
+      <b>1)</b> اضغط <b>"فتح إعدادات Firestore"</b> ← <b>Create database</b> ← اختار <b>Start in test mode</b> ← Enable.<br>
+      <b>2)</b> ارجع هنا واضغط <b>"تحقق الآن"</b>.<br>
+      (لو ظهرت رسالة القواعد، استخدم زر "انسخ قواعد الحماية" والصقها في تبويب Rules ← Publish)
+    </div>` : apioff ? `
+    <div class="help brand" style="margin-top:12px;line-height:2">
+      اضغط <b>"تفعيل الخدمة"</b> ← Enable ← استنى دقيقة ← ارجع واضغط <b>"تحقق الآن"</b>.
+    </div>` : `
+    <div class="help brand" style="margin-top:12px;line-height:2">
+      اتأكد إن النت شغال على الجهاز، وبعدها اضغط <b>"تحقق الآن"</b>.
+    </div>`}`;
+  Modal.open({ title:'إعداد السحابة', sub:'خطوات سريعة لتشغيل المزامنة', size: rules || nodb ? 'md' : 'sm', body: body,
+    footer: `${rules ? `<button class="btn pri" data-act="fbRulesPage">${icon('link')} فتح صفحة القواعد</button>
+        <button class="btn" data-act="fbRules">${icon('file')} انسخ قواعد الحماية</button>` : ''}
+      ${nodb ? `<button class="btn pri" data-act="fbConsole">${icon('link')} فتح إعدادات Firestore</button>` : ''}
+      ${apioff ? `<button class="btn pri" data-act="fbApiEnable">${icon('link')} تفعيل الخدمة</button>` : ''}
+      <button class="btn ${rules || nodb || apioff ? '' : 'pri'}" data-act="fbRecheck">${icon('refresh')} تحقق الآن</button>
       <button class="btn ghost" data-close>إغلاق</button>` });
 }
 function copyText(txt, okMsg){
@@ -2210,7 +2345,7 @@ Views.settings = function(){
           ${S.fb.status === 'error'
             ? `<b style="color:var(--bad)">${icon('alert')} ${esc(S.fb.err || 'فيه مشكلة في الاتصال')}</b><br>
                اضغط <b>اختبار الاتصال</b> وهيقولك السبب والحل خطوة بخطوة.`
-            : `الإعدادات جاهزة جوه الكود — <b>مش محتاج تكتب أي حاجة</b>.<br>
+            : `الإعدادات جاهزة جوه الكود (${Cloud.mode() === 'rtdb' ? 'Realtime Database' : 'Firestore'}) — <b>مش محتاج تكتب أي حاجة</b>.<br>
                أول ما تفتح المنصة بتتصل تلقائيًا. أول جهاز فيه بيانات → اضغط <b>رفع الكل</b>. أي جهاز تاني → اضغط <b>تنزيل</b> وهتلاقي كل حاجة زي ما هي.`}
         </div>
         <div class="frow">
@@ -2230,7 +2365,8 @@ Views.settings = function(){
         </div>
         <div class="sep"></div>
         <div class="btn-row">
-          <button class="btn sm ghost" data-act="fbConsole">${icon('link')} فتح إعدادات Firestore</button>
+          <button class="btn sm pri" data-act="fbPasteCfg">${icon('upload')} لصق إعدادات مشروع Firebase</button>
+          <button class="btn sm ghost" data-act="fbConsole">${icon('link')} فتح إعدادات قاعدة البيانات</button>
           <button class="btn sm ghost" data-act="fbRules">${icon('file')} قواعد الحماية (انسخها)</button>
         </div>
         <p class="small muted" style="margin-top:12px">
@@ -3249,11 +3385,49 @@ document.addEventListener('click', function(e){
       Cloud.connect({ config: cfg }); break;
     }
     case 'fbTest': Cloud.test(); break;
+    case 'fbPasteCfg': {
+      Modal.open({ title:'إعدادات مشروع Firebase', sub:'الصق كود firebaseConfig من كونسول فايربيز', size:'md',
+        body: `<div class="help brand" style="margin-bottom:11px;line-height:1.9">
+            من كونسول فايربيز: <b>⚙️ Project settings</b> ← انزل لـ <b>Your apps</b> ← اختار تطبيق الـ <b>Web &lt;/&gt;</b> ← انسخ كود <code>firebaseConfig</code> كله والصقه هنا.
+          </div>
+          <div class="field"><label>كود الإعدادات</label>
+            <textarea class="inp code" id="cfgPaste" rows="7" style="direction:ltr;text-align:left;font-size:12px;line-height:1.6" placeholder='const firebaseConfig = {
+  apiKey: "AIza...",
+  authDomain: "xxxx.firebaseapp.com",
+  projectId: "xxxx",
+  storageBucket: "xxxx.appspot.com",
+  messagingSenderId: "...",
+  appId: "..."
+};'></textarea></div>
+          <div class="field" style="margin-top:10px"><label>كود المنصة <span class="small muted">(اسم تخزين البيانات — سيب الافتراضي)</span></label>
+            <input class="inp code" id="cfgCode" value="${esc((S.fb.cfg && S.fb.cfg.code) || '')}" placeholder="يتحدد تلقائيًا من Project ID"></div>`,
+        footer: `<button class="btn pri" data-act="fbPasteSave">${icon('check')} حفظ واتصال</button>
+          <button class="btn ghost" data-close>إلغاء</button>` }); break;
+    }
+    case 'fbPasteSave': {
+      const txt = ($('#cfgPaste') && $('#cfgPaste').value) || '';
+      const c = Cloud.parseCfg(txt);
+      const code = ($('#cfgCode') && $('#cfgCode').value.trim()) || c.code;
+      if (!c.apiKey || !c.projectId){ toast('مش قادر ألاقي apiKey أو projectId في النص — انسخ كود firebaseConfig كامل', 'bad'); return; }
+      Modal.close();
+      Cloud.connect({ config: { apiKey:c.apiKey, projectId:c.projectId, authDomain:c.authDomain || (c.projectId + '.firebaseapp.com'), code: code } })
+        .then(okc => { if (okc) Cloud.test(); });
+      toast('اتحفظت إعدادات: ' + c.projectId, 'ok', 'السحابة');
+      break;
+    }
     case 'fbPull': Cloud.pullNow(); break;
     case 'fbPushAll': Cloud.pushNow(); break;
     case 'fbDisconnect': Cloud.disconnect(); render(); break;
     case 'fbConsole': try{ window.open(FB_CONSOLE, '_blank', 'noopener'); }catch(e){ toast(FB_CONSOLE, 'info'); } break;
-    case 'fbRules': copyText(FB_RULES, 'تم نسخ قواعد الحماية ✅ الصقها في تبويب Rules واضغط Publish'); break;
+    case 'fbRules': copyText(Cloud.mode() === 'rtdb' ? FB_RULES_RTDB : FB_RULES, 'تم نسخ قواعد الحماية ✅ الصقها في تبويب Rules واضغط Publish'); break;
+    case 'fbRulesPage': try{ window.open(FB_RULES_URL, '_blank', 'noopener'); toast('الصق القواعد واضغط Publish ثم "تحقق الآن"', 'info', 'السحابة'); }catch(e){ toast(FB_RULES_URL, 'info'); } break;
+    case 'fbApiEnable': try{ window.open(FB_APILIB, '_blank', 'noopener'); }catch(e){} break;
+    case 'fbRecheck': {
+      $$('.overlay').forEach(o => o.remove());
+      try{ localStorage.removeItem('mostar_fb_help_rules'); localStorage.removeItem('mostar_fb_help_nodb'); localStorage.removeItem('mostar_fb_help_apioff'); }catch(e){}
+      Cloud.connect({ silent:true }).then(okc => { if (okc) Cloud.test(); });
+      break;
+    }
     case 'expJSON': {
       const lg = logoRef();
       const pack = Object.assign({}, S.data);
@@ -3362,7 +3536,7 @@ $('#cloudChip').onclick = () => {
     ${S.fb.behind ? '<div class="help" style="margin-top:10px"><b>فيه نسخة أحدث على السحابة</b> — اضغط "تنزيل" لجيبها.</div>' : ''}
     ${S.fb.ahead ? '<div class="help brand" style="margin-top:10px"><b>عندك تعديلات لسه مرفوعتش</b> — اضغط "رفع الكل" عشان تشوفها على الأجهزة التانية.</div>' : ''}`;
   Modal.open({ title: 'المزامنة السحابية', sub: 'بياناتك على جهازك وفي السحابة', size: 'sm', body: body,
-    actions: `<button class="btn pri" data-act="fbTest">${icon('check-square')} اختبار الاتصال</button>
+    footer: `<button class="btn pri" data-act="fbTest">${icon('check-square')} اختبار الاتصال</button>
       <button class="btn" data-act="fbPull">${icon('download')} تنزيل</button>
       <button class="btn" data-act="fbPushAll">${icon('upload')} رفع الكل</button>
       <button class="btn ghost" data-act="${st === 'live' ? 'fbDisconnect' : 'fbConnect'}">${icon(st === 'live' ? 'x' : 'link')} ${st === 'live' ? 'فصل' : 'اتصال'}</button>` });
@@ -3411,7 +3585,7 @@ window.addEventListener('resize', throttle(() => {
   /* السحابة: الإعدادات جاهزة جوه الكود → اتصال تلقائي ومزامنة تلقائية */
   const cfg = Cloud.merged();
   S.fb.cfg = cfg;
-  if (cfg && cfg.apiKey && cfg.projectId){
+  if (cfg && (cfg.dbUrl || (cfg.apiKey && cfg.projectId))){
     setTimeout(() => Cloud.connect({ config: cfg, auto: true, silent: true }), 400);
   }
 
@@ -3422,7 +3596,7 @@ window.addEventListener('resize', throttle(() => {
   window.addEventListener('online', () => { if (S.fb.status === 'error') Cloud.connect({ silent:true }); });
 })();
 
-window.FB_DEFAULT = FB_DEFAULT; window.FB_RULES = FB_RULES; window.FB_CONSOLE = FB_CONSOLE; window.FB_APILIB = FB_APILIB;
+window.FB_DEFAULT = FB_DEFAULT; window.FB_RULES = FB_RULES; window.FB_CONSOLE = FB_CONSOLE; window.FB_APILIB = FB_APILIB; window.FB_RULES_URL = FB_RULES_URL;
 window.AF = { S: S, Cloud: Cloud, PWA: PWA, logoRef: logoRef, setLogo: setLogo, clearLogo: clearLogo, render: render, go: go, seedDemo: seedDemo, setTheme: setTheme, openStudentForm: openStudentForm, openGroupForm: openGroupForm, openExamForm: openExamForm, openProfile: openProfile, assignStudent: assignStudent, pdfStudent: pdfStudent, pdfStudents: pdfStudents, pdfGroups: pdfGroups, pdfExam: pdfExam, pdfReport: pdfReport, attPDF: attPDF, manageGroupStudents: manageGroupStudents, groupsConflict: groupsConflict };
 
 </script>
