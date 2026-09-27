@@ -73,6 +73,12 @@ a{color:inherit}
   display:flex;flex-direction:column;position:fixed;inset-block:0;inset-inline-start:0;z-index:60;transition:transform .28s cubic-bezier(.4,0,.2,1)}
 .sidebar::after{content:"";position:absolute;top:0;bottom:0;inset-inline-start:0;width:3px;background:linear-gradient(180deg,var(--brand),transparent 72%)}
 .brand{display:flex;align-items:center;gap:12px;padding:16px 15px;border-bottom:1px solid rgba(255,255,255,.08)}
+.brand .logo-wrap{position:relative;flex:0 0 56px;width:56px;height:56px}
+.brand .logo-edit{position:absolute;inset-inline-end:-6px;bottom:-6px;width:24px;height:24px;border-radius:50%;
+  border:2px solid var(--side);background:var(--brand);color:#1b1b1b;display:grid;place-items:center;cursor:pointer;
+  padding:0;box-shadow:0 3px 10px rgba(0,0,0,.45);transition:.15s;z-index:2}
+.brand .logo-edit svg{width:12px;height:12px}
+.brand .logo-edit:hover{transform:scale(1.12);background:#fff}
 .brand .logo{width:56px;height:56px;border-radius:50%;object-fit:cover;flex:0 0 56px;background:#000;box-shadow:0 0 0 2px var(--brand),0 6px 18px -6px rgba(250,197,24,.6)}
 .brand .bt{min-width:0}
 .brand .bt b{display:block;color:#fff;font-size:16px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -400,8 +406,18 @@ select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns=
   .rep-foot{position:fixed;bottom:0;left:0;right:0}
 }
 </style>
-<script>/* شعار بديل يظهر تلقائيًا لو ملف logo.jpg غير موجود */
-window.AF_LOGO_FALLBACK='data:image/svg+xml;charset=utf-8,'+encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#ffd94a'/><stop offset='1' stop-color='#fac518'/></linearGradient></defs><circle cx='60' cy='60' r='60' fill='#0b0b0d'/><circle cx='60' cy='60' r='52' fill='url(#g)'/><text x='60' y='70' font-family='Tahoma,Arial' font-size='34' font-weight='bold' text-anchor='middle' fill='#1b1b1b'>AF</text></svg>");</script>
+<script>/* اللوجو: صورة المنصة logo.png ثم logo.jpg ثم شعار بديل — الصورة تُعرض كما هي بدون أي تعديل */
+window.AF_LOGO_KEY='mostar_logo';
+window.AF_LOGO_FILES=['logo.png','logo.jpg'];
+window.AF_LOGO_FALLBACK='data:image/svg+xml;charset=utf-8,'+encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#ffd94a'/><stop offset='1' stop-color='#fac518'/></linearGradient></defs><circle cx='60' cy='60' r='60' fill='#0b0b0d'/><circle cx='60' cy='60' r='52' fill='url(#g)'/><text x='60' y='70' font-family='Tahoma,Arial' font-size='34' font-weight='bold' text-anchor='middle' fill='#1b1b1b'>AF</text></svg>");
+window.AF_logoSrc=function(){ var v=''; try{ v=localStorage.getItem(window.AF_LOGO_KEY)||''; }catch(e){} return v || window.AF_LOGO_FILES[0]; };
+window.AF_logoChain=function(){ var v=''; try{ v=localStorage.getItem(window.AF_LOGO_KEY)||''; }catch(e){} return (v?[v]:[]).concat(window.AF_LOGO_FILES).concat([window.AF_LOGO_FALLBACK]); };
+window.AF_logoNext=function(img){
+  var chain=window.AF_logoChain(), cur=img.getAttribute('src')||'', i=chain.indexOf(cur), j;
+  for (j=i+1; j<chain.length; j++){ if (chain[j] && chain[j]!==cur){ img.src=chain[j]; return; } }
+  img.onerror=null; img.style.visibility='hidden';
+};
+</script>
 </head>
 <body>
 <!-- ============ SVG icon sprite ============ -->
@@ -454,7 +470,12 @@ window.AF_LOGO_FALLBACK='data:image/svg+xml;charset=utf-8,'+encodeURIComponent("
   <!-- ============ SIDEBAR ============ -->
   <aside class="sidebar" id="sidebar">
     <div class="brand">
-      <img class="logo" src="logo.jpg" alt="أحمد فتحي" id="brandLogo" onerror="this.onerror=null;this.src=window.AF_LOGO_FALLBACK">
+      <div class="logo-wrap" title="اضغط لتغيير اللوجو">
+        <img class="logo" data-logo src="logo.png" alt="أحمد فتحي" id="brandLogo" onerror="AF_logoNext(this)">
+        <button class="logo-edit" data-act="logoPick" aria-label="تغيير اللوجو" title="تغيير اللوجو">
+          <svg><use href="#i-edit"/></svg>
+        </button>
+      </div>
       <div class="bt">
         <b id="brandName">أحمد فتحي</b>
         <span><i></i><span id="brandSub">منصة المستر</span></span>
@@ -508,6 +529,7 @@ window.AF_LOGO_FALLBACK='data:image/svg+xml;charset=utf-8,'+encodeURIComponent("
 <div class="toasts" id="toasts"></div>
 <div id="printArea"></div>
 <input type="file" id="fileInput" accept=".json,application/json" class="hide">
+<input type="file" id="logoInput" accept="image/png,image/jpeg,image/jpg,image/webp,image/*" class="hide">
 
 <script>
 
@@ -672,7 +694,7 @@ const S = {
     exam: { id:'' },
     rep: { kind:'student', from: addDays(today(), -30), to: today(), stage:'', groupId:'', studentId:'', examId:'' }
   },
-  fb: { status:'off', cfg:null, app:null, db:null, api:null, path:'', unsubs:[], err:'', syncing:false, lastSync:null },
+  fb: { status:'off', cfg:null, err:'', errKind:'', syncing:false, syncingTxt:'', lastSync:null, remoteRev:null, behind:false, ahead:false, cloudEmpty:true, timer:null },
   applyingRemote: false
 };
 
@@ -719,141 +741,475 @@ function commit(opts){
   Cloud.push();
 }
 
-/* ---------------- Cloud (Firebase) ---------------- */
+/* ---------------- Cloud (Firebase Firestore عبر REST) ---------------- */
+/* إعدادات المشروع جاهزة جوه الكود — مفيش أي حاجة تتكتب كل مرة */
+const FB_DEFAULT = {
+  apiKey: 'AIzaSyB6xveePHJ7qB2YuFvb4_S1kfFtUmCTaCA',
+  projectId: 'ahmedfathy-95c10',
+  authDomain: 'ahmedfathy-95c10.firebaseapp.com',
+  code: 'ahmedfathy-95c10'
+};
+const FB_RULES = `rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /platforms/{code} {
+      allow read, write: if true;
+      match /{document=**} {
+        allow read, write: if true;
+      }
+    }
+  }
+}`;
+const FB_CONSOLE = 'https://console.firebase.google.com/project/' + FB_DEFAULT.projectId + '/firestore';
+const FB_APILIB  = 'https://console.cloud.google.com/apis/library/firestore.googleapis.com?project=' + FB_DEFAULT.projectId;
+
 const Cloud = {
   readCfg(){ try{ return JSON.parse(localStorage.getItem(FB_KEY) || 'null'); }catch(e){ return null; } },
-  writeCfg(c){ c ? localStorage.setItem(FB_KEY, JSON.stringify(c)) : localStorage.removeItem(FB_KEY); },
-  setStatus(s, msg){ S.fb.status = s; if (msg) S.fb.err = msg; paintCloud(); },
-  path(){ return 'platforms/' + ((S.fb.cfg && S.fb.cfg.code) || 'default'); },
+  writeCfg(c){ try{ c ? localStorage.setItem(FB_KEY, JSON.stringify(c)) : localStorage.removeItem(FB_KEY); }catch(e){} },
+  merged(){ return Object.assign({}, FB_DEFAULT, this.readCfg() || {}); },
+  setStatus(s, msg){ S.fb.status = s; S.fb.err = msg || ''; paintCloud(); },
 
+  /* ---------- مسارات وعناوين ---------- */
+  root(){ return 'platforms/' + encodeURIComponent(this.merged().code || 'default'); },
+  base(){ return 'https://firestore.googleapis.com/v1/projects/' + encodeURIComponent(this.merged().projectId) + '/databases/(default)/documents/'; },
+
+  /* ---------- طلب REST واحد ---------- */
+  async req(method, path, body, extra){
+    const c = this.merged();
+    if (!c.apiKey || !c.projectId) throw Object.assign(new Error('إعدادات Firebase ناقصة (API Key / Project ID)'), { kind:'cfg' });
+    const url = this.base() + path + '?key=' + encodeURIComponent(c.apiKey) + (extra ? '&' + extra : '');
+    let res;
+    try{
+      res = await fetch(url, { method: method, cache:'no-store',
+        headers: body ? { 'Content-Type':'application/json' } : undefined,
+        body: body ? JSON.stringify(body) : undefined });
+    }catch(e){
+      throw Object.assign(new Error('مفيش اتصال بالسحابة — راجع الإنترنت أو اتصال المتصفح'), { kind:'net', raw: String(e && e.message || e) });
+    }
+    let j = null; try{ j = await res.json(); }catch(e){}
+    if (!res.ok){
+      const raw = (j && j.error && j.error.message) || ('HTTP ' + res.status);
+      const diag = this.diagnose(raw, res.status);
+      throw Object.assign(new Error(diag.msg), { kind: diag.kind, raw: raw, http: res.status });
+    }
+    return j;
+  },
+  diagnose(raw, http){
+    const m = String(raw || '');
+    if (/database \(default\) does not exist|Please visit https:\/\/console\.cloud\.google\.com\/datastore\/setup/i.test(m))
+      return { kind:'nodb', msg:'قاعدة بيانات Firestore لسه مش متعملة في المشروع — افتح Firebase Console ← Firestore ← Create database (استخدم زر "فتح إعدادات Firestore" تحت)' };
+    if (/Document .* not found|not found\.$/i.test(m) && http === 404)
+      return { kind:'empty', msg:'متصل — لسه مفيش بيانات مرفوعة على السحابة' };
+    if (/SERVICE_DISABLED|Cloud Firestore API has not been used|has not been used in project/i.test(m))
+      return { kind:'apioff', msg:'خدمة Cloud Firestore مش مفعّلة في المشروع —فعّلها من زر "تفعيل الخدمة" تحت' };
+    if (http === 403 || /PERMISSION_DENIED|insufficient permissions|Missing or insufficient/i.test(m))
+      return { kind:'rules', msg:'قواعد الحماية (Rules) بتمنع الوصول للبيانات — انسخ القواعد الجاهزة من زر "قواعد الحماية" والصقها في تبويب Rules ← Publish' };
+    if (http === 401 || /API_KEY_INVALID|API key not valid|invalid API key/i.test(m))
+      return { kind:'key', msg:'مفتاح API غلط — راجع API Key في إعدادات المشروع' };
+    if (http === 400 && /Invalid JSON|Invalid value/i.test(m))
+      return { kind:'data', msg:'البيانات مرفوضة من السحابة (حجم كبير أو صيغة غير صحيحة)' };
+    return { kind:'other', msg: (m || ('خطأ رقم ' + http)) };
+  },
+  /* ---------- تحويل القيم لصيغة Firestore ---------- */
+  toDoc(o){
+    const f = {};
+    Object.keys(o).forEach(k => {
+      const v = o[k];
+      if (v === null || v === undefined) return;
+      if (typeof v === 'boolean') f[k] = { booleanValue: v };
+      else if (typeof v === 'number') f[k] = { integerValue: String(Math.round(v)) };
+      else f[k] = { stringValue: String(v) };
+    });
+    return { fields: f };
+  },
+  fromDoc(doc){
+    const out = {}, f = (doc && doc.fields) || {};
+    Object.keys(f).forEach(k => {
+      const v = f[k] || {};
+      if (v.stringValue !== undefined) out[k] = v.stringValue;
+      else if (v.booleanValue !== undefined) out[k] = v.booleanValue;
+      else if (v.integerValue !== undefined) out[k] = Number(v.integerValue);
+      else if (v.doubleValue !== undefined) out[k] = Number(v.doubleValue);
+      else if (v.timestampValue !== undefined) out[k] = v.timestampValue;
+    });
+    return out;
+  },
+
+  /* ---------- الاتصال ---------- */
   async connect(opts){
     opts = opts || {};
-    const cfg = opts.config || this.readCfg();
-    if (!cfg || !cfg.apiKey || !cfg.projectId){ toast('أدخل إعدادات Firebase أولًا', 'warn'); return false; }
-    this.disconnect(true);
+    if (opts.config) this.writeCfg(opts.config);
+    const cfg = this.merged();
+    if (!cfg.apiKey || !cfg.projectId){ this.setStatus('off'); toast('إعدادات Firebase ناقصة', 'bad'); return false; }
     S.fb.cfg = cfg;
-    if (opts.save !== false) this.writeCfg(cfg);
-    this.setStatus('busy', 'جارٍ الاتصال...');
+    this.setStatus('busy');
+    let remoteRev = null, hasData = false, err = null;
     try{
-      const V = '10.12.5';
-      const [appMod, fsMod] = await Promise.all([
-        import('https://www.gstatic.com/firebasejs/' + V + '/firebase-app.js'),
-        import('https://www.gstatic.com/firebasejs/' + V + '/firebase-firestore.js')
-      ]);
-      const app = appMod.initializeApp(cfg, 'mostar-' + Date.now().toString(36));
-      const db = fsMod.getFirestore(app);
-      S.fb.app = app; S.fb.db = db;
-      S.fb.api = { doc: fsMod.doc, collection: fsMod.collection, onSnapshot: fsMod.onSnapshot, setDoc: fsMod.setDoc, getDoc: fsMod.getDoc };
-      S.fb.path = this.path();
-      this.listen();
-      this.setStatus('live', null);
-      S.fb.lastSync = new Date();
-      toast('تم الاتصال بالسحابة — المزامنة شغالة', 'ok');
+      const doc = await this.req('GET', this.root(), null, 'mask.fieldPaths=rev');
+      const d = this.fromDoc(doc);
+      remoteRev = Number(d.rev || 0); hasData = true;
+    }catch(e){
+      if (e.kind === 'empty'){ remoteRev = 0; hasData = false; }
+      else err = e;
+    }
+    S.fb.cfg = cfg; S.fb.remoteRev = remoteRev;
+    if (err){
+      this.setStatus('error', err.message);
+      S.fb.errKind = err.kind;
+      toast(err.message, 'bad', 'السحابة');
+      // نافذة الخطوات تظهر أول مرة لكل نوع مشكلة (علشان ما تزعجش في كل فتحة)
+      const flag = 'mostar_fb_help_' + (err.kind || 'x');
+      let shown = false; try{ shown = localStorage.getItem(flag) === '1'; }catch(e){}
+      if (!shown){ try{ localStorage.setItem(flag, '1'); }catch(e){} cloudHelpModal(err.kind); }
+      else if (opts.auto) toast('المزامنة محتاجة ظبط بسيط — اضغط على شريحة السحابة فوق ✋', 'warn', 'السحابة');
+      return false;
+    }
+    S.fb.errKind = ''; S.fb.remoteRev = remoteRev; S.fb.cloudEmpty = !hasData;
+    this.setStatus('live');
+    this.startPolling();
+    if (!opts.silent) toast(hasData ? 'تم الاتصال بالسحابة ✅' : 'تم الاتصال — السحابة فاضية، ارفع بياناتك', hasData ? 'ok' : 'info', 'السحابة');
+    if (opts.auto) this.autoSync(hasData, remoteRev);
+    return true;
+  },
+  autoSync(hasData, remoteRev){
+    const hasLocal = (S.data.students.length + S.data.groups.length) > 0;
+    const localRev = S.data.meta.rev || 0;
+    if (!hasData && hasLocal){
+      toast('جارٍ رفع بيانات الجهاز للسحابة لأول مرة...', 'info', 'السحابة');
+      this.doPush(true);
+    } else if (hasData && !hasLocal){
+      toast('جارٍ تنزيل بياناتك من السحابة...', 'info', 'السحابة');
+      this.doPull(true);
+    } else if (hasData && hasLocal){
+      S.fb.behind = remoteRev > localRev;
+      S.fb.ahead = localRev > remoteRev;
       paintCloud();
+    }
+  },
+  disconnect(){
+    this.stopPolling();
+    S.fb.remoteRev = null; S.fb.behind = false; S.fb.ahead = false;
+    this.setStatus('off');
+    toast('تم فصل الاتصال — النظام شغال محليًا', 'info');
+  },
+
+  /* ---------- الفحص الدوري (بديل الـ realtime) ---------- */
+  startPolling(){
+    this.stopPolling();
+    S.fb.timer = setInterval(() => { if (!document.hidden) this.checkRemote(); }, 20000);
+  },
+  stopPolling(){ if (S.fb.timer){ clearInterval(S.fb.timer); S.fb.timer = null; } },
+  async checkRemote(){
+    if (S.fb.status !== 'live' || S.fb.syncing) return;
+    try{
+      const doc = await this.req('GET', this.root(), null, 'mask.fieldPaths=rev');
+      const rev = Number(this.fromDoc(doc).rev || 0);
+      S.fb.remoteRev = rev;
+      const local = S.data.meta.rev || 0;
+      if (rev > local){
+        if (dirty.main){ S.fb.behind = true; S.fb.ahead = false; paintCloud(); }
+        else { S.fb.behind = false; await this.doPull(true); toast('تم تحديث البيانات من السحابة 🔄', 'info', 'السحابة'); }
+      } else {
+        S.fb.behind = false; S.fb.ahead = local > rev; paintCloud();
+      }
+    }catch(e){
+      if (e.kind === 'net' || e.kind === 'rules') this.setStatus('error', e.message);
+    }
+  },
+
+  /* ---------- الرفع ---------- */
+  payload(){
+    const p = {
+      appVersion: 2, meta: S.data.meta, settings: S.data.settings, groups: S.data.groups,
+      students: S.data.students, exams: S.data.exams, grades: S.data.grades, attendance: S.data.attendance
+    };
+    const lg = logoRef();
+    if (lg && lg.length <= 300000) p._logo = lg;      // اللوجو يمشي مع البيانات لكل الأجهزة
+    return p;
+  },
+  async doPush(all){
+    if (!this.merged().apiKey){ toast('إعدادات Firebase ناقصة', 'bad'); return false; }
+    S.fb.syncing = true; paintCloud();
+    try{
+      if (all) S.data.meta.rev = (S.data.meta.rev || 0) + 1;
+      const p = this.payload();
+      let json = JSON.stringify(p), split = false;
+      if (json.length > 700000){ split = true; p.attendance = {}; json = JSON.stringify(p); }   // الحضور في مستندات منفصلة
+      await this.req('PATCH', this.root(), this.toDoc({
+        json: json, rev: S.data.meta.rev || 0, updatedAt: new Date().toISOString(), split: split
+      }));
+      if (split) await this.pushAttendance();
+      dirty.main = false; S.fb.syncing = false; S.fb.lastSync = new Date();
+      S.fb.remoteRev = S.data.meta.rev || 0; S.fb.behind = false; S.fb.ahead = false;
+      this.setStatus('live');
+      S.fb.errKind = '';
+      if (all) toast('تم رفع كل البيانات للسحابة ✅', 'ok', 'السحابة');
       return true;
-    }catch(err){
-      console.error(err);
-      this.setStatus('error', (err && err.message) || 'فشل الاتصال');
-      toast('فشل الاتصال: ' + ((err && err.message) || ''), 'bad');
+    }catch(e){
+      S.fb.syncing = false; S.fb.errKind = e.kind;
+      this.setStatus('error', e.message);
+      toast('فشل الرفع: ' + e.message, 'bad', 'السحابة');
       return false;
     }
   },
-  disconnect(silent){
-    (S.fb.unsubs || []).forEach(u => { try{ u(); }catch(e){} });
-    S.fb.unsubs = [];
-    if (S.fb.app){ try{ S.fb.app.delete(); }catch(e){} }
-    S.fb.app = null; S.fb.db = null;
-    if (!silent){ this.setStatus('off', null); toast('تم فصل الاتصال — النظام شغال محليًا', 'info'); }
-    paintCloud();
+  async pushAttendance(){
+    const keys = Object.keys(S.data.attendance || {});
+    for (let i = 0; i < keys.length; i++){
+      const rec = S.data.attendance[keys[i]] || {};
+      await this.req('PATCH', this.root() + '/attendance/' + encodeURIComponent(keys[i]),
+        this.toDoc({ json: JSON.stringify(rec), rev: rec.rev || 0 }));
+      if (i % 10 === 9){ S.fb.syncingTxt = (i + 1) + '/' + keys.length; paintCloud(); }
+    }
   },
-  listen(){
-    const api = S.fb.api, db = S.fb.db, base = S.fb.path;
-    S.fb.unsubs.push(api.onSnapshot(api.doc(db, base), snap => {
-      if (!snap.exists()){ this._doPush(); return; }
-      const remote = snap.data() || {};
-      if ((remote.rev || 0) <= (S.data.meta.rev || 0)){ S.fb.lastSync = new Date(); paintCloud(); return; }
-      this.applyRemote(remote);
-    }, err => this.setStatus('error', err.message)));
 
-    S.fb.unsubs.push(api.onSnapshot(api.collection(db, base + '/attendance'), snap => {
-      let changed = false;
-      snap.forEach(d => {
-        const data = d.data() || {};
-        if ((data.rev || 0) > ((S.data.attendance[d.id] || {}).rev || 0)){
-          S.data.attendance[d.id] = { groupId: data.groupId || '', note: data.note || '', records: data.records || {}, rev: data.rev || 0, savedAt: data.savedAt || '' };
-          changed = true;
-        }
-      });
-      if (changed){ S.applyingRemote = true; saveLocal(); render(); S.applyingRemote = false; S.fb.lastSync = new Date(); paintCloud(); }
-    }, err => this.setStatus('error', err.message)));
-  },
-  applyRemote(remote){
-    if (!remote.students) return;
-    const att = S.data.attendance;
-    S.applyingRemote = true;
-    S.data = migrate({
-      meta: Object.assign({}, S.data.meta, remote.meta, { rev: remote.rev || 0 }),
-      settings: Object.assign({}, S.data.settings, remote.settings),
-      groups: remote.groups, students: remote.students, exams: remote.exams, grades: remote.grades, attendance: att
-    });
-    saveLocal(); render();
-    S.applyingRemote = false;
-    S.fb.lastSync = new Date();
-    toast('تم تحديث البيانات من السحابة', 'info');
-  },
-  push(force){
-    if (S.fb.status !== 'live' || S.applyingRemote) return;
-    this._push = this._push || debounce(() => this._doPush(), 900);
-    if (force) this._doPush(); else this._push();
-  },
-  async _doPush(){
-    const api = S.fb.api, db = S.fb.db, base = S.fb.path;
-    if (!api || !db) return;
-    dirty.main = false;
+  /* ---------- التنزيل ---------- */
+  async doPull(silent){
     S.fb.syncing = true; paintCloud();
     try{
-      await api.setDoc(api.doc(db, base), {
-        meta: S.data.meta, settings: S.data.settings, groups: S.data.groups, students: S.data.students,
-        exams: S.data.exams, grades: S.data.grades, rev: S.data.meta.rev, updatedAt: new Date().toISOString()
-      }, { merge: true });
-      const keys = Object.keys(S.data.attendance);
-      for (const k of keys){
-        const rec = S.data.attendance[k];
-        await api.setDoc(api.doc(db, base + '/attendance', k), {
-          groupId: rec.groupId || '', note: rec.note || '', records: rec.records || {}, rev: rec.rev || 0, savedAt: rec.savedAt || ''
-        }, { merge: true });
-      }
-      S.fb.syncing = false; S.fb.lastSync = new Date(); paintCloud();
-    }catch(err){ S.fb.syncing = false; this.setStatus('error', err.message); console.error(err); toast('فشل الرفع للسحابة: ' + err.message, 'bad'); }
+      const doc = await this.req('GET', this.root());
+      const d = this.fromDoc(doc);
+      if (!d.json){ S.fb.syncing = false; this.setStatus('live'); S.fb.cloudEmpty = true;
+        if (!silent) toast('مفيش بيانات مرفوعة على السحابة لسه — من الجهاز اللي فيه البيانات اضغط "رفع الكل"', 'warn', 'السحابة');
+        return false; }
+      const remote = JSON.parse(d.json);
+      if (d.split) remote.attendance = await this.pullAttendance(remote.attendance || {});
+      this.applyRemote(remote, Number(d.rev || 0));
+      if (remote._logo){ try{ setLogo(remote._logo); }catch(e){} }
+      S.fb.syncing = false; S.fb.lastSync = new Date(); S.fb.cloudEmpty = false;
+      this.setStatus('live');
+      if (!silent) toast('تم تنزيل البيانات من السحابة ✅ (' + (remote.students || []).length + ' طالب)', 'ok', 'السحابة');
+      return true;
+    }catch(e){
+      S.fb.syncing = false; S.fb.errKind = e.kind;
+      this.setStatus('error', e.message);
+      if (!silent) toast('فشل التنزيل: ' + e.message, 'bad', 'السحابة');
+      return false;
+    }
   },
-  async pull(){
-    const api = S.fb.api, db = S.fb.db;
-    if (!api){ toast('اتصل بالسحابة أولًا', 'warn'); return; }
+  async pullAttendance(local){
+    const out = Object.assign({}, local);
+    let token = null;
+    do{
+      const r = await this.req('GET', this.root() + '/attendance?pageSize=300' + (token ? '&pageToken=' + encodeURIComponent(token) : ''));
+      (r.documents || []).forEach(doc => {
+        const id = decodeURIComponent(String(doc.name).split('/').pop());
+        const f = this.fromDoc(doc);
+        let rec = null; try{ rec = f.json ? JSON.parse(f.json) : null; }catch(e){}
+        if (rec && (rec.rev || 0) >= ((out[id] || {}).rev || 0)) out[id] = rec;
+      });
+      token = r.nextPageToken || null;
+    } while (token);
+    return out;
+  },
+  applyRemote(remote, rev){
+    const att = Object.assign({}, S.data.attendance, remote.attendance || {});
+    S.applyingRemote = true;
     try{
-      const snap = await api.getDoc(api.doc(db, S.fb.path));
-      if (!snap.exists()){ toast('لا توجد بيانات على السحابة', 'warn'); return; }
-      this.applyRemote(snap.data());
-      toast('تم تنزيل البيانات', 'ok');
-    }catch(e){ toast('فشل التنزيل: ' + e.message, 'bad'); }
+      S.data = migrate({
+        meta: Object.assign({}, S.data.meta, remote.meta || {}, { rev: Number(rev || 0) }),
+        settings: Object.assign({}, S.data.settings, remote.settings || {}),
+        groups: remote.groups || [], students: remote.students || [], exams: remote.exams || [],
+        grades: remote.grades || {}, attendance: att
+      });
+      attDraft = null;
+      saveLocal(); render();
+      S.fb.remoteRev = Number(rev || 0); S.fb.lastPushRev = Number(rev || 0);
+      S.fb.behind = false; S.fb.ahead = false;
+      S.fb.lastSync = new Date();
+    } finally { S.applyingRemote = false; }
   },
-  async pushAll(){
-    if (S.fb.status !== 'live'){ toast('اتصل بالسحابة أولًا', 'warn'); return; }
-    S.data.meta.rev = (S.data.meta.rev || 0) + 1;
-    await this._doPush();
-    toast('تم رفع كل البيانات', 'ok');
+
+  /* ---------- أزرار مباشرة (تشغّل الاتصال لوحده لو مش متصل) ---------- */
+  async ensure(){
+    if (S.fb.status === 'live') return true;
+    return await this.connect({ silent:false });
+  },
+  async pullNow(){
+    if (!(await this.ensure())) return;
+    const local = S.data.meta.rev || 0, remote = S.fb.remoteRev;
+    if (remote != null && remote < local && (S.data.students.length + S.data.groups.length) > 0){
+      confirmDialog('تنزيل من السحابة', 'النسخة اللي على السحابة أقدم من اللي عندك على الجهاز ده. التنزيل هيستبدل بياناتك الحالية. متابعة؟', 'تنزيل', () => this.doPull(false), true);
+      return;
+    }
+    this.doPull(false);
+  },
+  async pushNow(){
+    if (!(await this.ensure())) return;
+    this.doPush(true);
+  },
+
+  /* ---------- الربط مع الحفظ المحلي ---------- */
+  push(force){
+    if (S.fb.status !== 'live' || S.applyingRemote) return;
+    this._push = this._push || debounce(() => { if (!S.applyingRemote) this.doPush(false); }, 1200);
+    if (force) this.doPush(false); else this._push();
+  },
+
+  /* ---------- اختبار شامل خطوة بخطوة ---------- */
+  async test(){
+    const out = [];
+    const c = this.merged();
+    out.push(['إعدادات المشروع', '✅ ' + c.projectId + ' · كود المنصة: ' + c.code, 'ok']);
+    let dbOk = false;
+    try{
+      await this.req('GET', this.root(), null, 'mask.fieldPaths=rev');
+      dbOk = true; out.push(['قاعدة البيانات', '✅ موجودة والوصول شغال', 'ok']);
+    }catch(e){
+      if (e.kind === 'empty'){ dbOk = true; out.push(['قاعدة البيانات', '✅ موجودة (لسه مفيش مستندات مرفوعة)', 'ok']); }
+      else out.push(['قاعدة البيانات', '❌ ' + e.message, e.kind === 'nodb' ? 'bad' : 'warn']);
+    }
+    if (dbOk){
+      try{
+        await this.req('PATCH', this.root() + '/_test_connection', this.toDoc({ at: new Date().toISOString(), note: 'اختبار الاتصال من منصة المستر' }));
+        out.push(['الكتابة على السحابة', '✅ الكتابة مسموحة من قواعد الحماية', 'ok']);
+      }catch(e){ out.push(['الكتابة على السحابة', '❌ ' + e.message, 'bad']); }
+      try{
+        const d = this.fromDoc(await this.req('GET', this.root()));
+        out.push(['البيانات المرفوعة', d.json ? ('✅ موجودة — آخر تعديل: ' + (d.updatedAt ? new Date(d.updatedAt).toLocaleString('ar-EG') : '—') + ' · نسخة ' + (d.rev || 0)) : '⚠️ لسه مفيش بيانات مرفوعة — اضغط "رفع الكل"', d.json ? 'ok' : 'warn']);
+      }catch(e){ out.push(['البيانات المرفوعة', '⚠️ مش قادر أقرأها (' + e.message + ')', 'warn']); }
+      const hasLocal = (S.data.students.length + S.data.groups.length) > 0;
+      out.push(['بيانات الجهاز ده', (hasLocal ? '✅ ' + nf(S.data.students.length) + ' طالب · ' + nf(S.data.groups.length) + ' حصة' : '⚠️ فاضية — اضغط "تنزيل" لجلب بياناتك'), hasLocal ? 'ok' : 'warn']);
+    }
+    const okAll = out.every(x => x[2] === 'ok');
+    Modal.open({
+      title: 'اختبار الاتصال بالسحابة', sub: okAll ? 'كله تمام ✅' : 'فيه خطوة محتاجة ظبط', size: 'sm',
+      body: out.map(x => `<div class="alert-row ${x[2]}">
+          <span class="ai">${icon(x[2] === 'ok' ? 'check' : x[2] === 'bad' ? 'alert' : 'bell')}</span>
+          <span class="at"><b>${esc(x[0])}</b><span>${esc(x[1])}</span></span></div>`).join('') +
+        (dbOk ? '' : `<div class="help brand" style="margin-top:12px">لو قاعدة البيانات مش متعملة: افتح Firebase Console ← Firestore Database ← Create database ← اختار <b>Start in test mode</b>، وبعدها الصق قواعد الحماية من زر "قواعد الحماية".</div>`),
+      actions: dbOk
+        ? `<button class="btn" data-act="fbRules">${icon('file')} قواعد الحماية</button>
+           <button class="btn pri" data-act="fbPushAll">${icon('upload')} رفع الكل</button>
+           <button class="btn ghost" data-close>إغلاق</button>`
+        : `<button class="btn pri" data-act="fbConsole">${icon('link')} فتح إعدادات Firestore</button>
+           <button class="btn" data-act="fbRules">${icon('file')} قواعد الحماية</button>
+           <button class="btn ghost" data-close>إغلاق</button>`
+    });
+    return okAll;
   }
 };
+
 function paintCloud(){
   const chip = $('#cloudChip'); if (!chip) return;
-  const map = { off:['', 'تخزين محلي', 'اضغط للربط بالسحابة'],
-    busy:['busy','جارٍ الاتصال...','Firebase'],
-    live:['live','متصل بالسحابة', S.fb.syncing ? 'جارٍ المزامنة...' : (S.fb.lastSync ? 'آخر مزامنة ' + S.fb.lastSync.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'}) : 'مزامنة فورية')],
-    error:['err','خطأ اتصال', S.fb.err || 'راجع الإعدادات'] };
-  const [cls, title, sub] = map[S.fb.status] || map.off;
+  const st = S.fb.status;
+  let cls = '', title = 'تخزين محلي', sub = 'اضغط للربط بالسحابة';
+  if (st === 'busy'){ cls = 'busy'; title = 'جارٍ الاتصال...'; sub = 'Firebase'; }
+  else if (st === 'live'){
+    cls = 'live'; title = 'متصل بالسحابة';
+    if (S.fb.syncing) sub = S.fb.syncingTxt ? ('جارٍ الرفع ' + S.fb.syncingTxt) : 'جارٍ المزامنة...';
+    else if (S.fb.behind) { cls = 'warn'; title = 'فيه تحديث أحدث على السحابة'; sub = 'اضغط "تنزيل" لجيبه'; }
+    else if (S.fb.ahead) { cls = 'warn'; title = 'عندك تعديلات لم تُرفع'; sub = 'اضغط "رفع الكل"'; }
+    else sub = S.fb.lastSync ? ('آخر مزامنة ' + S.fb.lastSync.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'})) : 'المزامنة تلقائية';
+  }
+  else if (st === 'error'){ cls = 'err'; title = 'مشكلة في السحابة'; sub = 'اضغط للتشخيص والحل'; }
   chip.className = 'cloud ' + cls;
   $('#cloudTitle').textContent = title;
   $('#cloudSub').textContent = sub;
 }
+function cloudHelpModal(kind){
+  const bad = kind === 'nodb' || kind === 'apioff';
+  const body = `
+    <div class="alert-row bad"><span class="ai">${icon('alert')}</span>
+      <span class="at"><b>${kind === 'nodb' ? 'قاعدة بيانات Firestore مش متعملة' : kind === 'apioff' ? 'خدمة Firestore مش مفعّلة' : kind === 'rules' ? 'قواعد الحماية بتمنع الوصول' : 'مشكلة في الاتصال'}</b>
+      <span>${esc(S.fb.err || '')}</span></span></div>
+    <div class="help brand" style="margin-top:12px;line-height:1.9">
+      <b>الحل في خطوتين (مرة واحدة بس):</b><br>
+      1) افتح <b>Firebase Console</b> ← <b>Firestore Database</b> ← اضغط <b>Create database</b> (اختار Start in test mode).<br>
+      2) روح تبويب <b>Rules</b> ← الصق <b>قواعد الحماية</b> ← <b>Publish</b>.<br>
+      بعد كده ارجع هنا واضغط <b>اختبار الاتصال</b> — وبعدها "رفع الكل" على الجهاز اللي فيه البيانات، و"تنزيل" على أي جهاز تاني.
+    </div>`;
+  Modal.open({ title:'إعداد السحابة', sub:'خطوات سريعة لتشغيل المزامنة', size:'sm', body: body,
+    actions: `<button class="btn pri" data-act="fbConsole">${icon('link')} فتح إعدادات Firestore</button>
+      <button class="btn" data-act="fbRules">${icon('file')} قواعد الحماية</button>
+      <button class="btn ghost" data-close>إغلاق</button>` });
+}
+function copyText(txt, okMsg){
+  const done = () => toast(okMsg || 'تم النسخ ✅', 'ok');
+  try{
+    if (navigator.clipboard && navigator.clipboard.writeText){ navigator.clipboard.writeText(txt).then(done, () => fallback()); return; }
+  }catch(e){}
+  fallback();
+  function fallback(){
+    try{
+      const ta = document.createElement('textarea');
+      ta.value = txt; ta.setAttribute('readonly',''); ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+      done();
+    }catch(e){ Modal.open({ title:'قواعد الحماية', sub:'انسخ الكود ده والصقه في تبويب Rules', size:'md', body:`<pre class="code" style="white-space:pre-wrap;direction:ltr;text-align:left">${esc(txt)}</pre>` }); }
+  }
+}
+/* ---------------- لوجو المنصة ---------------- */
+const LOGO_KEY = AF_LOGO_KEY;
+function logoRef(){ try { return localStorage.getItem(LOGO_KEY) || ''; } catch(e){ return ''; } }
+function logoKB(){ const v = logoRef(); return v ? Math.max(1, Math.round(v.length * 0.75 / 1024)) : 0; }
+function paintLogo(){
+  const src = AF_logoSrc(), custom = logoRef();
+  $$('img[data-logo]').forEach(im => {
+    im.onerror = function(){ AF_logoNext(this); };
+    if (im.getAttribute('src') !== src){ im.style.visibility = ''; im.src = src; }
+  });
+  $$('link[rel="icon"], link[rel="apple-touch-icon"]').forEach(l => {
+    if (!l.dataset.afOrig) l.dataset.afOrig = l.getAttribute('href') || '';
+    l.setAttribute('href', custom || l.dataset.afOrig);
+  });
+}
+function setLogo(dataUrl){
+  try { localStorage.setItem(LOGO_KEY, dataUrl); }
+  catch(e){ return false; }            // المساحة مش كافية
+  paintLogo(); return true;
+}
+function clearLogo(){ try { localStorage.removeItem(LOGO_KEY); } catch(e){} paintLogo(); }
+function shrinkImg(src, maxDim, outType, quality, cb){
+  let done = false, timer = null;
+  const finish = v => { if (done) return; done = true; if (timer) clearTimeout(timer); cb(v); };
+  const im = new Image();
+  im.onload = () => {
+    try{
+      const w = im.naturalWidth || 1, h = im.naturalHeight || 1, r = Math.min(1, maxDim / Math.max(w, h));
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(w * r)); c.height = Math.max(1, Math.round(h * r));
+      const ctx = c.getContext ? c.getContext('2d') : null;
+      if (!ctx){ finish(null); return; }
+      ctx.drawImage(im, 0, 0, c.width, c.height);
+      finish(c.toDataURL(outType, quality));
+    }catch(e){ finish(null); }
+  };
+  im.onerror = () => finish(null);
+  timer = setTimeout(() => finish(null), 3000);   // لو الصورة ما حمّلتش، ما نوقفش الواجهة
+  im.src = src;
+}
+function logoDone(fileName, reduced){
+  toast('اتغيّر اللوجو: ' + esc(fileName || 'صورة') + (reduced ? ' (اتصغّرت الأبعاد للنقل بس — الشكل زي ما هو)' : ' (زي ما هي بدون أي تعديل)'),
+        reduced ? 'info' : 'ok', 'اللوجو');
+  resetLogoInput(); render();
+}
+function readLogoFile(file){
+  if (!file) return;
+  if (!/^image\//.test(file.type || '')){ toast('الملف لازم يكون صورة (PNG / JPG / WEBP)', 'bad'); resetLogoInput(); return; }
+  const rd = new FileReader();
+  rd.onload = () => {
+    const raw = rd.result, name = file.name;
+    if (setLogo(raw)){ logoDone(name, false); return; }            // تُخزَّن زي ما هي بالبايت
+    const isPng = /png$/i.test(file.type || '');
+    const steps = [
+      [1400, isPng ? 'image/png' : 'image/jpeg', 0.95],
+      [1024, isPng ? 'image/png' : 'image/jpeg', 0.95],
+      [1024, 'image/jpeg', 0.92],
+      [768,  'image/jpeg', 0.88]
+    ];
+    (function attempt(i){
+      if (i >= steps.length){ toast('الصورة كبيرة جدًا على التخزين — جرّب صورة أصغر', 'bad'); resetLogoInput(); return; }
+      const [d, type, q] = steps[i];
+      shrinkImg(raw, d, type, q, out => {
+        if (out && setLogo(out)){ logoDone(name, true); return; }
+        attempt(i + 1);
+      });
+    })(0);
+  };
+  rd.onerror = () => { toast('فشل قراءة الملف', 'bad'); resetLogoInput(); };
+  rd.readAsDataURL(file);
+}
+function resetLogoInput(){ const f = $('#logoInput'); if (f) f.value = ''; }
 
 /* ---------------- Domain helpers ---------------- */
 function groupOf(id){ return S.data.groups.find(g => g.id === id); }
@@ -976,7 +1332,7 @@ function exportCSV(name, headers, rows){
 function reportHeader(title, sub){
   const st = S.data.settings;
   return `<div class="rep-head">
-    <img src="logo.jpg" alt="اللوجو" onerror="this.style.visibility='hidden'">
+    <img data-logo src="logo.png" alt="اللوجو" onerror="AF_logoNext(this)">
     <div class="rm">
       <b>${esc(st.platformName || 'منصة المستر')}</b>
       <span>${esc(st.teacherName || 'أحمد فتحي')}${st.phone ? ' · ' + esc(st.phone) : ''}</span>
@@ -1846,34 +2202,45 @@ Views.settings = function(){
   </div>
 
   <div class="grid g-2 mt">
-    <div class="card">
-      <div class="card-h"><h3>${icon('cloud')} قاعدة البيانات السحابية (Firebase)</h3>
-        <span class="sp"></span><span class="badge ${S.fb.status === 'live' ? 'b-ok' : S.fb.status === 'error' ? 'b-bad' : 'b-gray'}">
-        ${{off:'غير متصل',live:'متصل',busy:'جارٍ الاتصال',error:'خطأ'}[S.fb.status]}</span></div>
+      <div class="card-h"><h3>${icon('cloud')} المزامنة السحابية (Firebase)</h3>
+        <span class="sp"></span><span class="badge ${S.fb.status === 'live' ? (S.fb.err ? 'b-warn' : 'b-ok') : S.fb.status === 'error' ? 'b-bad' : S.fb.status === 'busy' ? 'b-warn' : 'b-gray'}">
+        ${S.fb.status === 'live' ? (S.fb.syncing ? 'جارٍ المزامنة' : 'متصل ✅') : S.fb.status === 'error' ? 'فيه مشكلة' : S.fb.status === 'busy' ? 'بيدخل...' : 'غير متصل'}</span></div>
       <div class="card-b">
-        <div class="help" style="margin-bottom:12px">
-          1) افتح <code>console.firebase.google.com</code> ← مشروع جديد.<br>
-          2) من <code>Build › Firestore Database</code> اضغط <b>Create database</b>.<br>
-          3) من <code>Project settings › Your apps › Web</code> انسخ <code>firebaseConfig</code> والصق القيم هنا.<br>
-          4) اكتب <b>كود المنصة</b> (كلمة سرية) — أي جهاز يدخل بنفس الكود يشوف نفس البيانات.
+        <div class="help ${S.fb.status === 'error' ? '' : 'brand'}" style="margin-bottom:12px;line-height:1.9">
+          ${S.fb.status === 'error'
+            ? `<b style="color:var(--bad)">${icon('alert')} ${esc(S.fb.err || 'فيه مشكلة في الاتصال')}</b><br>
+               اضغط <b>اختبار الاتصال</b> وهيقولك السبب والحل خطوة بخطوة.`
+            : `الإعدادات جاهزة جوه الكود — <b>مش محتاج تكتب أي حاجة</b>.<br>
+               أول ما تفتح المنصة بتتصل تلقائيًا. أول جهاز فيه بيانات → اضغط <b>رفع الكل</b>. أي جهاز تاني → اضغط <b>تنزيل</b> وهتلاقي كل حاجة زي ما هي.`}
         </div>
         <div class="frow">
-          <div class="field"><label>API Key <span class="req">*</span></label><input class="inp code" data-fb="apiKey" value="${esc(fb.apiKey || '')}" placeholder="AIza..."></div>
-          <div class="field"><label>Project ID <span class="req">*</span></label><input class="inp code" data-fb="projectId" value="${esc(fb.projectId || '')}" placeholder="mostar-platform"></div>
+          <div class="field"><label>API Key</label><input class="inp code" data-fb="apiKey" value="${esc(fb.apiKey || '')}" placeholder="AIza..."></div>
+          <div class="field"><label>Project ID</label><input class="inp code" data-fb="projectId" value="${esc(fb.projectId || '')}" placeholder="ahmedfathy-95c10"></div>
         </div>
         <div class="frow">
-          <div class="field"><label>كود المنصة <span class="req">*</span></label><input class="inp code" data-fb="code" value="${esc(fb.code || '')}" placeholder="ahmed-fathy-2026"></div>
+          <div class="field"><label>كود المنصة <span class="small muted">(الاسم اللي بتتخزن بيه البيانات)</span></label><input class="inp code" data-fb="code" value="${esc(fb.code || '')}" placeholder="ahmedfathy-95c10"></div>
           <div class="field"><label>Auth Domain</label><input class="inp code" data-fb="authDomain" value="${esc(fb.authDomain || '')}"></div>
         </div>
         <div class="btn-row">
-          <button class="btn pri" data-act="fbConnect">${icon('link')} ${S.fb.status === 'live' ? 'إعادة الاتصال' : 'اتصال'}</button>
-          <button class="btn" data-act="fbPull" ${S.fb.status !== 'live' ? 'disabled' : ''}>${icon('download')} تنزيل</button>
-          <button class="btn" data-act="fbPushAll" ${S.fb.status !== 'live' ? 'disabled' : ''}>${icon('upload')} رفع الكل</button>
-          <button class="btn ghost" data-act="fbDisconnect" ${S.fb.status === 'off' ? 'disabled' : ''}>${icon('x')} فصل</button>
+          <button class="btn pri" data-act="fbTest">${icon('check-square')} اختبار الاتصال</button>
+          <button class="btn" data-act="fbConnect">${icon('link')} ${S.fb.status === 'live' ? 'إعادة الاتصال' : 'اتصال ورفع تلقائي'}</button>
+          <button class="btn" data-act="fbPull">${icon('download')} تنزيل البيانات من السحابة</button>
+          <button class="btn" data-act="fbPushAll">${icon('upload')} رفع الكل للسحابة</button>
+          <button class="btn ghost" data-act="fbDisconnect">${icon('x')} فصل</button>
         </div>
+        <div class="sep"></div>
+        <div class="btn-row">
+          <button class="btn sm ghost" data-act="fbConsole">${icon('link')} فتح إعدادات Firestore</button>
+          <button class="btn sm ghost" data-act="fbRules">${icon('file')} قواعد الحماية (انسخها)</button>
+        </div>
+        <p class="small muted" style="margin-top:12px">
+          ${S.fb.lastSync ? 'آخر مزامنة: ' + S.fb.lastSync.toLocaleString('ar-EG') : 'لسه محصلتش مزامنة في الجهاز ده'}
+          ${S.fb.remoteRev != null ? ' · نسخة السحابة: ' + S.fb.remoteRev + ' · نسخة الجهاز: ' + nf(S.data.meta.rev || 0) : ''}<br>
+          المزامنة تلقائية: أي تعديل بيترفع لوحده، وأي تحديث من جهاز تاني بينزل تلقائي كل 20 ثانية وفي كل مرة ترجع للصفحة.
+          ولوجو المنصة بيروح مع البيانات لكل الأجهزة.
+        </p>
       </div>
     </div>
-
     <div class="card">
       <div class="card-h"><h3>${icon('save')} النسخ الاحتياطي والمظهر</h3></div>
       <div class="card-b">
@@ -1894,8 +2261,20 @@ Views.settings = function(){
           <button class="btn bad" data-act="wipe">${icon('trash')} حذف كل البيانات</button>
         </div>
         <div class="sep"></div>
-        <div class="flex"><img src="logo.jpg" onerror="this.src=AF_LOGO_FALLBACK" style="width:60px;height:60px;border-radius:50%;object-fit:cover;border:2px solid var(--brand)">
-          <span class="small muted">اللوجو المستخدم في المنصة والتقارير (ملف <code>logo.jpg</code>)</span></div>
+        <div class="flex" style="gap:14px;align-items:flex-start">
+          <img data-logo src="logo.png" alt="لوجو المنصة" onerror="AF_logoNext(this)" style="width:76px;height:76px;border-radius:50%;object-fit:cover;border:2px solid var(--brand);background:#0b0b0d;flex:0 0 76px">
+          <div style="min-width:0">
+            <b class="small">لوجو المنصة</b>
+            <p class="small muted" style="margin:3px 0 9px">
+              الصورة الحالية: <b>${logoRef() ? 'صورة مرفوعة' + (logoKB() ? ` (~${logoKB()} كيلوبايت)` : '') : (AF_LOGO_FILES[0] + ' — صورة المنصة')}</b><br>
+              الصورة بتظهر كما هي <b>بدون أي تعديل</b>، جنب اسم المستر وفي كل التقارير المطبوعة.
+            </p>
+            <div class="btn-row">
+              <button class="btn" data-act="logoPick">${icon('upload')} تغيير الصورة</button>
+              ${logoRef() ? `<button class="btn ghost" data-act="logoReset">${icon('refresh')} استعادة الأصلية</button>` : ''}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -2630,7 +3009,7 @@ function render(){
   document.title = t[0] + ' · ' + (S.data.settings.platformName || 'منصة المستر');
 
   if (typeof Views['after_' + v] === 'function'){ try{ Views['after_' + v](); }catch(e){ console.warn(e); } }
-  paintCloud(); PWA.paint();
+  paintCloud(); PWA.paint(); paintLogo();
 
   if (rid){ const el = document.getElementById(rid);
     if (el){ try{ el.focus(); if (rs != null && el.setSelectionRange) el.setSelectionRange(rs, re); }catch(e){} } }
@@ -2865,20 +3244,31 @@ document.addEventListener('click', function(e){
     case 'fbConnect': {
       const cfg = {};
       $$('[data-fb]').forEach(inp => { if (inp.value.trim()) cfg[inp.dataset.fb] = inp.value.trim(); });
-      if (!cfg.apiKey || !cfg.projectId || !cfg.code){ toast('اكتب API Key و Project ID وكود المنصة', 'warn'); return; }
+      if (!cfg.apiKey || !cfg.projectId){ toast('API Key و Project ID مطلوبين', 'warn'); return; }
+      if (!cfg.code) cfg.code = FB_DEFAULT.code;
       Cloud.connect({ config: cfg }); break;
     }
-    case 'fbPull': Cloud.pull(); break;
-    case 'fbPushAll': Cloud.pushAll(); break;
+    case 'fbTest': Cloud.test(); break;
+    case 'fbPull': Cloud.pullNow(); break;
+    case 'fbPushAll': Cloud.pushNow(); break;
     case 'fbDisconnect': Cloud.disconnect(); render(); break;
-    case 'expJSON': download('mostar-backup-' + today() + '.json', JSON.stringify(S.data, null, 1), 'application/json');
-      toast('تم تصدير النسخة الاحتياطية', 'ok'); break;
+    case 'fbConsole': try{ window.open(FB_CONSOLE, '_blank', 'noopener'); }catch(e){ toast(FB_CONSOLE, 'info'); } break;
+    case 'fbRules': copyText(FB_RULES, 'تم نسخ قواعد الحماية ✅ الصقها في تبويب Rules واضغط Publish'); break;
+    case 'expJSON': {
+      const lg = logoRef();
+      const pack = Object.assign({}, S.data);
+      if (lg && lg.length < 3000000) pack._logo = lg;   // اللوجو مع النسخة الاحتياطية (لو مش ضخم)
+      download('mostar-backup-' + today() + '.json', JSON.stringify(pack, null, 1), 'application/json');
+      toast('تم تصدير النسخة الاحتياطية' + (pack._logo ? ' (مع اللوجو)' : ''), 'ok'); break;
+    }
     case 'impJSON': $('#fileInput').click(); break;
     case 'seed': {
       const run = () => seedDemo();
       if (S.data.students.length) confirmDialog('بيانات تجريبية', 'سيتم استبدال كل البيانات الحالية ببيانات تجريبية. متابعة؟', 'استبدال', run, true);
       else run(); break;
     }
+    case 'logoPick': { const f = $('#logoInput'); if (f) f.click(); else toast('الخانة مش ظاهرة — افتح الإعدادات', 'bad'); break; }
+    case 'logoReset': confirmDialog('استعادة اللوجو الأصلي', 'هيتم حذف الصورة المرفوعة والرجوع لصورة المنصة الأصلية.', 'استعادة', () => { clearLogo(); toast('تم الرجوع للصورة الأصلية', 'ok'); }, false); break;
     case 'wipe': confirmDialog('حذف كل البيانات', 'سيتم حذف كل الطلاب والحصص والامتحانات وسجل الحضور نهائيًا.', 'حذف الكل', () => {
       localStorage.removeItem(LS_KEY);
       S.data = defaultData(); S.ui.att.groupId = ''; attDraft = null;
@@ -2929,13 +3319,16 @@ document.addEventListener('change', function(e){
     commit({ silent:true }); return;
   }
   if (t.id === 'darkToggle'){ setTheme(t.checked ? 'dark' : 'light'); return; }
+  if (t.id === 'logoInput' && t.files && t.files[0]){ readLogoFile(t.files[0]); return; }
   if (t.id === 'fileInput' && t.files && t.files[0]){
     const rd = new FileReader();
     rd.onload = () => {
       try{
         const d = JSON.parse(rd.result);
         if (!d || (!d.students && !d.groups)) throw new Error('ملف غير صالح');
+        const lg = d._logo; delete d._logo;
         S.data = migrate(d); attDraft = null; commit();
+        if (typeof lg === 'string' && lg.indexOf('data:image/') === 0) setLogo(lg);
         toast('تم استيراد البيانات: ' + S.data.students.length + ' طالب', 'ok');
       }catch(err){ toast('فشل الاستيراد: ' + err.message, 'bad'); }
     };
@@ -2958,7 +3351,22 @@ $('#scrim').onclick = closeDrawer;
 $('#quickAddBtn').onclick = () => openStudentForm();
 $('#installBtn').onclick = () => PWA.install();
 $('#themeBtn').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
-$('#cloudChip').onclick = () => go('settings');
+$('#cloudChip').onclick = () => {
+  const st = S.fb.status;
+  const body = `
+    <div class="alert-row ${st === 'live' ? (S.fb.err ? 'warn' : 'ok') : st === 'error' ? 'bad' : 'info'}">
+      <span class="ai">${icon('cloud')}</span>
+      <span class="at"><b>${st === 'live' ? 'متصل بالسحابة ✅' : st === 'error' ? 'مشكلة في السحابة' : 'تخزين محلي بس'}</b>
+      <span>${st === 'error' ? esc(S.fb.err || '') : st === 'live' ? ('نسخة الجهاز: ' + nf(S.data.meta.rev || 0) + (S.fb.remoteRev != null ? ' · نسخة السحابة: ' + S.fb.remoteRev : '') + (S.fb.lastSync ? ' · آخر مزامنة ' + S.fb.lastSync.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'}) : '')) : 'بياناتك كلها محفوظة على الجهاز ده، ولو عايز تشوفها على جهاز تاني اضغط "اختبار الاتصال"'}</span></span>
+    </div>
+    ${S.fb.behind ? '<div class="help" style="margin-top:10px"><b>فيه نسخة أحدث على السحابة</b> — اضغط "تنزيل" لجيبها.</div>' : ''}
+    ${S.fb.ahead ? '<div class="help brand" style="margin-top:10px"><b>عندك تعديلات لسه مرفوعتش</b> — اضغط "رفع الكل" عشان تشوفها على الأجهزة التانية.</div>' : ''}`;
+  Modal.open({ title: 'المزامنة السحابية', sub: 'بياناتك على جهازك وفي السحابة', size: 'sm', body: body,
+    actions: `<button class="btn pri" data-act="fbTest">${icon('check-square')} اختبار الاتصال</button>
+      <button class="btn" data-act="fbPull">${icon('download')} تنزيل</button>
+      <button class="btn" data-act="fbPushAll">${icon('upload')} رفع الكل</button>
+      <button class="btn ghost" data-act="${st === 'live' ? 'fbDisconnect' : 'fbConnect'}">${icon(st === 'live' ? 'x' : 'link')} ${st === 'live' ? 'فصل' : 'اتصال'}</button>` });
+};
 
 function setTheme(t){
   document.documentElement.dataset.theme = t;
@@ -2993,18 +3401,29 @@ window.addEventListener('resize', throttle(() => {
   const use = $('#themeBtn use'); if (use) use.setAttribute('href', theme === 'dark' ? '#i-sun' : '#i-moon');
   const mt = document.querySelector('meta[name=theme-color]');
   if (mt) mt.setAttribute('content', theme === 'dark' ? '#0b0b0d' : '#fac518');
-  const cfg = Cloud.readCfg();
-  if (cfg && cfg.apiKey && cfg.projectId){ S.fb.cfg = cfg; Cloud.connect({ config: cfg, save: false }); }
   PWA.init();
-  paintCloud();
+  paintCloud(); paintLogo();
   const h = (location.hash || '').slice(1);
   if (VIEW_LIST.includes(h)) S.view = h;
   render();
   if (!had) setTimeout(() => toast('أهلًا بك في منصة المستر 👋 ابدأ بإنشاء حصة ثم إضافة الطلاب', 'info', 'مرحبًا'), 700);
+
+  /* السحابة: الإعدادات جاهزة جوه الكود → اتصال تلقائي ومزامنة تلقائية */
+  const cfg = Cloud.merged();
+  S.fb.cfg = cfg;
+  if (cfg && cfg.apiKey && cfg.projectId){
+    setTimeout(() => Cloud.connect({ config: cfg, auto: true, silent: true }), 400);
+  }
+
+  /* فحص فوري لما ترجع للصفحة أو تفتحها تاني */
+  window.addEventListener('focus', () => { if (S.fb.status === 'live') Cloud.checkRemote(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && S.fb.status === 'live') Cloud.checkRemote(); });
   window.addEventListener('beforeunload', () => { if (dirty.main) Cloud.push(true); });
+  window.addEventListener('online', () => { if (S.fb.status === 'error') Cloud.connect({ silent:true }); });
 })();
 
-window.AF = { S: S, Cloud: Cloud, PWA: PWA, render: render, go: go, seedDemo: seedDemo, setTheme: setTheme, openStudentForm: openStudentForm, openGroupForm: openGroupForm, openExamForm: openExamForm, openProfile: openProfile, assignStudent: assignStudent, pdfStudent: pdfStudent, pdfStudents: pdfStudents, pdfGroups: pdfGroups, pdfExam: pdfExam, pdfReport: pdfReport, attPDF: attPDF, manageGroupStudents: manageGroupStudents, groupsConflict: groupsConflict };
+window.FB_DEFAULT = FB_DEFAULT; window.FB_RULES = FB_RULES; window.FB_CONSOLE = FB_CONSOLE; window.FB_APILIB = FB_APILIB;
+window.AF = { S: S, Cloud: Cloud, PWA: PWA, logoRef: logoRef, setLogo: setLogo, clearLogo: clearLogo, render: render, go: go, seedDemo: seedDemo, setTheme: setTheme, openStudentForm: openStudentForm, openGroupForm: openGroupForm, openExamForm: openExamForm, openProfile: openProfile, assignStudent: assignStudent, pdfStudent: pdfStudent, pdfStudents: pdfStudents, pdfGroups: pdfGroups, pdfExam: pdfExam, pdfReport: pdfReport, attPDF: attPDF, manageGroupStudents: manageGroupStudents, groupsConflict: groupsConflict };
 
 </script>
 </body>
