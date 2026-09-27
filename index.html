@@ -1221,6 +1221,9 @@ function paintCloud(){
 }
 function cloudHelpModal(kind){
   const rules = kind === 'rules', nodb = kind === 'nodb', apioff = kind === 'apioff';
+  const isRTDB = Cloud.mode() === 'rtdb';
+  const rulesTxt = isRTDB ? FB_RULES_RTDB : FB_RULES;
+  const rulesKind = isRTDB ? 'Realtime Database' : 'Firestore';
   const head = rules ? 'قواعد الحماية بتمنع الوصول (Rules = if false)'
     : nodb ? 'قاعدة بيانات Firestore مش متعملة'
     : apioff ? 'خدمة Firestore مش مفعّلة'
@@ -1233,10 +1236,14 @@ function cloudHelpModal(kind){
     ${rules ? `
     <div class="help brand" style="margin-top:12px;line-height:2">
       <b>٣ خطوات مرة واحدة بس:</b><br>
-      <b>1)</b> اضغط <b>"فتح صفحة القواعد"</b> تحت (هتفتح تبويب Rules جاهز).<br>
-      <b>2)</b> امسح اللي موجود جوه، واضغط <b>"انسخ قواعد الحماية"</b> هنا والصقه هناك.<br>
+      <b>1)</b> اضغط <b>"فتح صفحة القواعد"</b> تحت (هتفتح تبويب <b>Rules</b> بتاع <b>${rulesKind}</b> جاهز).<br>
+      <b>2)</b> <b>امسح كل اللي موجود</b> جوه، والصق الكود اللي تحت ده بدله.<br>
       <b>3)</b> اضغط <b>Publish</b> في الصفحة، وبعدها <b>"تحقق الآن"</b> هنا.
-      <div style="margin-top:9px">القواعد دي بتسمح بالوصول لبيانات منصة المستر بس (<code>platforms</code>) وباقي المشروع بيفضل مقفول.</div>
+    </div>
+    <div style="margin-top:10px"><label class="small muted">قواعد ${rulesKind} — انسخها زي ما هي 👇</label>
+      <pre class="code" style="white-space:pre;direction:ltr;text-align:left;margin-top:6px;font-size:12.5px;line-height:1.65;overflow-x:auto">${esc(rulesTxt)}</pre>
+      <button class="btn sm pri" data-act="fbRules" style="margin-top:8px">${icon('file')} انسخ الكود</button>
+      <span class="small muted"> (لو النسخ ماشتغلش، حدّد الكود بإيدك وانسخه)</span>
     </div>` : nodb ? `
     <div class="help brand" style="margin-top:12px;line-height:2">
       <b>خطوتين مرة واحدة بس:</b><br>
@@ -1253,7 +1260,7 @@ function cloudHelpModal(kind){
   Modal.open({ title:'إعداد السحابة', sub:'خطوات سريعة لتشغيل المزامنة', size: rules || nodb ? 'md' : 'sm', body: body,
     footer: `${rules ? `<button class="btn pri" data-act="fbRulesPage">${icon('link')} فتح صفحة القواعد</button>
         <button class="btn" data-act="fbRules">${icon('file')} انسخ قواعد الحماية</button>` : ''}
-      ${nodb ? `<button class="btn pri" data-act="fbConsole">${icon('link')} فتح إعدادات Firestore</button>` : ''}
+      ${nodb ? `<button class="btn pri" data-act="fbConsole">${icon('link')} فتح إعدادات قاعدة البيانات</button>` : ''}
       ${apioff ? `<button class="btn pri" data-act="fbApiEnable">${icon('link')} تفعيل الخدمة</button>` : ''}
       <button class="btn ${rules || nodb || apioff ? '' : 'pri'}" data-act="fbRecheck">${icon('refresh')} تحقق الآن</button>
       <button class="btn ghost" data-close>إغلاق</button>` });
@@ -3596,7 +3603,7 @@ window.addEventListener('resize', throttle(() => {
   window.addEventListener('online', () => { if (S.fb.status === 'error') Cloud.connect({ silent:true }); });
 })();
 
-window.FB_DEFAULT = FB_DEFAULT; window.FB_RULES = FB_RULES; window.FB_CONSOLE = FB_CONSOLE; window.FB_APILIB = FB_APILIB; window.FB_RULES_URL = FB_RULES_URL;
+window.FB_DEFAULT = FB_DEFAULT; window.FB_RULES = FB_RULES; window.FB_RULES_RTDB = FB_RULES_RTDB; window.FB_CONSOLE = FB_CONSOLE; window.FB_APILIB = FB_APILIB; window.FB_RULES_URL = FB_RULES_URL;
 window.AF = { S: S, Cloud: Cloud, PWA: PWA, logoRef: logoRef, setLogo: setLogo, clearLogo: clearLogo, render: render, go: go, seedDemo: seedDemo, setTheme: setTheme, openStudentForm: openStudentForm, openGroupForm: openGroupForm, openExamForm: openExamForm, openProfile: openProfile, assignStudent: assignStudent, pdfStudent: pdfStudent, pdfStudents: pdfStudents, pdfGroups: pdfGroups, pdfExam: pdfExam, pdfReport: pdfReport, attPDF: attPDF, manageGroupStudents: manageGroupStudents, groupsConflict: groupsConflict };
 
 </script>
