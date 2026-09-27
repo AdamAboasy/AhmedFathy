@@ -1,0 +1,28 @@
+{
+  "name": "منصة المستر — متابعة الطلاب والحصص",
+  "short_name": "منصة المستر",
+  "description": "نظام متابعة الطلاب: الحصص، الحضور والغياب، الامتحانات والدرجات، التقارير وPDF — أحمد فتحي",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./index.html",
+  "scope": "./",
+  "id": "mostar-platform",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait-primary",
+  "background_color": "#0b0b0d",
+  "theme_color": "#fac518",
+  "categories": ["education", "productivity"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" },
+    { "src": "logo.jpg", "sizes": "200x200", "type": "image/jpeg" }
+  ],
+  "shortcuts": [
+    { "name": "تسجيل الحضور", "short_name": "الحضور", "url": "./index.html#attendance", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "الطلاب", "short_name": "الطلاب", "url": "./index.html#students", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "التقارير", "short_name": "التقارير", "url": "./index.html#reports", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
