@@ -21,6 +21,20 @@
    منصة المستر — Stylesheet
    ألوان الهوية مأخوذة من اللوجو: الذهبي #fac518 + الأسود
    ========================================================== */
+
+/* شبكة أمان: أي أيقونة SVG جوه المنصة ليها مقاس افتراضي معقول.
+   من غير القاعدة دي أي حاوية من غير قاعدة مقاس خاصة بتخلي الأيقونة
+   تترسم بحجم المتصفح الافتراضي (150px) وتخرج بره الكارت. */
+.shell svg, .modal svg, #toasts svg{
+  width:18px; height:18px; flex:0 0 auto;
+  max-width:100%; max-height:100%;
+}
+/* أيقونة عنوان الكارت (زي عناوين التنبيهات: عاجل / متابعة / ملاحظات) */
+.card-h .ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:0 0 30px}
+.card-h .ic svg{width:16px;height:16px}
+/* شبكة الأنيميشن الجاهزة (sprite) بتتخفي ومش بتاخد مكان */
+svg.sprite{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
+
 :root{
   --brand:#fac518;          /* اللون الذهبي من اللوجو */
   --brand-2:#ffd94a;
@@ -421,7 +435,7 @@ window.AF_logoNext=function(img){
 </head>
 <body>
 <!-- ============ SVG icon sprite ============ -->
-<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<svg class="sprite" width="0" height="0" aria-hidden="true" focusable="false"><defs>
   <symbol id="i-dash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-4H3zM13 7h8V3h-8z"/></symbol>
   <symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
   <symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
