@@ -1,0 +1,3176 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="نظام متابعة الطلبة والكورسات - أحمد فتحي | حضور، درجات، اشتراكات، تقارير">
+<meta name="theme-color" content="#12141a">
+<title>نظام المتابعة | أحمد فتحي</title>
+<link rel="icon" href="logo.jpg">
+<link rel="apple-touch-icon" href="logo.jpg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   نظام المتابعة - أحمد فتحي | Stylesheet
+   ============================================================ */
+:root{
+  --brand:#f5b301;
+  --brand-2:#ffd451;
+  --brand-ink:#1b1b1b;
+  --ink:#14161c;
+  --ink-2:#2b2f3a;
+  --muted:#6b7280;
+  --muted-2:#9aa1ad;
+  --bg:#f4f5f7;
+  --card:#ffffff;
+  --line:#e6e8ee;
+  --line-2:#eef0f5;
+  --side:#12141a;
+  --side-2:#1b1e26;
+  --side-ink:#c9cdd6;
+  --ok:#12a150;
+  --ok-bg:#e7f8ee;
+  --warn:#c98a00;
+  --warn-bg:#fff6dd;
+  --bad:#e02424;
+  --bad-bg:#feecec;
+  --info:#2563eb;
+  --info-bg:#e8f0ff;
+  --shadow:0 1px 2px rgba(16,24,40,.05), 0 6px 22px -8px rgba(16,24,40,.12);
+  --shadow-lg:0 20px 50px -20px rgba(16,24,40,.35);
+  --r:16px; --r-sm:10px; --r-xs:8px;
+  --sb:264px;
+  --font:'Cairo','Segoe UI',Tahoma,system-ui,-apple-system,sans-serif;
+}
+[data-theme="dark"]{
+  --ink:#f2f4f8;
+  --ink-2:#d6dae2;
+  --muted:#9aa1ad;
+  --muted-2:#7c8494;
+  --bg:#0d0f13;
+  --card:#151821;
+  --line:#262b36;
+  --line-2:#1e2229;
+  --side:#0a0c10;
+  --side-2:#12151b;
+  --ok-bg:#0d2a1c; --warn-bg:#2c2308; --bad-bg:#2c1111; --info-bg:#101c33;
+  --shadow:0 1px 2px rgba(0,0,0,.3), 0 8px 26px -12px rgba(0,0,0,.6);
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  margin:0;font-family:var(--font);background:var(--bg);color:var(--ink);
+  font-size:14.5px;line-height:1.6;overflow-x:hidden;
+}
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;
+  background:radial-gradient(900px 400px at 100% 0,rgba(245,179,1,.10),transparent 60%);
+}
+h1,h2,h3,h4,p{margin:0}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+a{color:inherit}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(128,134,148,.35);border-radius:20px;border:3px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:rgba(128,134,148,.6);background-clip:content-box}
+.hide{display:none !important}
+
+/* ---------- Shell ---------- */
+.shell{display:flex;min-height:100vh;position:relative;z-index:1}
+.sidebar{
+  width:var(--sb);flex:0 0 var(--sb);background:var(--side);color:var(--side-ink);
+  display:flex;flex-direction:column;position:fixed;inset-block:0;inset-inline-start:0;z-index:60;
+  transition:transform .28s cubic-bezier(.4,0,.2,1);
+}
+.sidebar::after{content:"";position:absolute;inset-inline-start:0;top:0;bottom:0;width:3px;background:linear-gradient(180deg,var(--brand),transparent 70%)}
+.brand{display:flex;align-items:center;gap:12px;padding:18px 16px;border-bottom:1px solid rgba(255,255,255,.07)}
+.brand img{width:52px;height:52px;border-radius:50%;object-fit:cover;border:2px solid var(--brand);background:#000;flex:0 0 52px}
+.brand .bt{min-width:0}
+.brand .bt b{display:block;color:#fff;font-size:15.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand .bt span{display:block;font-size:11.5px;color:var(--brand);font-weight:700;letter-spacing:.2px}
+.nav{padding:12px 10px;display:flex;flex-direction:column;gap:3px;overflow-y:auto;flex:1}
+.nav .nlabel{font-size:10.5px;color:#6d7482;font-weight:800;letter-spacing:.5px;padding:12px 10px 5px}
+.nav a{
+  display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:11px;text-decoration:none;
+  color:var(--side-ink);font-weight:600;font-size:14px;position:relative;transition:.16s;cursor:pointer;
+}
+.nav a svg{width:19px;height:19px;flex:0 0 19px;opacity:.8}
+.nav a:hover{background:rgba(255,255,255,.07);color:#fff}
+.nav a.on{background:linear-gradient(90deg,rgba(245,179,1,.20),rgba(245,179,1,.04));color:#fff}
+.nav a.on svg{opacity:1;color:var(--brand)}
+.nav a.on::before{content:"";position:absolute;inset-inline-end:0;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--brand)}
+.nav .pill{margin-inline-start:auto;background:var(--brand);color:#1b1b1b;font-size:11px;font-weight:800;padding:1px 7px;border-radius:20px;min-width:22px;text-align:center}
+.side-foot{padding:12px;border-top:1px solid rgba(255,255,255,.07);font-size:11.5px}
+.cloud{display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:11px;background:rgba(255,255,255,.05);cursor:pointer;transition:.16s}
+.cloud:hover{background:rgba(255,255,255,.1)}
+.cloud .dot{width:9px;height:9px;border-radius:50%;background:var(--muted-2);flex:0 0 9px;box-shadow:0 0 0 3px rgba(255,255,255,.06)}
+.cloud.live .dot{background:#22c55e;animation:pulse 1.8s infinite}
+.cloud.busy .dot{background:var(--brand)}
+.cloud.err .dot{background:var(--bad)}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(34,197,94,.15)}50%{box-shadow:0 0 0 7px rgba(34,197,94,.02)}}
+.cloud .ct{min-width:0;line-height:1.35}
+.cloud .ct b{display:block;color:#fff;font-size:12.5px;font-weight:700}
+.cloud .ct span{display:block;font-size:10.5px;color:#8b93a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.main{flex:1;min-width:0;margin-inline-start:var(--sb);display:flex;flex-direction:column}
+.topbar{
+  position:sticky;top:0;z-index:40;background:var(--card);
+  background:color-mix(in srgb,var(--card) 88%,transparent);
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid var(--line);
+  padding:10px 20px;display:flex;align-items:center;gap:12px;min-height:66px;
+}
+.burger{display:none;width:40px;height:40px;border-radius:11px;border:1px solid var(--line);background:var(--card);cursor:pointer;align-items:center;justify-content:center}
+.ptitle{min-width:0}
+.ptitle h1{font-size:19px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ptitle p{font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tb-actions{margin-inline-start:auto;display:flex;align-items:center;gap:8px}
+.searchbox{position:relative}
+.searchbox svg{position:absolute;inset-inline-start:11px;top:50%;transform:translateY(-50%);width:17px;height:17px;color:var(--muted-2)}
+.searchbox input{
+  width:250px;padding:9px 38px 9px 12px;border-radius:11px;border:1px solid var(--line);background:var(--card);
+  outline:none;transition:.16s;
+}
+.searchbox input:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(245,179,1,.16)}
+.content{padding:20px;flex:1}
+
+/* ---------- Buttons ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid var(--line);
+  background:var(--card);color:var(--ink);padding:9px 14px;border-radius:11px;font-weight:700;font-size:13.5px;
+  cursor:pointer;transition:.15s;white-space:nowrap;text-decoration:none;
+}
+.btn svg{width:17px;height:17px}
+.btn:hover{transform:translateY(-1px);box-shadow:var(--shadow)}
+.btn:active{transform:translateY(0)}
+.btn.pri{background:var(--brand);border-color:var(--brand);color:#1b1b1b}
+.btn.pri:hover{background:var(--brand-2)}
+.btn.dark{background:var(--ink);border-color:var(--ink);color:#fff}
+[data-theme="dark"] .btn.dark{background:#2c313d;border-color:#3a4150}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.bad{background:var(--bad);border-color:var(--bad);color:#fff}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+.btn.ghost:hover{background:var(--line-2);color:var(--ink);box-shadow:none}
+.btn.sm{padding:6px 10px;font-size:12.5px;border-radius:9px}
+.btn.sm svg{width:15px;height:15px}
+.btn.icon{padding:8px;width:36px;height:36px}
+.btn.icon.sm{width:30px;height:30px;padding:0}
+.btn[disabled]{opacity:.5;pointer-events:none}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+
+/* ---------- Cards & layout ---------- */
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+.card-h{padding:15px 17px;border-bottom:1px solid var(--line-2);display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.card-h h3{font-size:15.5px;font-weight:800}
+.card-h .sub{font-size:12px;color:var(--muted);font-weight:600}
+.card-h .sp{margin-inline-start:auto}
+.card-b{padding:17px}
+.grid{display:grid;gap:15px}
+.g-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+.g-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.g-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.g-23{grid-template-columns:minmax(0,1.55fr) minmax(0,1fr)}
+.g-32{grid-template-columns:minmax(0,1fr) minmax(0,1.55fr)}
+.mt{margin-top:15px}
+
+/* ---------- Stats ---------- */
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:15px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.stat::after{content:"";position:absolute;inset-inline-start:0;top:0;bottom:0;width:4px;background:var(--brand);opacity:.9}
+.stat.ok::after{background:var(--ok)} .stat.bad::after{background:var(--bad)} .stat.info::after{background:var(--info)}
+.stat .st-h{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12.5px;font-weight:700}
+.stat .st-h .ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:var(--warn-bg);color:var(--warn)}
+.stat .st-h .ic svg{width:16px;height:16px}
+.stat.ok .st-h .ic{background:var(--ok-bg);color:var(--ok)}
+.stat.bad .st-h .ic{background:var(--bad-bg);color:var(--bad)}
+.stat.info .st-h .ic{background:var(--info-bg);color:var(--info)}
+.stat .val{font-size:26px;font-weight:900;margin-top:6px;letter-spacing:-.5px}
+.stat .val small{font-size:13px;font-weight:700;color:var(--muted)}
+.stat .foot{font-size:11.5px;color:var(--muted);margin-top:2px;display:flex;align-items:center;gap:5px}
+.trend{font-weight:800}
+.trend.up{color:var(--ok)} .trend.down{color:var(--bad)}
+
+/* ---------- Tables ---------- */
+.tbl-wrap{overflow:auto;border-radius:var(--r);max-height:none}
+table.tbl{width:100%;border-collapse:separate;border-spacing:0;font-size:13.5px}
+.tbl th{
+  position:sticky;top:0;background:var(--card);z-index:2;text-align:start;padding:11px 13px;font-weight:800;font-size:12.5px;
+  color:var(--muted);border-bottom:1px solid var(--line);white-space:nowrap;
+}
+.tbl td{padding:10px 13px;border-bottom:1px solid var(--line-2);vertical-align:middle}
+.tbl tbody tr{transition:.12s}
+.tbl tbody tr:hover{background:var(--line-2)}
+.tbl tbody tr:last-child td{border-bottom:0}
+.tbl .num{font-variant-numeric:tabular-nums;font-weight:700}
+.tbl td .row-actions{display:flex;gap:4px;justify-content:flex-end}
+.who{display:flex;align-items:center;gap:10px;min-width:0}
+.av{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;font-weight:800;color:#fff;flex:0 0 36px;font-size:13px}
+.who .wt{min-width:0}
+.who .wt b{display:block;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:190px}
+.who .wt span{display:block;font-size:11.5px;color:var(--muted)}
+
+/* ---------- Badges / chips ---------- */
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11.5px;font-weight:800;white-space:nowrap}
+.badge b{font-weight:900}
+.b-ok{background:var(--ok-bg);color:var(--ok)}
+.b-warn{background:var(--warn-bg);color:var(--warn)}
+.b-bad{background:var(--bad-bg);color:var(--bad)}
+.b-info{background:var(--info-bg);color:var(--info)}
+.b-gray{background:var(--line-2);color:var(--muted)}
+.b-brand{background:rgba(245,179,1,.18);color:#a87900}
+[data-theme="dark"] .b-brand{color:var(--brand)}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;border:1px solid var(--line);background:var(--card);font-size:12.5px;font-weight:700;cursor:pointer;transition:.15s}
+.chip:hover{border-color:var(--brand)}
+.chip.on{background:var(--ink);color:var(--card);border-color:var(--ink)}
+[data-theme="dark"] .chip.on{background:var(--brand);color:#1b1b1b;border-color:var(--brand)}
+.chips{display:flex;gap:7px;flex-wrap:wrap}
+
+/* ---------- Forms ---------- */
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:13px}
+.field>label{font-size:12.5px;font-weight:800;color:var(--ink-2);display:flex;align-items:center;gap:5px}
+.field>label .req{color:var(--bad)}
+.field .hint{font-size:11px;color:var(--muted-2);font-weight:600}
+.inp,input[type=text],input[type=number],input[type=date],input[type=month],input[type=time],input[type=tel],input[type=email],input[type=password],select,textarea{
+  width:100%;padding:10px 12px;border-radius:11px;border:1px solid var(--line);background:var(--card);outline:none;transition:.15s;
+}
+textarea{min-height:82px;resize:vertical;line-height:1.7}
+.inp:focus,input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(245,179,1,.16)}
+.inp:disabled{background:var(--line-2);color:var(--muted)}
+select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.2'><path d='M6 9l6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:left 11px center;background-size:16px;padding-inline-start:34px}
+.frow{display:grid;gap:13px;grid-template-columns:repeat(2,minmax(0,1fr))}
+.frow-3{display:grid;gap:13px;grid-template-columns:repeat(3,minmax(0,1fr))}
+.switch{display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none}
+.switch input{display:none}
+.switch .track{width:44px;height:25px;border-radius:20px;background:var(--line);position:relative;transition:.2s;flex:0 0 44px}
+.switch .track::after{content:"";position:absolute;width:19px;height:19px;border-radius:50%;background:#fff;top:3px;inset-inline-end:3px;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.switch input:checked+.track{background:var(--ok)}
+.switch input:checked+.track::after{inset-inline-end:22px}
+.switch .lb{font-weight:700;font-size:13.5px}
+.switch .lb span{display:block;font-size:11.5px;color:var(--muted);font-weight:600}
+
+/* ---------- Modal ---------- */
+.overlay{position:fixed;inset:0;background:rgba(9,11,16,.62);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:24px 16px;overflow-y:auto;animation:fade .18s}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.modal{background:var(--card);border-radius:18px;box-shadow:var(--shadow-lg);width:100%;max-width:720px;margin:auto;animation:pop .22s cubic-bezier(.2,.9,.3,1.2);border:1px solid var(--line)}
+.modal.sm{max-width:460px} .modal.lg{max-width:960px} .modal.xl{max-width:1180px}
+@keyframes pop{from{opacity:0;transform:translateY(14px) scale(.98)}to{opacity:1;transform:none}}
+.modal-h{display:flex;align-items:center;gap:12px;padding:16px 19px;border-bottom:1px solid var(--line-2)}
+.modal-h h3{font-size:16.5px;font-weight:800}
+.modal-h .sub{font-size:12px;color:var(--muted);font-weight:600}
+.modal-h .x{margin-inline-start:auto;width:34px;height:34px;border-radius:10px;border:1px solid var(--line);background:transparent;cursor:pointer;display:grid;place-items:center;transition:.15s}
+.modal-h .x:hover{background:var(--bad-bg);color:var(--bad);border-color:transparent}
+.modal-b{padding:19px;max-height:calc(100vh - 210px);overflow-y:auto}
+.modal-f{padding:14px 19px;border-top:1px solid var(--line-2);display:flex;gap:9px;justify-content:flex-end;flex-wrap:wrap}
+.modal-f .sp{margin-inline-end:auto}
+
+/* ---------- Toasts ---------- */
+.toasts{position:fixed;bottom:20px;inset-inline-start:20px;z-index:400;display:flex;flex-direction:column;gap:9px;max-width:min(380px,90vw)}
+.toast{background:var(--card);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow-lg);padding:12px 14px;display:flex;gap:10px;align-items:flex-start;animation:slideIn .25s cubic-bezier(.2,.9,.3,1.2)}
+[dir=rtl] .toast{animation-name:slideInRtl}
+@keyframes slideIn{from{opacity:0;transform:translateX(-24px)}to{opacity:1;transform:none}}
+@keyframes slideInRtl{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:none}}
+.toast .ti{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;flex:0 0 30px;background:var(--info-bg);color:var(--info)}
+.toast .ti svg{width:16px;height:16px}
+.toast.ok .ti{background:var(--ok-bg);color:var(--ok)}
+.toast.bad .ti{background:var(--bad-bg);color:var(--bad)}
+.toast.warn .ti{background:var(--warn-bg);color:var(--warn)}
+.toast .tt{min-width:0;flex:1}
+.toast .tt b{display:block;font-size:13.5px;font-weight:800}
+.toast .tt span{font-size:12.5px;color:var(--muted)}
+
+/* ---------- Empty state ---------- */
+.empty{text-align:center;padding:46px 20px;color:var(--muted)}
+.empty .ic{width:68px;height:68px;border-radius:20px;background:var(--line-2);display:grid;place-items:center;margin:0 auto 14px;color:var(--muted-2)}
+.empty .ic svg{width:32px;height:32px}
+.empty h4{font-size:15.5px;font-weight:800;color:var(--ink)}
+.empty p{font-size:13px;margin-top:4px}
+
+/* ---------- Attendance ---------- */
+.att-row{display:flex;align-items:center;gap:12px;padding:11px 13px;border:1px solid var(--line);border-radius:13px;background:var(--card);margin-bottom:9px;transition:.15s}
+.att-row:hover{border-color:var(--brand)}
+.att-row .an{flex:1;min-width:0}
+.att-row .an b{display:block;font-weight:700}
+.att-row .an span{font-size:11.5px;color:var(--muted)}
+.seg{display:flex;gap:5px;background:var(--line-2);padding:4px;border-radius:12px}
+.seg button{border:0;background:transparent;padding:7px 13px;border-radius:9px;font-weight:800;font-size:12.5px;cursor:pointer;color:var(--muted);transition:.15s;white-space:nowrap}
+.seg button:hover{color:var(--ink)}
+.seg button.on{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
+.seg button.on[data-v=present]{color:var(--ok)} .seg button.on[data-v=absent]{color:var(--bad)}
+.seg button.on[data-v=late]{color:var(--warn)} .seg button.on[data-v=excused]{color:var(--info)}
+.att-sum{display:flex;gap:8px;flex-wrap:wrap}
+.att-sum .k{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:var(--muted)}
+.att-sum .k i{width:9px;height:9px;border-radius:3px;display:block}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.cal .cd{aspect-ratio:1;border-radius:9px;background:var(--line-2);display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--muted);position:relative}
+.cd.present{background:var(--ok-bg) !important;color:var(--ok) !important}
+.cd.absent{background:var(--bad-bg) !important;color:var(--bad) !important}
+.cd.late{background:var(--warn-bg) !important;color:var(--warn) !important}
+.cd.excused{background:var(--info-bg) !important;color:var(--info) !important}
+.cal-hd{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;margin-bottom:6px}
+.cal-hd div{text-align:center;font-size:11px;font-weight:800;color:var(--muted-2)}
+
+/* ---------- Charts ---------- */
+.chart{width:100%;display:block;height:230px}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px}
+.legend .lg{display:flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:var(--muted)}
+.legend .lg i{width:11px;height:11px;border-radius:4px;display:block}
+
+/* ---------- Progress ---------- */
+.bar{height:8px;border-radius:6px;background:var(--line-2);overflow:hidden;min-width:70px}
+.bar>i{display:block;height:100%;border-radius:6px;background:var(--brand);transition:width .5s}
+.bar.ok>i{background:var(--ok)} .bar.bad>i{background:var(--bad)} .bar.info>i{background:var(--info)}
+
+/* ---------- Alerts list ---------- */
+.alert-row{display:flex;align-items:center;gap:11px;padding:10px 12px;border-radius:12px;border:1px solid var(--line);margin-bottom:8px;background:var(--card)}
+.alert-row .ai{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:0 0 34px}
+.alert-row .ai svg{width:17px;height:17px}
+.alert-row.warn .ai{background:var(--warn-bg);color:var(--warn)}
+.alert-row.bad .ai{background:var(--bad-bg);color:var(--bad)}
+.alert-row.info .ai{background:var(--info-bg);color:var(--info)}
+.alert-row .at{flex:1;min-width:0}
+.alert-row .at b{display:block;font-weight:700;font-size:13.5px}
+.alert-row .at span{font-size:11.5px;color:var(--muted)}
+
+/* ---------- Timeline ---------- */
+.tl{position:relative;padding-inline-start:20px}
+.tl::before{content:"";position:absolute;inset-inline-start:5px;top:6px;bottom:6px;width:2px;background:var(--line)}
+.tl .tli{position:relative;padding-bottom:14px}
+.tl .tli::before{content:"";position:absolute;inset-inline-start:-19px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--brand);box-shadow:0 0 0 3px var(--card)}
+.tl .tli b{font-weight:700;font-size:13.5px}
+.tl .tli span{display:block;font-size:11.5px;color:var(--muted)}
+
+/* ---------- Receipt ---------- */
+.receipt{background:#fff;color:#111;border-radius:14px;padding:22px;border:1px dashed #c9ccd3;max-width:560px;margin:0 auto}
+.receipt .rh{display:flex;align-items:center;gap:12px;border-bottom:2px dashed #d5d8de;padding-bottom:13px;margin-bottom:13px}
+.receipt .rh img{width:56px;height:56px;border-radius:50%;object-fit:cover;border:2px solid #f5b301}
+.receipt .rh b{display:block;font-size:16px;font-weight:800}
+.receipt .rh span{font-size:12px;color:#666}
+.receipt table{width:100%;border-collapse:collapse;font-size:13.5px}
+.receipt table td{padding:7px 4px;border-bottom:1px solid #eee}
+.receipt table td:first-child{color:#666;font-weight:700;width:42%}
+.receipt .rf{margin-top:14px;display:flex;justify-content:space-between;font-size:12px;color:#666;border-top:2px dashed #d5d8de;padding-top:11px}
+
+/* ---------- Misc ---------- */
+.kv{display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:13.5px}
+.kv dt{color:var(--muted);font-weight:700}
+.kv dd{margin:0;font-weight:700}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:16px;overflow-x:auto}
+.tabs button{border:0;background:transparent;padding:11px 15px;font-weight:800;font-size:13.5px;color:var(--muted);cursor:pointer;border-bottom:2.5px solid transparent;transition:.15s;white-space:nowrap}
+.tabs button:hover{color:var(--ink)}
+.tabs button.on{color:var(--ink);border-color:var(--brand)}
+.code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;direction:ltr;text-align:left}
+.help{background:var(--info-bg);border:1px solid color-mix(in srgb,var(--info) 25%,transparent);border-radius:13px;padding:13px 15px;font-size:13px;line-height:1.8}
+.help b{font-weight:800}
+.help code{background:rgba(0,0,0,.07);padding:1px 6px;border-radius:6px;font-family:ui-monospace,monospace;font-size:12px;direction:ltr;display:inline-block}
+[data-theme="dark"] .help code{background:rgba(255,255,255,.1)}
+.sep{height:1px;background:var(--line);margin:16px 0}
+.mono{font-variant-numeric:tabular-nums}
+.center{text-align:center}
+.nowrap{white-space:nowrap}
+.flex{display:flex;align-items:center;gap:10px}
+.flex.wrap{flex-wrap:wrap}
+.flex .sp{margin-inline-start:auto}
+.muted{color:var(--muted)}
+.small{font-size:12px}
+.strong{font-weight:800}
+.spin{width:16px;height:16px;border:2.5px solid rgba(0,0,0,.15);border-top-color:currentColor;border-radius:50%;animation:spin .8s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.scrim{display:none}
+
+/* ---------- Responsive ---------- */
+@media (max-width:1200px){
+  .g-4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .g-23,.g-32{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:900px){
+  .sidebar{transform:translateX(100%)}
+  [dir=ltr] .sidebar{transform:translateX(-100%)}
+  .sidebar.open{transform:none;box-shadow:0 0 60px rgba(0,0,0,.5)}
+  .main{margin-inline-start:0}
+  .burger{display:flex}
+  .scrim{display:block;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:55;opacity:0;pointer-events:none;transition:.25s}
+  .scrim.on{opacity:1;pointer-events:auto}
+  .g-3,.g-2{grid-template-columns:minmax(0,1fr)}
+  .searchbox input{width:150px}
+}
+@media (max-width:640px){
+  .content{padding:13px}
+  .topbar{padding:9px 12px;gap:8px}
+  .g-4{grid-template-columns:minmax(0,1fr)}
+  .frow,.frow-3{grid-template-columns:minmax(0,1fr)}
+  .stat .val{font-size:22px}
+  .ptitle h1{font-size:16px}
+  .ptitle p{display:none}
+  .searchbox{display:none}
+  .modal-b{max-height:none}
+  .overlay{padding:0;align-items:flex-end}
+  .modal{max-width:100%;border-radius:18px 18px 0 0;margin:0}
+  .toasts{inset-inline:12px;bottom:12px;max-width:none}
+}
+
+/* ---------- Print ---------- */
+@media print{
+  .sidebar,.topbar,.toasts,.modal-h .x,.modal-f,.btn,.scrim{display:none !important}
+  body{background:#fff}
+  .main{margin:0}
+  .content{padding:0}
+  .card{box-shadow:none;border-color:#ddd}
+  .overlay{position:static;background:#fff;padding:0;display:block}
+  .modal{box-shadow:none;max-width:none;border:0}
+  .modal-b{max-height:none;overflow:visible;padding:0}
+  .print-only{display:block !important}
+  .no-print{display:none !important}
+  a{text-decoration:none;color:#000}
+}
+.print-only{display:none}
+</style>
+<script>/* شعار بديل يظهر تلقائيًا لو ملف logo.jpg غير موجود */
+window.AF_LOGO_FALLBACK='data:image/svg+xml;charset=utf-8,'+encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#ffd451'/><stop offset='1' stop-color='#f5b301'/></linearGradient></defs><circle cx='60' cy='60' r='60' fill='#111'/><circle cx='60' cy='60' r='52' fill='url(#g)'/><text x='60' y='70' font-family='Tahoma,Arial' font-size='34' font-weight='bold' text-anchor='middle' fill='#1b1b1b'>AF</text></svg>");</script>
+</head>
+<body>
+<!-- ============ SVG icon sprite ============ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<defs>
+  <symbol id="i-dash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 13h8V3H3zM13 21h8V11h-8zM3 21h8v-4H3zM13 7h8V3h-8z"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+  <symbol id="i-check-square" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></symbol>
+  <symbol id="i-award" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="6"/><path d="M15.5 13.5L17 22l-5-3-5 3 1.5-8.5"/></symbol>
+  <symbol id="i-wallet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12V8H6a2 2 0 0 1 0-4h12v4"/><path d="M4 6v12a2 2 0 0 0 2 2h14v-4"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9M13 17V5M8 17v-3"/></symbol>
+  <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6 1.65 1.65 0 0 0 10 3.09V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6"/></symbol>
+  <symbol id="i-print" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8" rx="1"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-receipt" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 2v20l3-2 3 2 3-2 3 2 3-2V2l-3 2-3-2-3 2-3-2z"/><path d="M8 9h8M8 13h5"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 12h18M3 6h18M3 18h18"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.79 19.79 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></symbol>
+  <symbol id="i-save" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+  <symbol id="i-money" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15 9.5A3 3 0 0 0 12 8c-1.7 0-3 .9-3 2s1.3 2 3 2 3 .9 3 2-1.3 2-3 2a3 3 0 0 1-3-1.5M12 6v1M12 17v1"/></symbol>
+  <symbol id="i-filter" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 3H2l8 9.46V19l4 2v-8.54z"/></symbol>
+  <symbol id="i-user-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><path d="M17 11l2 2 4-4"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></symbol>
+  <symbol id="i-whatsapp" viewBox="0 0 24 24" fill="currentColor"><path d="M17.47 14.38c-.3-.15-1.75-.86-2.02-.96-.27-.1-.47-.15-.67.15-.2.3-.77.96-.94 1.16-.17.2-.35.22-.65.07-.3-.15-1.25-.46-2.38-1.47-.88-.79-1.47-1.76-1.64-2.06-.17-.3-.02-.46.13-.61.13-.13.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.67-1.6-.92-2.19-.24-.58-.49-.5-.67-.5h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.01-1.04 2.47s1.06 2.86 1.21 3.06c.15.2 2.09 3.2 5.07 4.37.71.28 1.26.45 1.69.57.71.19 1.36.16 1.87.1.57-.07 1.75-.71 2-1.4.25-.69.25-1.28.17-1.4-.07-.12-.27-.2-.57-.35zM12.05 21.5h-.01a9.4 9.4 0 0 1-4.79-1.31l-.34-.2-3.56.93.95-3.47-.22-.36a9.38 9.38 0 0 1-1.44-5.02c0-5.19 4.23-9.41 9.42-9.41 2.52 0 4.88.98 6.66 2.76a9.35 9.35 0 0 1 2.76 6.66c0 5.19-4.23 9.42-9.43 9.42zM20.5 3.49A11.8 11.8 0 0 0 12.05 0C5.53 0 .22 5.3.22 11.82c0 2.08.55 4.11 1.58 5.9L0 24l6.43-1.68a11.78 11.78 0 0 0 5.62 1.43h.01c6.52 0 11.83-5.3 11.83-11.82 0-3.16-1.23-6.13-3.47-8.36z"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+</defs>
+</svg>
+
+<div class="shell">
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <img src="logo.jpg" alt="أحمد فتحي" id="brandLogo" onerror="this.onerror=null;this.src=AF_LOGO_FALLBACK">
+      <div class="bt">
+        <b id="brandName">أحمد فتحي</b>
+        <span id="brandSub">نظام المتابعة</span>
+      </div>
+    </div>
+    <nav class="nav" id="nav">
+      <div class="nlabel">الرئيسية</div>
+      <a data-view="dashboard" class="on"><svg><use href="#i-dash"/></svg><span>لوحة التحكم</span></a>
+      <a data-view="alerts"><svg><use href="#i-bell"/></svg><span>التنبيهات</span><span class="pill hide" id="navAlertsPill">0</span></a>
+      <div class="nlabel">الطلبة والمتابعة</div>
+      <a data-view="students"><svg><use href="#i-users"/></svg><span>الطلبة</span><span class="pill" id="navStudentsPill">0</span></a>
+      <a data-view="groups"><svg><use href="#i-layers"/></svg><span>المجموعات</span></a>
+      <a data-view="attendance"><svg><use href="#i-check-square"/></svg><span>الحضور والغياب</span></a>
+      <a data-view="exams"><svg><use href="#i-award"/></svg><span>الامتحانات والدرجات</span></a>
+      <div class="nlabel">المالية</div>
+      <a data-view="payments"><svg><use href="#i-wallet"/></svg><span>الاشتراكات والمدفوعات</span></a>
+      <div class="nlabel">أخرى</div>
+      <a data-view="reports"><svg><use href="#i-chart"/></svg><span>التقارير</span></a>
+      <a data-view="settings"><svg><use href="#i-gear"/></svg><span>الإعدادات</span></a>
+    </nav>
+    <div class="side-foot">
+      <div class="cloud" id="cloudChip" title="حالة قاعدة البيانات">
+        <span class="dot"></span>
+        <span class="ct"><b id="cloudTitle">تخزين محلي</b><span id="cloudSub">اضغط للربط بـ Firebase</span></span>
+      </div>
+    </div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <!-- ============ MAIN ============ -->
+  <div class="main">
+    <header class="topbar">
+      <button class="burger" id="burger" title="القائمة"><svg width="20" height="20"><use href="#i-menu"/></svg></button>
+      <div class="ptitle">
+        <h1 id="pageTitle">لوحة التحكم</h1>
+        <p id="pageSub">نظرة عامة على أداء المركز</p>
+      </div>
+      <div class="tb-actions">
+        <div class="searchbox">
+          <svg><use href="#i-search"/></svg>
+          <input type="text" id="globalSearch" placeholder="ابحث عن طالب، هاتف، كود...">
+        </div>
+        <button class="btn icon" id="themeBtn" title="الوضع الليلي"><svg><use href="#i-moon"/></svg></button>
+        <button class="btn pri" id="quickAddBtn"><svg><use href="#i-plus"/></svg><span class="nowrap">إضافة طالب</span></button>
+      </div>
+    </header>
+    <main class="content" id="content"></main>
+  </div>
+</div>
+
+<div id="modalRoot"></div>
+<div class="toasts" id="toasts"></div>
+<input type="file" id="fileInput" accept=".json,application/json" class="hide">
+
+<script>
+
+/* ==== 20-core.js ==== */
+/* ============================================================
+   نظام المتابعة - أحمد فتحي
+   Part 1/3 : Core  (helpers · state · storage · Firebase · UI kit)
+   ============================================================ */
+'use strict';
+
+/* ---------------- Logo fallback (inline SVG) ---------------- */
+const AF_LOGO_FALLBACK = window.AF_LOGO_FALLBACK;
+
+/* ---------------- Tiny DOM helpers ---------------- */
+const $  = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => Array.prototype.slice.call(root.querySelectorAll(sel));
+function esc(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function icon(name, cls){ return `<svg class="${cls||''}"><use href="#i-${name}"/></svg>`; }
+function uid(prefix){
+  return (prefix || 'id') + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+}
+function debounce(fn, ms){
+  let t; return function(){ const a = arguments, c = this; clearTimeout(t); t = setTimeout(() => fn.apply(c, a), ms); };
+}
+function throttle(fn, ms){
+  let last = 0, timer = null;
+  return function(){ const a = arguments, now = Date.now();
+    if (now - last > ms){ last = now; fn.apply(this, a); }
+    else { clearTimeout(timer); timer = setTimeout(() => { last = Date.now(); fn.apply(this, a); }, ms - (now - last)); }
+  };
+}
+function clamp(n, a, b){ return Math.max(a, Math.min(b, n)); }
+function sum(arr, f){ return arr.reduce((t, x) => t + (f ? f(x) : x), 0); }
+function groupBy(arr, f){
+  const m = {};
+  arr.forEach(x => { const k = f(x); (m[k] = m[k] || []).push(x); });
+  return m;
+}
+function sortBy(arr, f, dir){ return arr.slice().sort((a,b) => { const x=f(a), y=f(b); return (x<y?-1:x>y?1:0) * (dir==='desc'?-1:1); }); }
+function unique(arr){ return Array.from(new Set(arr)); }
+
+/* ---------------- Arabic dates & numbers ---------------- */
+const AR_MONTHS = ['يناير','فبراير','مارس','أبريل','مايو','يونيو','يوليو','أغسطس','سبتمبر','أكتوبر','نوفمبر','ديسمبر'];
+const AR_DAYS   = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+const AR_DAYS_SHORT = ['أحد','اثنين','ثلاثاء','أربعاء','خميس','جمعة','سبت'];
+
+function iso(d){
+  const x = d ? new Date(d) : new Date();
+  const m = String(x.getMonth() + 1).padStart(2,'0');
+  const day = String(x.getDate()).padStart(2,'0');
+  return `${x.getFullYear()}-${m}-${day}`;
+}
+function today(){ return iso(new Date()); }
+function parseISO(s){
+  if (!s) return null;
+  const p = String(s).split('-').map(Number);
+  if (p.length < 3 || !p[0]) return null;
+  return new Date(p[0], p[1] - 1, p[2]);
+}
+function monthKey(d){
+  if (typeof d === 'string' && /^\d{4}-\d{2}/.test(d)) return d.slice(0,7);
+  const x = d ? new Date(d) : new Date();
+  return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}`;
+}
+function monthName(key){
+  const p = String(key).split('-');
+  return AR_MONTHS[Number(p[1]) - 1] + ' ' + p[0];
+}
+function fmtDate(s, withDay){
+  const d = parseISO(s);
+  if (!d) return '—';
+  const base = `${d.getDate()} ${AR_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
+  return withDay ? `${AR_DAYS[d.getDay()]} ${base}` : base;
+}
+function fmtShort(s){
+  const d = parseISO(s);
+  if (!d) return '—';
+  return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}`;
+}
+function addDays(s, n){
+  const d = typeof s === 'string' ? parseISO(s) : new Date(s);
+  d.setDate(d.getDate() + n);
+  return iso(d);
+}
+function addMonths(s, n){
+  const d = parseISO(s) || new Date();
+  const day = d.getDate();
+  d.setDate(1); d.setMonth(d.getMonth() + n);
+  const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+  d.setDate(Math.min(day, last));
+  return iso(d);
+}
+function daysBetween(a, b){
+  const d1 = parseISO(a), d2 = parseISO(b);
+  if (!d1 || !d2) return 0;
+  return Math.round((d2 - d1) / 86400000);
+}
+function daysLeft(endDate){ return daysBetween(today(), endDate); }
+function monthRange(startKey, count){
+  const out = []; let k = startKey;
+  for (let i = 0; i < count; i++){ out.push(k); k = monthKey(addMonths(k + '-01', 1)); }
+  return out;
+}
+function monthSeq(fromKey, toKey){
+  const out = []; let k = fromKey, guard = 0;
+  while (k <= toKey && guard++ < 400){ out.push(k); k = monthKey(addMonths(k + '-01', 1)); }
+  return out;
+}
+function nf(n, dec){
+  const v = Number(n) || 0;
+  return v.toLocaleString('en-US', { minimumFractionDigits: dec || 0, maximumFractionDigits: dec || 0 });
+}
+function money(n){ return nf(Math.round(Number(n) || 0)) + ' ' + (S.data.settings.currency || 'ج.م'); }
+function money0(n){ return nf(Math.round(Number(n) || 0)); }
+function pct(a, b){ return b ? Math.round((a / b) * 100) : 0; }
+function initials(name){
+  const p = String(name || '').trim().split(/\s+/);
+  return (p[0] ? p[0][0] : '?') + (p[1] ? p[1][0] : '');
+}
+const AV_COLORS = ['#f5b301','#2563eb','#12a150','#e02424','#7c3aed','#0891b2','#db2777','#ea580c','#4f46e5','#0d9488'];
+function avColor(key){
+  let h = 0; const s = String(key || '');
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 9973;
+  return AV_COLORS[h % AV_COLORS.length];
+}
+function parsePhone(p){ return String(p || '').replace(/[^\d+]/g, ''); }
+function waLink(phone, text){
+  let p = parsePhone(phone);
+  if (p.startsWith('+')) p = p.slice(1);
+  if (p.startsWith('0')) p = '20' + p.slice(1);
+  if (!p.startsWith('20') && p.length <= 11) p = '20' + p;
+  return `https://wa.me/${p}?text=${encodeURIComponent(text || '')}`;
+}
+
+/* ---------------- Toast ---------------- */
+function toast(msg, type, title){
+  const box = $('#toasts');
+  const t = document.createElement('div');
+  const icons = { ok:'check', bad:'alert', warn:'alert', info:'bell' };
+  t.className = 'toast ' + (type || 'info');
+  t.innerHTML = `<span class="ti">${icon(icons[type] || 'bell')}</span>
+    <span class="tt"><b>${esc(title || ({ok:'تم بنجاح',bad:'خطأ',warn:'تنبيه',info:'معلومة'})[type] || 'معلومة')}</b><span>${esc(msg)}</span></span>`;
+  box.appendChild(t);
+  setTimeout(() => { t.style.transition = '.3s'; t.style.opacity = '0'; t.style.transform = 'translateY(10px)';
+    setTimeout(() => t.remove(), 320); }, type === 'bad' ? 6000 : 3600);
+}
+
+/* ---------------- Modal manager ---------------- */
+const Modal = {
+  stack: [],
+  open(opt){
+    const id = uid('m');
+    const ov = document.createElement('div');
+    ov.className = 'overlay';
+    ov.dataset.mid = id;
+    const size = opt.size ? ' ' + opt.size : '';
+    ov.innerHTML = `
+      <div class="modal${size}" role="dialog" aria-modal="true">
+        <div class="modal-h">
+          <div>
+            <h3>${esc(opt.title || '')}</h3>
+            ${opt.sub ? `<div class="sub">${esc(opt.sub)}</div>` : ''}
+          </div>
+          <button class="x no-print" data-close="${id}" aria-label="إغلاق">${icon('x')}</button>
+        </div>
+        <div class="modal-b" id="mb_${id}">${opt.body || ''}</div>
+        ${opt.footer === null ? '' : `<div class="modal-f no-print">${opt.footer || `<button class="btn" data-close="${id}">إغلاق</button>`}</div>`}
+      </div>`;
+    $('#modalRoot').appendChild(ov);
+    ov.querySelectorAll('[data-close="__ID__"]').forEach(b => b.setAttribute('data-close', id));
+    this.stack.push(id);
+    document.body.style.overflow = 'hidden';
+    ov.addEventListener('click', e => {
+      if (e.target === ov && opt.dismissable !== false) this.close(id);
+    });
+    if (opt.onMount) opt.onMount(ov.querySelector('.modal'), ov);
+    const f = ov.querySelector('input,select,textarea,button.pri');
+    if (f && opt.autofocus !== false && window.innerWidth > 700) setTimeout(() => { try { f.focus(); } catch(e){} }, 60);
+    return id;
+  },
+  close(id){
+    let ov;
+    if (id) ov = $(`.overlay[data-mid="${id}"]`);
+    else ov = this.stack.length ? $(`.overlay[data-mid="${this.stack[this.stack.length-1]}"]`) : null;
+    if (!ov) return;
+    const mid = ov.dataset.mid;
+    this.stack = this.stack.filter(x => x !== mid);
+    ov.style.transition = '.18s'; ov.style.opacity = '0';
+    setTimeout(() => ov.remove(), 180);
+    if (!this.stack.length) document.body.style.overflow = '';
+  },
+  closeAll(){ this.stack.slice().forEach(id => this.close(id)); }
+};
+
+/* ---------------- State ---------------- */
+const LS_KEY = 'af_tracker_v1';
+const FB_KEY = 'af_tracker_fb';
+
+function defaultData(){
+  const t = today();
+  return {
+    meta: { version: 1, rev: 0, updatedAt: new Date().toISOString(), createdAt: new Date().toISOString() },
+    settings: {
+      centerName: 'أكاديمية أحمد فتحي',
+      coachName: 'أحمد فتحي',
+      phone: '',
+      currency: 'ج.م',
+      levels: ['مبتدئ','متوسط','متقدم'],
+      expiryWarnDays: 5,
+      absentWarn: 3,
+      sessionPrice: 100,
+      monthlyPrice: 500,
+      theme: 'light',
+      startMonth: monthKey(t)
+    },
+    groups: [], students: [], exams: [], grades: {}, payments: [], attendance: {}
+  };
+}
+
+const S = {
+  data: defaultData(),
+  view: 'dashboard',
+  query: '',
+  ui: {
+    stuFilter: { groupId:'', level:'', status:'', sort:'name' },
+    stuView: 'table',
+    att: { date: today(), groupId: '', note: '' , matrixMonth: monthKey(today()) },
+    exam: { id: '' },
+    rep: { type:'attendance', from: monthKey(today()) + '-01', to: today(), groupId:'', }
+  },
+  fb: { status:'off', cfg:null, app:null, db:null, unsubs:[], err:'', syncing:false, lastSync:null, code:'' },
+  applyingRemote: false
+};
+
+/* ---------------- Storage : localStorage ---------------- */
+function loadLocal(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw){
+      const d = JSON.parse(raw);
+      S.data = migrate(d);
+      return true;
+    }
+  }catch(e){ console.warn('load error', e); }
+  return false;
+}
+function migrate(d){
+  const base = defaultData();
+  const out = Object.assign({}, base, d || {});
+  out.meta = Object.assign({}, base.meta, d && d.meta);
+  out.settings = Object.assign({}, base.settings, d && d.settings);
+  out.groups = (out.groups || []).map(g => Object.assign({ id: uid('g'), name:'', level:'', days:[], time:'', price:0, note:'' }, g));
+  out.students = (out.students || []).map(s => Object.assign({
+    id: uid('s'), code:'', name:'', phone:'', parentPhone:'', guardian:'', groupId:'', level:'',
+    status:'active', joinDate: today(), notes:'', fee: out.settings.monthlyPrice,
+    sub: { type:'monthly', start: today(), end: addMonths(today(),1), total:12, used:0 }
+  }, s, { sub: Object.assign({ type:'monthly', start: today(), end: addMonths(today(),1), total:12, used:0 }, (s && s.sub) || {}) }));
+  out.exams = out.exams || [];
+  out.grades = out.grades || {};
+  out.payments = (out.payments || []).map(p => Object.assign({ id: uid('p'), method:'cash', period:'', sessions:0 }, p));
+  out.attendance = out.attendance || {};
+  return out;
+}
+const saveLocal = debounce(function(){
+  try{
+    S.data.meta.updatedAt = new Date().toISOString();
+    localStorage.setItem(LS_KEY, JSON.stringify(S.data));
+  }catch(e){
+    console.warn('save error', e);
+    toast('تعذّر الحفظ في المتصفح — المساحة ممتلئة؟', 'bad');
+  }
+}, 200);
+
+/* Central write: marks rev, saves locally and queues a cloud push */
+const dirty = { main:false, months:{} };
+function commit(opts){
+  opts = opts || {};
+  S.data.meta.rev = (S.data.meta.rev || 0) + 1;
+  S.data.meta.updatedAt = new Date().toISOString();
+  dirty.main = true;
+  saveLocal();
+  if (!opts.silent) render();
+  Cloud.push();
+}
+
+/* ---------------- Cloud (Firebase Firestore) ---------------- */
+const Cloud = {
+  CFG_KEY: FB_KEY,
+  readCfg(){
+    try{ return JSON.parse(localStorage.getItem(FB_KEY) || 'null'); }catch(e){ return null; }
+  },
+  writeCfg(cfg){
+    if (cfg) localStorage.setItem(FB_KEY, JSON.stringify(cfg));
+    else localStorage.removeItem(FB_KEY);
+  },
+  setStatus(status, msg){
+    S.fb.status = status;
+    if (msg) S.fb.err = msg;
+    paintCloud();
+  },
+  path(){ return 'centers/' + (S.fb.cfg && S.fb.cfg.code ? S.fb.cfg.code : 'default'); },
+
+  async connect(opts){
+    opts = opts || {};
+    const cfg = opts.config || this.readCfg();
+    if (!cfg || !cfg.apiKey || !cfg.projectId){
+      toast('أدخل إعدادات Firebase أولًا', 'warn');
+      return false;
+    }
+    this.disconnect(true);
+    S.fb.cfg = cfg;
+    if (opts.save !== false) this.writeCfg(cfg);
+    this.setStatus('busy', 'جارٍ الاتصال...');
+    try{
+      const V = '10.12.5';
+      const [appMod, fsMod] = await Promise.all([
+        import('https://www.gstatic.com/firebasejs/' + V + '/firebase-app.js'),
+        import('https://www.gstatic.com/firebasejs/' + V + '/firebase-firestore.js')
+      ]);
+      const app = appMod.initializeApp(cfg, 'af-tracker-' + Date.now().toString(36));
+      const db = fsMod.getFirestore(app);
+      S.fb.app = app; S.fb.db = db;
+      S.fb.api = {
+        doc: fsMod.doc, collection: fsMod.collection, onSnapshot: fsMod.onSnapshot,
+        setDoc: fsMod.setDoc, getDoc: fsMod.getDoc, getDocs: fsMod.getDocs,
+        deleteDoc: fsMod.deleteDoc, serverTimestamp: fsMod.serverTimestamp, writeBatch: fsMod.writeBatch
+      };
+      S.fb.path = this.path();
+      this.listen();
+      this.setStatus('live', null);
+      toast('تم الاتصال بـ Firebase — المزامنة الفورية شغالة', 'ok');
+      S.fb.lastSync = new Date();
+      paintCloud();
+      return true;
+    }catch(err){
+      console.error(err);
+      this.setStatus('error', (err && err.message) || 'فشل الاتصال');
+      toast('فشل الاتصال بـ Firebase: ' + ((err && err.message) || ''), 'bad');
+      return false;
+    }
+  },
+  disconnect(silent){
+    (S.fb.unsubs || []).forEach(u => { try{ u(); }catch(e){} });
+    S.fb.unsubs = [];
+    if (S.fb.app){ try{ S.fb.app.delete(); }catch(e){} }
+    S.fb.app = null; S.fb.db = null;
+    if (!silent){ this.setStatus('off', null); toast('تم فصل الاتصال — النظام شغال محليًا', 'info'); }
+    paintCloud();
+  },
+  listen(){
+    const api = S.fb.api, db = S.fb.db, base = S.fb.path;
+    const unsub1 = api.onSnapshot(api.doc(db, base), snap => {
+      if (!snap.exists()){ this.push(true); return; }
+      const remote = snap.data() || {};
+      if ((remote.rev || 0) <= (S.data.meta.rev || 0)) { S.fb.lastSync = new Date(); paintCloud(); return; }
+      this.applyRemote(remote);
+    }, err => { this.setStatus('error', err.message); });
+
+    const unsub2 = api.onSnapshot(api.collection(db, base + '/attendance'), snap => {
+      let changed = false;
+      snap.forEach(d => {
+        const data = d.data() || {};
+        const key = d.id;
+        if ((data.rev || 0) > ((S.data.attendance[key] || {}).rev || 0)){
+          S.data.attendance[key] = { groupId: data.groupId || 'none', note: data.note || '', records: data.records || {}, rev: data.rev || 0, savedAt: data.savedAt || '' };
+          changed = true;
+        }
+      });
+      if (changed){ S.applyingRemote = true; saveLocal(); render(); S.applyingRemote = false; S.fb.lastSync = new Date(); paintCloud(); }
+    }, err => { this.setStatus('error', err.message); });
+
+    S.fb.unsubs.push(unsub1, unsub2);
+  },
+  applyRemote(remote){
+    if (!remote.students) return;
+    const keepRev = remote.rev || 0;
+    const att = S.data.attendance;
+    S.applyingRemote = true;
+    S.data = migrate({
+      meta: Object.assign({}, S.data.meta, remote.meta, { rev: keepRev }),
+      settings: Object.assign({}, S.data.settings, remote.settings),
+      groups: remote.groups, students: remote.students, exams: remote.exams,
+      payments: remote.payments, grades: remote.grades, attendance: att
+    });
+    saveLocal();
+    render();
+    S.applyingRemote = false;
+    S.fb.lastSync = new Date();
+    toast('تم تحديث البيانات من السحابة', 'info');
+  },
+  push(force){
+    if (S.fb.status !== 'live' || S.applyingRemote) return;
+    this._push = this._push || debounce(() => this._doPush(), 900);
+    if (force) this._doPush(); else this._push();
+  },
+  async _doPush(){
+    const api = S.fb.api, db = S.fb.db, base = S.fb.path;
+    if (!api || !db) return;
+    const months = Object.keys(dirty.months);
+    dirty.main = false; dirty.months = {};
+    S.fb.syncing = true; paintCloud();
+    try{
+      await api.setDoc(api.doc(db, base), {
+        meta: S.data.meta, settings: S.data.settings, groups: S.data.groups,
+        students: S.data.students, exams: S.data.exams, payments: S.data.payments,
+        grades: S.data.grades, rev: S.data.meta.rev, updatedAt: new Date().toISOString()
+      }, { merge: true });
+      for (const k of months){
+        const items = Object.keys(S.data.attendance).filter(x => x.split('@')[0].slice(0,7) === k);
+        if (!items.length) continue;
+        for (const fullKey of items){
+          const [date, gid] = fullKey.split('@');
+          const rec = S.data.attendance[fullKey];
+          await api.setDoc(api.doc(db, base + '/attendance', fullKey), {
+            groupId: gid, note: rec.note || '', records: rec.records || {},
+            rev: rec.rev || 0, savedAt: rec.savedAt || '', month: k
+          }, { merge: true });
+        }
+      }
+      S.fb.lastSync = new Date(); S.fb.syncing = false; paintCloud();
+    }catch(err){
+      S.fb.syncing = false;
+      this.setStatus('error', err.message);
+      console.error(err);
+      toast('فشل الرفع للسحابة: ' + err.message, 'bad');
+    }
+  },
+  async pull(){
+    const api = S.fb.api, db = S.fb.db, base = S.fb.path;
+    if (!api){ toast('اتصل بـ Firebase أولًا', 'warn'); return; }
+    try{
+      const snap = await api.getDoc(api.doc(db, base));
+      if (!snap.exists()){ toast('لا توجد بيانات على السحابة — ارفع بياناتك أولًا', 'warn'); return; }
+      this.applyRemote(snap.data());
+      toast('تم تنزيل البيانات من السحابة', 'ok');
+    }catch(e){ toast('فشل التنزيل: ' + e.message, 'bad'); }
+  },
+  async pushAll(){
+    if (S.fb.status !== 'live'){ toast('اتصل بـ Firebase أولًا', 'warn'); return; }
+    dirty.main = true;
+    Object.keys(S.data.attendance).forEach(k => { dirty.months[k.split('@')[0].slice(0,7)] = true; });
+    S.data.meta.rev = (S.data.meta.rev || 0) + 1;
+    await this._doPush();
+    toast('تم رفع كل البيانات للسحابة', 'ok');
+  }
+};
+function paintCloud(){
+  const chip = $('#cloudChip'); if (!chip) return;
+  const map = { off:['', 'تخزين محلي', 'اضغط للربط بـ Firebase'],
+                busy:['busy', 'جارٍ الاتصال...', 'Firebase'],
+                live:['live', 'متصل بالسحابة', S.fb.syncing ? 'جارٍ المزامنة...' : (S.fb.lastSync ? 'آخر مزامنة ' + S.fb.lastSync.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'}) : 'مزامنة فورية')],
+                error:['err', 'خطأ اتصال', S.fb.err || 'راجع الإعدادات'] };
+  const [cls, title, sub] = map[S.fb.status] || map.off;
+  chip.className = 'cloud ' + cls;
+  $('#cloudTitle').textContent = title;
+  $('#cloudSub').textContent = sub;
+}
+
+/* ---------------- Domain helpers ---------------- */
+function student(id){ return S.data.students.find(s => s.id === id); }
+function groupOf(id){ return S.data.groups.find(g => g.id === id); }
+function groupName(id){ const g = groupOf(id); return g ? g.name : 'بدون مجموعة'; }
+function examOf(id){ return S.data.exams.find(e => e.id === id); }
+function studentsOf(groupId){ return S.data.students.filter(s => (s.groupId || '') === (groupId || '')); }
+function activeStudents(){ return S.data.students.filter(s => s.status === 'active'); }
+
+function attKey(date, groupId){ return date + '@' + (groupId || 'none'); }
+function getAtt(date, groupId){ return S.data.attendance[attKey(date, groupId)] || null; }
+function setAtt(date, groupId, records, note){
+  const k = attKey(date, groupId);
+  const prev = S.data.attendance[k] || {};
+  S.data.attendance[k] = { groupId: groupId || 'none', note: note || '', records: records,
+    rev: (prev.rev || 0) + 1, savedAt: new Date().toISOString() };
+  dirty.months[date.slice(0,7)] = true;
+}
+function allAttRecords(){
+  const out = [];
+  Object.keys(S.data.attendance).forEach(k => {
+    const parts = k.split('@');
+    const rec = S.data.attendance[k];
+    Object.keys(rec.records || {}).forEach(sid => {
+      out.push({ date: parts[0], groupId: parts[1] === 'none' ? '' : parts[1], studentId: sid, status: rec.records[sid] });
+    });
+  });
+  return out;
+}
+function attStats(studentId, fromDate, toDate){
+  const st = { present:0, absent:0, late:0, excused:0, total:0 };
+  allAttRecords().forEach(r => {
+    if (r.studentId !== studentId) return;
+    if (fromDate && r.date < fromDate) return;
+    if (toDate && r.date > toDate) return;
+    if (st[r.status] != null) st[r.status]++;
+    st.total++;
+  });
+  const counted = st.present + st.absent + st.late;
+  st.rate = counted ? Math.round(((st.present + st.late) / counted) * 100) : 0;
+  return st;
+}
+function sessionsUsed(stu){
+  return sum(allAttRecords().filter(r => r.studentId === stu.id && (r.status === 'present' || r.status === 'late') && (!stu.sub.start || r.date >= stu.sub.start)), () => 1);
+}
+function examAvg(studentId){
+  const vals = [];
+  S.data.exams.forEach(e => {
+    const g = (S.data.grades[e.id] || {})[studentId];
+    if (typeof g === 'number' && e.max) vals.push((g / e.max) * 100);
+  });
+  return vals.length ? Math.round(sum(vals, v => v) / vals.length) : null;
+}
+function paidMonths(studentId){
+  const set = {};
+  S.data.payments.filter(p => p.studentId === studentId).forEach(p => {
+    const m = p.period || monthKey(p.date);
+    set[m] = (set[m] || 0) + (Number(p.amount) || 0);
+  });
+  return set;
+}
+function stuFinance(stu){
+  const fee = Number(stu.fee) || 0;
+  const paidAll = sum(S.data.payments.filter(p => p.studentId === stu.id), p => Number(p.amount) || 0);
+  const paidMap = paidMonths(stu.id);
+  const out = { fee: fee, paidMap: paidMap, paidTotal: paidAll, due: 0, dueMonths: [], months: [], collectedThisMonth: 0 };
+  if (stu.sub.type === 'sessions'){
+    const used = sessionsUsed(stu);
+    out.used = used;
+    out.remaining = Math.max(0, (Number(stu.sub.total) || 0) - used);
+    out.due = 0;
+    return out;
+  }
+  const startOK = /^\d{4}-\d{2}/.test(stu.sub.start || '');
+  const startM = startOK ? monthKey(stu.sub.start) : monthKey(today());
+  const endM = stu.sub.end ? monthKey(stu.sub.end) : monthKey(today());
+  const months = monthSeq(startM, endM < monthKey(today()) ? endM : monthKey(today()));
+  out.months = months;
+  months.forEach(m => {
+    if (stu.status === 'stopped') return;
+    if ((paidMap[m] || 0) + 0.001 < fee) out.dueMonths.push(m);
+  });
+  out.due = out.dueMonths.length * fee;
+  out.collectedThisMonth = paidMap[monthKey(today())] || 0;
+  return out;
+}
+function stuStatus(stu){
+  const fin = stuFinance(stu);
+  const dl = stu.sub.end ? daysLeft(stu.sub.end) : null;
+  if (stu.status === 'stopped') return { key:'stopped', label:'موقوف', cls:'b-gray' };
+  if (stu.status === 'paused') return { key:'paused', label:'متوقف مؤقتًا', cls:'b-gray' };
+  if (stu.sub.type === 'monthly' && dl != null && dl < 0) return { key:'expired', label:'اشتراك منتهي', cls:'b-bad' };
+  if (fin.due > 0) return { key:'due', label:'متأخر ' + money0(fin.due), cls:'b-bad' };
+  if (dl != null && dl <= (S.data.settings.expiryWarnDays || 5)) return { key:'soon', label:'يُنتهي قريبًا', cls:'b-warn' };
+  if (stu.sub.type === 'sessions' && fin.remaining <= 2) return { key:'low', label:'باقي ' + fin.remaining + ' حصة', cls:'b-warn' };
+  return { key:'ok', label:'منتظم', cls:'b-ok' };
+}
+function attRateOf(stu, from, to){ return attStats(stu.id, from, to).rate; }
+
+function alerts(){
+  const out = [];
+  const t = today();
+  S.data.students.forEach(stu => {
+    if (stu.status === 'stopped') return;
+    const fin = stuFinance(stu);
+    const st = stuStatus(stu);
+    if (st.key === 'expired') out.push({ sev:'bad', icon:'clock', title:`اشتراك ${stu.name} منتهي`, sub:`انتهى في ${fmtDate(stu.sub.end)} — أعد التجديد`, act:'renew', id:stu.id });
+    else if (st.key === 'soon') out.push({ sev:'warn', icon:'clock', title:`اشتراك ${stu.name} ينتهي قريبًا`, sub:`باقي ${daysLeft(stu.sub.end)} يوم (${fmtDate(stu.sub.end)})`, act:'renew', id:stu.id });
+    if (fin.due > 0) out.push({ sev:'bad', icon:'wallet', title:`متأخرات على ${stu.name}`, sub:`${money(fin.due)} — ${fin.dueMonths.length} شهر غير مسدد`, act:'pay', id:stu.id });
+    if (stu.sub.type === 'sessions' && fin.remaining <= 2 && stu.status === 'active')
+      out.push({ sev:'warn', icon:'layers', title:`حصص ${stu.name} على وشك الانتهاء`, sub:`متبقي ${fin.remaining} حصة من ${stu.sub.total}`, act:'renew', id:stu.id });
+    const a = attStats(stu.id, addDays(t, -30), t);
+    if (stu.status === 'active' && a.absent >= (S.data.settings.absentWarn || 3))
+      out.push({ sev:'warn', icon:'alert', title:`غياب متكرر: ${stu.name}`, sub:`${a.absent} غياب خلال 30 يوم — نسبة الحضور ${a.rate}%`, act:'wa', id:stu.id });
+    if (!stu.groupId) out.push({ sev:'info', icon:'layers', title:`${stu.name} بدون مجموعة`, sub:'أضِفه لمجموعة لمتابعة الحضور', act:'edit', id:stu.id });
+  });
+  const order = { bad:0, warn:1, info:2 };
+  return out.sort((a, b) => order[a.sev] - order[b.sev]);
+}
+
+/* ---------------- CSV / export ---------------- */
+function download(filename, content, type){
+  const blob = new Blob([content], { type: type || 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 400);
+}
+function toCSV(headers, rows){
+  const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+  const lines = [headers.map(q).join(',')];
+  rows.forEach(r => lines.push(r.map(q).join(',')));
+  return '\uFEFF' + lines.join('\r\n');
+}
+function exportCSV(name, headers, rows){
+  download(name + '.csv', toCSV(headers, rows), 'text/csv;charset=utf-8');
+  toast('تم تصدير ' + name + '.csv', 'ok');
+}
+function printHTML(title, inner){
+  const w = window.open('', '_blank', 'width=900,height=700');
+  if (!w){ toast('المتصفح منع النافذة — اسمح بالنوافذ المنبثقة', 'warn'); return; }
+  w.document.write(`<!DOCTYPE html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${esc(title)}</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+   *{box-sizing:border-box}
+   body{font-family:Cairo,Tahoma,sans-serif;padding:26px;color:#111;margin:0}
+   h1{font-size:20px;margin:0 0 4px}
+   .hd{display:flex;align-items:center;gap:14px;border-bottom:2px solid #f5b301;padding-bottom:12px;margin-bottom:16px}
+   .hd img{width:62px;height:62px;border-radius:50%;object-fit:cover;border:2px solid #f5b301}
+   .hd .m{flex:1}
+   .hd .m b{font-size:19px;display:block}
+   .hd .m span{font-size:12.5px;color:#666}
+   .hd .d{font-size:12.5px;color:#666;text-align:left}
+   table{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
+   th,td{border:1px solid #dcdcdc;padding:7px 9px;text-align:right}
+   th{background:#f5f6f8;font-weight:700}
+   tr:nth-child(even) td{background:#fafbfc}
+   .tot{background:#fff6dd !important;font-weight:800}
+   .sum{display:flex;gap:14px;flex-wrap:wrap;margin:12px 0}
+   .sum div{border:1px solid #e3e3e3;border-radius:10px;padding:9px 13px;font-size:13px}
+   .sum div b{display:block;font-size:16px}
+   .ft{margin-top:22px;border-top:1px dashed #ccc;padding-top:10px;font-size:11.5px;color:#777;display:flex;justify-content:space-between}
+   @media print{ body{padding:0} .noprint{display:none} }
+  </style></head><body>
+  <div class="hd">
+    <img src="logo.jpg" onerror="this.style.display='none'">
+    <div class="m"><b>${esc(S.data.settings.centerName || 'مركز أحمد فتحي')}</b><span>${esc(S.data.settings.coachName || 'أحمد فتحي')}${S.data.settings.phone ? ' · ' + esc(S.data.settings.phone) : ''}</span></div>
+    <div class="d">${esc(title)}<br>${fmtDate(today(), true)}</div>
+  </div>
+  ${inner}
+  <div class="ft"><span>نظام المتابعة — ${esc(S.data.settings.centerName || '')}</span><span>تم الطباعة: ${new Date().toLocaleString('ar-EG')}</span></div>
+  <script>window.onload=function(){setTimeout(function(){window.print()},450)}<\/script>
+  </body></html>`);
+  w.document.close();
+}
+
+/* ---------------- UI building blocks ---------------- */
+function pageHead(title, sub, actions){
+  return `<div class="flex wrap" style="margin-bottom:16px">
+    <div><h2 style="font-size:21px;font-weight:900">${esc(title)}</h2><p class="muted small">${esc(sub || '')}</p></div>
+    <div class="sp"></div>
+    <div class="btn-row">${actions || ''}</div>
+  </div>`;
+}
+function statCard(o){
+  return `<div class="stat ${o.tone || ''}">
+    <div class="st-h"><span class="ic">${icon(o.icon || 'dash')}</span><span>${esc(o.label)}</span></div>
+    <div class="val">${o.value} ${o.unit ? `<small>${esc(o.unit)}</small>` : ''}</div>
+    <div class="foot">${o.foot || ''}</div>
+  </div>`;
+}
+function avatar(name, key){
+  return `<span class="av" style="background:${avColor(key || name)}">${esc(initials(name))}</span>`;
+}
+function stuCell(stu){
+  return `<div class="who">${avatar(stu.name, stu.id)}
+    <span class="wt"><b>${esc(stu.name)}</b><span>${esc(stu.code || '')}${stu.phone ? ' · ' + esc(stu.phone) : ''}</span></span></div>`;
+}
+function bar(p, tone){
+  return `<div class="bar ${tone || ''}"><i style="width:${clamp(p, 0, 100)}%"></i></div>`;
+}
+function emptyState(title, sub, btn){
+  return `<div class="empty"><div class="ic">${icon('file')}</div><h4>${esc(title)}</h4><p>${esc(sub || '')}</p>${btn ? `<div style="margin-top:14px">${btn}</div>` : ''}</div>`;
+}
+
+/* ==== 30-views-a.js ==== */
+/* ============================================================
+   Part 2a/3 : Views — dashboard · alerts · students · groups
+   ============================================================ */
+const TITLES = {
+  dashboard: ['لوحة التحكم','نظرة عامة سريعة على المركز'],
+  alerts:    ['التنبيهات والمتابعات','كل ما يحتاج انتباهك الآن'],
+  students:  ['الطلبة','إدارة بيانات الطلبة ومتابعتهم'],
+  groups:    ['المجموعات','تقسيم الطلبة ومواعيد الحصص'],
+  attendance:['الحضور والغياب','تسجيل الحضور وتقارير الانتظام'],
+  exams:     ['الامتحانات والدرجات','إدخال الدرجات وتحليل النتائج'],
+  payments:  ['الاشتراكات والمدفوعات','التحصيل والمتأخرات والتجديد'],
+  reports:   ['التقارير','تصدير وطباعة تقارير مفصلة'],
+  settings:  ['الإعدادات','بيانات المركز والربط بقاعدة البيانات']
+};
+
+const Views = {};
+
+/* ============ DASHBOARD ============ */
+Views.dashboard = function(){
+  const t = today();
+  const st = S.data.students;
+  const act = st.filter(s => s.status === 'active');
+  const from30 = addDays(t, -29);
+  const attAll = allAttRecords().filter(r => r.date >= from30);
+  const attRate = attAll.length ? Math.round((sum(attAll.filter(r => r.status === 'present' || r.status === 'late'), () => 1) / attAll.length) * 100) : 0;
+  const mk = monthKey(t);
+  const paidThis = sum(S.data.payments.filter(p => monthKey(p.date) === mk), p => Number(p.amount) || 0);
+  const dueAll = sum(st.filter(s => s.status !== 'stopped'), s => stuFinance(s).due);
+  const expSoon = st.filter(s => ['soon','expired'].includes(stuStatus(s).key)).length;
+  const al = alerts();
+  const groups = S.data.groups;
+
+  if (!st.length){
+    return pageHead('لوحة التحكم','مرحبًا بك في نظام المتابعة') + `
+    <div class="card"><div class="card-b">${emptyState('لا توجد بيانات بعد',
+      'ابدأ بإضافة الطلبة والمجموعات، أو حمّل بيانات تجريبية لتجربة النظام كامل.',
+      `<div class="btn-row" style="justify-content:center">
+        <button class="btn pri" data-act="addStudent">${icon('plus')} إضافة طالب</button>
+        <button class="btn" data-act="seed">${icon('star')} تحميل بيانات تجريبية</button>
+        <button class="btn" data-act="go" data-id="settings">${icon('cloud')} الربط بـ Firebase</button>
+      </div>`)}</div></div>`;
+  }
+
+  const chMonths = monthRange(monthKey(addMonths(mk + '-01', -5)), 6);
+  const payByMonth = chMonths.map(m => sum(S.data.payments.filter(p => monthKey(p.date) === m), p => Number(p.amount) || 0));
+  const attDays = Array.from({ length: 14 }, (_, i) => addDays(t, i - 13));
+  const attByDay = attDays.map(d => {
+    const recs = Object.keys(S.data.attendance).filter(k => k.split('@')[0] === d)
+      .map(k => S.data.attendance[k].records || {});
+    let tot = 0, ok = 0;
+    recs.forEach(r => Object.keys(r).forEach(sid => { tot++; if (r[sid] === 'present' || r[sid] === 'late') ok++; }));
+    return { d: d, rate: tot ? Math.round((ok / tot) * 100) : null };
+  });
+  const byLevel = groupBy(act, s => s.level || 'غير محدد');
+  const levelData = Object.keys(byLevel).map(k => ({ label: k, value: byLevel[k].length }));
+
+  const top = sortBy(act.map(s => ({ s: s, rate: attStats(s.id, addDays(t,-60), t).rate, n: attStats(s.id, addDays(t,-60), t).total }))
+    .filter(x => x.n >= 3), x => x.rate, 'desc').slice(0, 5);
+
+  const lastPay = sortBy(S.data.payments, p => p.date + (p.createdAt || ''), 'desc').slice(0, 6);
+  const monthCollectedTarget = sum(act.filter(s => s.sub.type === 'monthly'), s => Number(s.fee) || 0);
+  const collectPct = monthCollectedTarget ? Math.round((paidThis / monthCollectedTarget) * 100) : 0;
+
+  return pageHead('لوحة التحكم', `اليوم ${fmtDate(t, true)} · ${S.data.settings.centerName || ''}`,
+      `<button class="btn" data-act="go" data-id="reports">${icon('chart')} التقارير</button>
+       <button class="btn pri" data-act="addStudent">${icon('plus')} إضافة طالب</button>`) + `
+
+  <div class="grid g-4">
+    ${statCard({ label:'الطلبة النشطين', icon:'users', value: nf(act.length), tone:'info',
+      foot:`<span class="muted">إجمالي ${nf(st.length)} طالب · ${nf(st.filter(s=>s.status!=='active').length)} غير نشط</span>` })}
+    ${statCard({ label:'نسبة الحضور (30 يوم)', icon:'check-square', value: attRate + '%', tone: attRate >= 75 ? 'ok' : attRate >= 50 ? '' : 'bad',
+      foot: attAll.length ? `${nf(attAll.length)} تسجيل حضور` : '<span class="muted">لا يوجد تسجيل بعد</span>' })}
+    ${statCard({ label:'تحصيل ' + monthName(mk), icon:'wallet', value: money(paidThis), tone:'ok',
+      foot:`${bar(collectPct, collectPct >= 80 ? 'ok' : collectPct >= 50 ? '' : 'bad')} <span class="muted">${collectPct}% من المستهدف (${money0(monthCollectedTarget)})</span>` })}
+    ${statCard({ label:'إجمالي المتأخرات', icon:'alert', value: money(dueAll), tone: dueAll > 0 ? 'bad' : 'ok',
+      foot: dueAll > 0 ? `<span class="muted">${nf(st.filter(s => stuFinance(s).due > 0).length)} طالب عليهم مستحقات</span>` : '<span class="muted">لا توجد متأخرات 👌</span>' })}
+  </div>
+
+  <div class="grid g-23 mt">
+    <div class="card">
+      <div class="card-h"><h3>التحصيل خلال 6 شهور</h3><span class="sub">إجمالي الدفعات المسجلة</span>
+        <span class="sp"></span><span class="badge b-brand">الإجمالي ${money(sum(payByMonth))}</span></div>
+      <div class="card-b"><canvas class="chart" id="chartPay"></canvas>
+        <div class="legend"><span class="lg"><i style="background:var(--brand)"></i> التحصيل الشهري</span></div></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h3>توزيع الطلبة</h3><span class="sub">حسب المستوى</span></div>
+      <div class="card-b">${levelData.length ? `<canvas class="chart" id="chartLevel" style="height:200px"></canvas>
+        <div class="legend">${levelData.map((l, i) => `<span class="lg"><i style="background:${AV_COLORS[i % AV_COLORS.length]}"></i> ${esc(l.label)} · ${l.value}</span>`).join('')}</div>`
+        : '<div class="empty" style="padding:24px"><p>لا توجد مستويات محددة</p></div>'}</div>
+    </div>
+  </div>
+
+  <div class="grid g-23 mt">
+    <div class="card">
+      <div class="card-h"><h3>الحضور آخر 14 يوم</h3><span class="sub">نسبة الحضور اليومية</span></div>
+      <div class="card-b"><canvas class="chart" id="chartAtt" style="height:190px"></canvas>
+        <div class="legend"><span class="lg"><i style="background:var(--ok)"></i> نسبة الحضور %</span><span class="lg muted">النقاط الفارغة = لا يوجد تسجيل</span></div></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h3>التنبيهات العاجلة</h3>
+        <span class="sp"></span>
+        <button class="btn sm ghost" data-act="go" data-id="alerts">${icon('eye')} عرض الكل</button></div>
+      <div class="card-b">
+        ${al.length ? al.slice(0, 5).map(a => `
+          <div class="alert-row ${a.sev}">
+            <span class="ai">${icon(a.icon)}</span>
+            <span class="at"><b>${esc(a.title)}</b><span>${esc(a.sub)}</span></span>
+            ${alertBtn(a)}
+          </div>`).join('')
+        : `<div class="empty" style="padding:24px"><div class="ic">${icon('check')}</div><h4>كل حاجة تمام</h4><p>لا توجد تنبيهات تحتاج متابعة حاليًا</p></div>`}
+        ${al.length > 5 ? `<div class="center small muted">و ${nf(al.length - 5)} تنبيه آخر</div>` : ''}
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g-2 mt">
+    <div class="card">
+      <div class="card-h"><h3>أحدث الدفعات</h3><span class="sp"></span><button class="btn sm" data-act="addPayment">${icon('plus')} تسجيل دفعة</button></div>
+      ${lastPay.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>الطالب</th><th>المبلغ</th><th>الشهر</th><th>التاريخ</th><th></th></tr></thead><tbody>
+        ${lastPay.map(p => { const s = student(p.studentId); return `<tr>
+          <td>${s ? esc(s.name) : '<span class="muted">طالب محذوف</span>'}</td>
+          <td class="num" style="color:var(--ok);font-weight:800">${money(p.amount)}</td>
+          <td>${p.period ? monthName(p.period) : '<span class="muted">—</span>'}</td>
+          <td class="muted small">${fmtDate(p.date)}</td>
+          <td><button class="btn icon sm ghost" data-act="receipt" data-id="${p.id}" title="إيصال">${icon('receipt')}</button></td>
+        </tr>`; }).join('')}
+      </tbody></table></div>` : emptyState('لا توجد دفعات مسجلة','سجّل أول دفعة من زر «تسجيل دفعة»')}
+    </div>
+    <div class="card">
+      <div class="card-h"><h3>الأكثر انتظامًا</h3><span class="sub">آخر 60 يوم</span></div>
+      <div class="card-b">
+        ${top.length ? top.map(x => `
+        <div class="flex" style="margin-bottom:12px">
+          ${avatar(x.s.name, x.s.id)}
+          <span style="flex:1;min-width:0">
+            <b style="display:block;font-size:13.5px">${esc(x.s.name)}</b>
+            <span class="small muted">${groupName(x.s.groupId)} · ${x.n} حصة</span>
+            ${bar(x.rate, x.rate >= 80 ? 'ok' : '')}
+          </span>
+          <b class="num" style="color:${x.rate >= 80 ? 'var(--ok)' : 'var(--warn)'}">${x.rate}%</b>
+        </div>`).join('') : '<div class="empty" style="padding:24px"><p>سجّل الحضور لظهور الترتيب</p></div>'}
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g-4 mt">
+    ${statCard({ label:'المجموعات', icon:'layers', value: nf(groups.length), foot:`<span class="muted">${nf(groups.filter(g => studentsOf(g.id).length).length)} مجموعة بها طلبة</span>` })}
+    ${statCard({ label:'اشتراكات تحتاج تجديد', icon:'clock', value: nf(expSoon), tone: expSoon ? 'bad' : 'ok', foot:`<span class="muted">منتهية أو تنتهي قريبًا</span>` })}
+    ${statCard({ label:'الامتحانات', icon:'award', value: nf(S.data.exams.length), foot:`<span class="muted">آخر امتحان: ${S.data.exams.length ? fmtDate(sortBy(S.data.exams, e => e.date, 'desc')[0].date) : '—'}</span>` })}
+    ${statCard({ label:'سجل الحضور', icon:'calendar', value: nf(Object.keys(S.data.attendance).length), foot:`<span class="muted">عدد الجلسات المسجلة</span>` })}
+  </div>`;
+};
+function alertBtn(a){
+  const s = student(a.id);
+  const phone = s ? (s.parentPhone || s.phone) : '';
+  if (a.act === 'renew') return `<button class="btn sm pri" data-act="renew" data-id="${a.id}">تجديد</button>`;
+  if (a.act === 'pay') return `<button class="btn sm pri" data-act="addPayment" data-id="${a.id}">تسجيل دفعة</button>`;
+  if (a.act === 'edit') return `<button class="btn sm" data-act="editStudent" data-id="${a.id}">تعديل</button>`;
+  if (a.act === 'wa' && phone) return `<a class="btn sm" target="_blank" rel="noopener" href="${waLink(phone, 'السلام عليكم، نودّ الاطمئنان على ' + (s ? s.name : '') + ' — لاحظنا تكرار الغياب. برجاء التواصل معنا.')}">${icon('whatsapp')} واتساب</a>`;
+  return `<button class="btn sm ghost" data-act="profile" data-id="${a.id}">عرض</button>`;
+}
+Views.after_dashboard = function(){
+  const t = today(), mk = monthKey(t);
+  const months = monthRange(monthKey(addMonths(mk + '-01', -5)), 6);
+  const labels = months.map(m => AR_MONTHS[Number(m.split('-')[1]) - 1]);
+  const values = months.map(m => sum(S.data.payments.filter(p => monthKey(p.date) === m), p => Number(p.amount) || 0));
+  Charts.bar($('#chartPay'), labels, values, { color: getComputedStyle(document.documentElement).getPropertyValue('--brand').trim() || '#f5b301', fmt: v => money0(v) });
+
+  const act = S.data.students.filter(s => s.status === 'active');
+  const byLevel = groupBy(act, s => s.level || 'غير محدد');
+  Charts.donut($('#chartLevel'), Object.keys(byLevel).map((k, i) => ({ label: k, value: byLevel[k].length, color: AV_COLORS[i % AV_COLORS.length] })));
+
+  const days = Array.from({ length: 14 }, (_, i) => addDays(t, i - 13));
+  const rates = days.map(d => {
+    const recs = Object.keys(S.data.attendance).filter(k => k.split('@')[0] === d).map(k => S.data.attendance[k].records || {});
+    let tot = 0, ok = 0;
+    recs.forEach(r => Object.keys(r).forEach(sid => { tot++; if (r[sid] === 'present' || r[sid] === 'late') ok++; }));
+    return tot ? Math.round((ok / tot) * 100) : null;
+  });
+  Charts.line($('#chartAtt'), days.map(d => String(parseISO(d).getDate())), rates, { max: 100, fmt: v => v + '%' });
+};
+
+/* ============ ALERTS ============ */
+Views.alerts = function(){
+  const al = alerts();
+  const groups = { bad: al.filter(a => a.sev === 'bad'), warn: al.filter(a => a.sev === 'warn'), info: al.filter(a => a.sev === 'info') };
+  const block = (title, tone, list, ic) => `
+    <div class="card mt">
+      <div class="card-h"><span class="st-h" style="display:flex;align-items:center;gap:8px">
+        <span class="ic" style="width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:var(--${tone}-bg);color:var(--${tone})">${icon(ic)}</span>
+        <h3>${title}</h3></span><span class="badge b-${tone}">${nf(list.length)}</span></div>
+      <div class="card-b">${list.length ? list.map(a => `
+        <div class="alert-row ${a.sev}">
+          <span class="ai">${icon(a.icon)}</span>
+          <span class="at"><b>${esc(a.title)}</b><span>${esc(a.sub)}</span></span>
+          <span class="btn-row">${alertBtn(a)}</span>
+        </div>`).join('') : '<p class="muted small">لا يوجد عناصر في هذه الفئة</p>'}</div>
+    </div>`;
+  return pageHead('التنبيهات والمتابعات', al.length ? `${al.length} عنصر يحتاج متابعتك` : 'لا توجد تنبيهات — كل حاجة تمام',
+      `<button class="btn" data-act="waAllDue">${icon('whatsapp')} تذكير المتأخرين</button>`) +
+    (al.length ? block('عاجل — يحتاج تصرف فوري','bad', groups.bad,'alert') + block('تحت المتابعة','warn', groups.warn,'clock') + block('ملاحظات عامة','info', groups.info,'bell')
+      : `<div class="card mt"><div class="card-b">${emptyState('لا توجد تنبيهات','كل الاشتراكات سارية والمدفوعات منتظمة 🎉')}</div></div>`);
+};
+
+/* ============ STUDENTS ============ */
+Views.students = function(){
+  const f = S.ui.stuFilter;
+  let list = S.data.students.slice();
+  const q = S.query.trim().toLowerCase();
+  if (q) list = list.filter(s => (s.name + ' ' + (s.code||'') + ' ' + (s.phone||'') + ' ' + (s.parentPhone||'') + ' ' + (s.guardian||'')).toLowerCase().includes(q));
+  if (f.groupId) list = list.filter(s => (s.groupId || '') === f.groupId);
+  if (f.level) list = list.filter(s => s.level === f.level);
+  if (f.status) list = list.filter(s => (s.status || 'active') === f.status);
+  const sorters = {
+    name: x => x.name || '', joinDate: x => x.joinDate || '', rate: x => attStats(x.id).rate,
+    due: x => stuFinance(x).due, group: x => groupName(x.groupId), end: x => x.sub.end || ''
+  };
+  list = sortBy(list, sorters[f.sort] || sorters.name, (f.sort === 'rate' || f.sort === 'due' || f.sort === 'end') ? 'desc' : 'asc');
+
+  const rows = list.map(s => {
+    const fin = stuFinance(s), stt = stuStatus(s), a = attStats(s.id);
+    return `<tr>
+      <td>${stuCell(s)}</td>
+      <td>${s.groupId ? `<span class="badge b-info">${esc(groupName(s.groupId))}</span>` : '<span class="muted small">—</span>'}</td>
+      <td><span class="badge b-gray">${esc(s.level || '—')}</span></td>
+      <td><span class="badge ${stt.cls}">${esc(stt.label)}</span></td>
+      <td style="min-width:120px">${bar(a.rate, a.rate >= 75 ? 'ok' : a.rate >= 50 ? '' : 'bad')}<span class="small muted">${a.rate}% · ${a.present + a.late}/${a.total || 0}</span></td>
+      <td class="num">${s.sub.type === 'sessions' ? `<span class="badge ${fin.remaining <= 2 ? 'b-warn' : 'b-gray'}">${fin.remaining} حصة</span>` : (fin.due > 0 ? `<span style="color:var(--bad);font-weight:800">${money0(fin.due)}</span>` : '<span class="badge b-ok">مسدد</span>')}</td>
+      <td class="muted small nowrap">${s.sub.type === 'monthly' ? fmtDate(s.sub.end) : 'باقة ' + (s.sub.total || 0) + ' حصة'}</td>
+      <td><div class="row-actions">
+        <button class="btn icon sm ghost" data-act="profile" data-id="${s.id}" title="ملف الطالب">${icon('eye')}</button>
+        <button class="btn icon sm ghost" data-act="addPayment" data-id="${s.id}" title="تسجيل دفعة">${icon('wallet')}</button>
+        <button class="btn icon sm ghost" data-act="editStudent" data-id="${s.id}" title="تعديل">${icon('edit')}</button>
+        <button class="btn icon sm ghost" data-act="delStudent" data-id="${s.id}" title="حذف">${icon('trash')}</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+
+  const totalDue = sum(list, s => stuFinance(s).due);
+  return pageHead('الطلبة', `${list.length} طالب${q ? ' (نتيجة بحث)' : ''} · إجمالي المتأخرات ${money(totalDue)}`,
+    `<button class="btn" data-act="expStudents">${icon('download')} CSV</button>
+     <button class="btn" data-act="printStudents">${icon('print')} طباعة</button>
+     <button class="btn pri" data-act="addStudent">${icon('plus')} طالب جديد</button>`) + `
+
+  <div class="card"><div class="card-b">
+    <div class="flex wrap" style="gap:10px">
+      <input class="inp" style="max-width:230px" id="stuSearch" placeholder="ابحث بالاسم أو الهاتف أو الكود..." value="${esc(S.query)}">
+      <select class="inp" style="max-width:170px" data-filter="groupId">
+        <option value="">كل المجموعات</option>
+        ${S.data.groups.map(g => `<option value="${g.id}" ${f.groupId === g.id ? 'selected' : ''}>${esc(g.name)}</option>`).join('')}
+      </select>
+      <select class="inp" style="max-width:150px" data-filter="level">
+        <option value="">كل المستويات</option>
+        ${S.data.settings.levels.map(l => `<option value="${esc(l)}" ${f.level === l ? 'selected' : ''}>${esc(l)}</option>`).join('')}
+      </select>
+      <select class="inp" style="max-width:160px" data-filter="status">
+        <option value="">كل الحالات</option>
+        <option value="active" ${f.status === 'active' ? 'selected' : ''}>نشط</option>
+        <option value="paused" ${f.status === 'paused' ? 'selected' : ''}>متوقف مؤقتًا</option>
+        <option value="stopped" ${f.status === 'stopped' ? 'selected' : ''}>موقوف</option>
+      </select>
+      <select class="inp" style="max-width:170px" data-filter="sort">
+        <option value="name" ${f.sort === 'name' ? 'selected' : ''}>ترتيب: الاسم</option>
+        <option value="joinDate" ${f.sort === 'joinDate' ? 'selected' : ''}>ترتيب: تاريخ الانضمام</option>
+        <option value="rate" ${f.sort === 'rate' ? 'selected' : ''}>ترتيب: نسبة الحضور</option>
+        <option value="due" ${f.sort === 'due' ? 'selected' : ''}>ترتيب: المتأخرات</option>
+        <option value="end" ${f.sort === 'end' ? 'selected' : ''}>ترتيب: نهاية الاشتراك</option>
+      </select>
+      <div class="sp"></div>
+      <button class="btn sm ghost" data-act="clearFilters">${icon('refresh')} مسح الفلاتر</button>
+    </div>
+  </div>
+  ${list.length ? `<div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>الطالب</th><th>المجموعة</th><th>المستوى</th><th>الحالة</th><th>الحضور</th><th>المالية</th><th>الاشتراك حتى</th><th></th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`
+    : `<div class="card-b">${emptyState('لا يوجد طلبة مطابقون', q || f.groupId || f.level || f.status ? 'جرّب تغيير الفلاتر أو البحث' : 'ابدأ بإضافة أول طالب',
+      `<button class="btn pri" data-act="addStudent">${icon('plus')} إضافة طالب</button>`)}</div>`}
+  </div>`;
+};
+
+/* ============ GROUPS ============ */
+Views.groups = function(){
+  const gs = S.data.groups;
+  return pageHead('المجموعات', `${gs.length} مجموعة`,
+    `<button class="btn pri" data-act="addGroup">${icon('plus')} مجموعة جديدة</button>`) +
+  (gs.length ? `<div class="grid g-3">${gs.map(g => {
+    const ss = studentsOf(g.id);
+    const rate = ss.length ? Math.round(sum(ss, s => attStats(s.id).rate) / ss.length) : 0;
+    const income = sum(S.data.payments.filter(p => { const s2 = student(p.studentId); return s2 && s2.groupId === g.id && monthKey(p.date) === monthKey(today()); }), p => Number(p.amount) || 0);
+    return `<div class="card">
+      <div class="card-h">
+        <span class="st-h" style="display:flex;gap:9px;align-items:center">
+          <span class="ic" style="width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--warn-bg);color:var(--warn)">${icon('layers')}</span>
+          <span><h3>${esc(g.name)}</h3><span class="sub">${esc(g.level || 'بدون مستوى')}${g.time ? ' · ' + esc(g.time) : ''}</span></span>
+        </span>
+        <span class="sp"></span>
+        <button class="btn icon sm ghost" data-act="editGroup" data-id="${g.id}">${icon('edit')}</button>
+        <button class="btn icon sm ghost" data-act="delGroup" data-id="${g.id}">${icon('trash')}</button>
+      </div>
+      <div class="card-b">
+        <div class="flex" style="gap:16px;flex-wrap:wrap">
+          <div><div class="muted small">الطلبة</div><b class="num" style="font-size:19px">${nf(ss.length)}</b></div>
+          <div><div class="muted small">متوسط الحضور</div><b class="num" style="font-size:19px;color:${rate >= 75 ? 'var(--ok)' : rate ? 'var(--warn)' : 'var(--muted)'}">${rate}%</b></div>
+          <div><div class="muted small">تحصيل الشهر</div><b class="num" style="font-size:19px">${money0(income)}</b></div>
+          <div><div class="muted small">سعر الاشتراك</div><b class="num" style="font-size:19px">${money0(g.price || 0)}</b></div>
+        </div>
+        ${g.days && g.days.length ? `<div class="chips" style="margin-top:12px">${g.days.map(d => `<span class="chip" style="cursor:default">${AR_DAYS_SHORT[d]}</span>`).join('')}</div>` : ''}
+        ${g.note ? `<p class="small muted" style="margin-top:10px">${esc(g.note)}</p>` : ''}
+        <div class="btn-row" style="margin-top:14px">
+          <button class="btn sm" data-act="go" data-id="attendance" data-group="${g.id}">${icon('check-square')} تسجيل حضور</button>
+          <button class="btn sm ghost" data-act="filterGroup" data-id="${g.id}">${icon('users')} طلبة المجموعة</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('')}</div>`
+  : `<div class="card"><div class="card-b">${emptyState('لا توجد مجموعات','المجموعات تساعدك على تسجيل الحضور ومتابعة كل مجموعة على حدة', `<button class="btn pri" data-act="addGroup">${icon('plus')} إنشاء مجموعة</button>`)}</div></div>`);
+};
+
+/* ==== 32-views-b.js ==== */
+/* ============================================================
+   Part 2b/3 : Views — attendance · exams · payments · reports · settings
+   ============================================================ */
+/* ---------------- Charts (vanilla canvas) ---------------- */
+const Charts = {
+  prep(cv, h){
+    if (!cv) return null;
+    const dpr = window.devicePixelRatio || 1;
+    const w = cv.clientWidth || cv.parentElement.clientWidth || 300;
+    const hh = h || cv.clientHeight || 220;
+    cv.width = w * dpr; cv.height = hh * dpr;
+    cv.style.height = hh + 'px';
+    const c = cv.getContext('2d');
+    c.setTransform(dpr, 0, 0, dpr, 0, 0);
+    c.clearRect(0, 0, w, hh);
+    c.font = '600 11px Cairo, Tahoma, sans-serif';
+    return { c: c, w: w, h: hh };
+  },
+  css(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); },
+  bars(cv, x, y, w, h, color, r){
+    const rad = Math.min(r == null ? 6 : r, w / 2, h);
+    if (h <= 0) return;
+    cv.beginPath();
+    cv.moveTo(x, y + h);
+    cv.lineTo(x, y + rad);
+    cv.quadraticCurveTo(x, y, x + rad, y);
+    cv.lineTo(x + w - rad, y);
+    cv.quadraticCurveTo(x + w, y, x + w, y + rad);
+    cv.lineTo(x + w, y + h);
+    cv.closePath();
+    cv.fillStyle = color; cv.fill();
+  },
+  bar(cv, labels, values, opt){
+    opt = opt || {};
+    const p = this.prep(cv); if (!p) return;
+    const { c, w, h } = p;
+    const padB = 26, padT = 22, padS = 8;
+    const max = Math.max(1, ...values) * 1.15;
+    const n = values.length || 1;
+    const slot = (w - padS * 2) / n;
+    const bw = Math.min(46, slot * 0.55);
+    const line = this.css('--line'), muted = this.css('--muted-2');
+    c.strokeStyle = line; c.lineWidth = 1;
+    for (let i = 0; i <= 4; i++){
+      const yy = padT + ((h - padT - padB) / 4) * i;
+      c.beginPath(); c.moveTo(padS, yy); c.lineTo(w - padS, yy); c.stroke();
+    }
+    values.forEach((v, i) => {
+      const bh = ((h - padT - padB) * (v / max));
+      const x = padS + slot * i + (slot - bw) / 2;
+      const yy = h - padB - bh;
+      const col = opt.color || '#f5b301';
+      const g = c.createLinearGradient(0, yy, 0, h - padB);
+      g.addColorStop(0, col); g.addColorStop(1, col + '55');
+      this.bars(c, x, yy, bw, bh, g, 6);
+      c.fillStyle = muted; c.textAlign = 'center';
+      c.fillText(String(labels[i] || ''), x + bw / 2, h - padB + 16);
+      if (v > 0){
+        c.fillStyle = this.css('--ink-2');
+        c.font = '700 11px Cairo, Tahoma, sans-serif';
+        c.fillText((opt.fmt ? opt.fmt(v) : nf(v)), x + bw / 2, yy - 6);
+        c.font = '600 11px Cairo, Tahoma, sans-serif';
+      }
+    });
+  },
+  line(cv, labels, values, opt){
+    opt = opt || {};
+    const p = this.prep(cv); if (!p) return;
+    const { c, w, h } = p;
+    const padB = 24, padT = 16, padS = 26;
+    const max = opt.max || Math.max(1, ...values.filter(v => v != null)) * 1.15;
+    const iw = w - padS - 10, ih = h - padB - padT;
+    const line = this.css('--line'), muted = this.css('--muted-2');
+    c.strokeStyle = line;
+    for (let i = 0; i <= 4; i++){
+      const yy = padT + (ih / 4) * i;
+      c.beginPath(); c.moveTo(padS, yy); c.lineTo(w - 8, yy); c.stroke();
+      c.fillStyle = muted; c.textAlign = 'left';
+      c.fillText(String(Math.round(max - (max / 4) * i)), 2, yy + 4);
+    }
+    const step = values.length > 1 ? iw / (values.length - 1) : iw;
+    const pts = values.map((v, i) => ({ x: padS + step * i, y: v == null ? null : padT + ih - (ih * (v / max)), v: v }));
+    // area
+    const def = pts.filter(p2 => p2.y != null);
+    if (def.length > 1){
+      const g = c.createLinearGradient(0, padT, 0, padT + ih);
+      const col = opt.color || this.css('--ok') || '#12a150';
+      g.addColorStop(0, col + '66'); g.addColorStop(1, col + '05');
+      c.beginPath(); c.moveTo(def[0].x, padT + ih);
+      def.forEach(p2 => c.lineTo(p2.x, p2.y));
+      c.lineTo(def[def.length - 1].x, padT + ih); c.closePath();
+      c.fillStyle = g; c.fill();
+      c.beginPath(); def.forEach((p2, i) => i ? c.lineTo(p2.x, p2.y) : c.moveTo(p2.x, p2.y));
+      c.strokeStyle = col; c.lineWidth = 2.5; c.lineJoin = 'round'; c.stroke();
+    }
+    pts.forEach(p2 => {
+      if (p2.y == null) return;
+      c.beginPath(); c.arc(p2.x, p2.y, 4, 0, Math.PI * 2);
+      c.fillStyle = this.css('--card'); c.fill();
+      c.lineWidth = 2.5; c.strokeStyle = opt.color || this.css('--ok'); c.stroke();
+    });
+    c.fillStyle = muted; c.textAlign = 'center';
+    labels.forEach((l, i) => { if (labels.length <= 20 || i % 2 === 0) c.fillText(String(l), pts[i].x, h - 7); });
+  },
+  donut(cv, data){
+    const p = this.prep(cv, cv ? (cv.clientHeight || 200) : 200); if (!p) return;
+    const { c, w, h } = p;
+    const total = sum(data, d => d.value);
+    const cx = w / 2, cy = h / 2, R = Math.min(w, h) / 2 - 12, r = R * 0.62;
+    if (!total){
+      c.fillStyle = this.css('--muted'); c.textAlign = 'center';
+      c.fillText('لا توجد بيانات', cx, cy); return;
+    }
+    let a0 = -Math.PI / 2;
+    data.forEach(d => {
+      const a1 = a0 + (d.value / total) * Math.PI * 2;
+      c.beginPath();
+      c.arc(cx, cy, R, a0, a1); c.arc(cx, cy, r, a1, a0, true); c.closePath();
+      c.fillStyle = d.color || '#f5b301'; c.fill();
+      c.strokeStyle = this.css('--card'); c.lineWidth = 2; c.stroke();
+      a0 = a1;
+    });
+    c.fillStyle = this.css('--ink'); c.textAlign = 'center';
+    c.font = '800 21px Cairo, Tahoma, sans-serif';
+    c.fillText(nf(total), cx, cy + 2);
+    c.font = '600 11px Cairo, Tahoma, sans-serif';
+    c.fillStyle = this.css('--muted');
+    c.fillText('طالب', cx, cy + 19);
+  }
+};
+
+/* ============ ATTENDANCE ============ */
+let attDraft = null; // { date, groupId, records:{}, note, dirty }
+Views.attendance = function(){
+  const a = S.ui.att;
+  const gid = a.groupId || (S.data.groups[0] ? S.data.groups[0].id : '');
+  if (!S.data.groups.length){
+    return pageHead('الحضور والغياب','أنشئ مجموعة أولًا لتسجيل الحضور') +
+      `<div class="card"><div class="card-b">${emptyState('لا توجد مجموعات','الحضور يُسجَّل لكل مجموعة على حدة', `<button class="btn pri" data-act="addGroup">${icon('plus')} إنشاء مجموعة</button>`)}</div></div>`;
+  }
+  if (attDraft == null || attDraft.date !== a.date || attDraft.groupId !== gid){
+    const saved = getAtt(a.date, gid);
+    attDraft = { date: a.date, groupId: gid, records: Object.assign({}, (saved && saved.records) || {}), note: (saved && saved.note) || '', dirty: false };
+  }
+  const ss = studentsOf(gid).filter(s => s.status !== 'stopped');
+  const rec = attDraft.records;
+  const counts = { present:0, absent:0, late:0, excused:0 };
+  ss.forEach(s => { if (rec[s.id] && counts[rec[s.id]] != null) counts[rec[s.id]]++; });
+  const marked = sum(Object.values(counts));
+
+  const start = a.date.slice(0, 8) + '01';
+  const mDays = [];
+  { const y = Number(a.date.slice(0,4)), m = Number(a.date.slice(5,7));
+    const last = new Date(y, m, 0).getDate();
+    for (let d = 1; d <= last; d++) mDays.push(`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`); }
+  const matrixRows = (gid ? studentsOf(gid) : S.data.students).map(s => {
+    let p = 0, ab = 0, l = 0, ex = 0;
+    mDays.forEach(d => { const r = getAtt(d, gid); const v = r && r.records[s.id]; if (v === 'present') p++; else if (v === 'absent') ab++; else if (v === 'late') l++; else if (v === 'excused') ex++; });
+    return { s: s, p: p, ab: ab, l: l, ex: ex };
+  });
+
+  return pageHead('الحضور والغياب','سجّل الحضور اليومي وتابع انتظام كل طالب',
+      `<button class="btn" data-act="attMatrixPrint">${icon('print')} طباعة كشف الشهر</button>
+       <button class="btn pri" data-act="attSave">${icon('save')} حفظ الحضور</button>`) + `
+
+  <div class="card">
+    <div class="card-h">
+      <h3>تسجيل الحضور</h3>
+      <span class="sp"></span>
+      <input type="date" class="inp" style="max-width:170px" data-att="date" value="${a.date}">
+      <select class="inp" style="max-width:200px" data-att="group">
+        ${S.data.groups.map(g => `<option value="${g.id}" ${gid === g.id ? 'selected' : ''}>${esc(g.name)}</option>`).join('')}
+      </select>
+      <span class="badge ${marked === ss.length && ss.length ? 'b-ok' : 'b-warn'}">${marked}/${ss.length} مُسجَّل</span>
+    </div>
+    <div class="card-b">
+      ${ss.length ? `
+      <div class="flex wrap" style="margin-bottom:13px">
+        <button class="btn sm" data-act="attAll" data-v="present">${icon('check')} الكل حاضر</button>
+        <button class="btn sm ghost" data-act="attClear">${icon('refresh')} تفريغ</button>
+        <div class="sp"></div>
+        <div class="att-sum">
+          <span class="k"><i style="background:var(--ok)"></i> حاضر ${counts.present}</span>
+          <span class="k"><i style="background:var(--warn)"></i> متأخر ${counts.late}</span>
+          <span class="k"><i style="background:var(--bad)"></i> غائب ${counts.absent}</span>
+          <span class="k"><i style="background:var(--info)"></i> بعذر ${counts.excused}</span>
+        </div>
+      </div>
+      <div id="attList">
+        ${ss.map(s => `
+        <div class="att-row" data-sid="${s.id}">
+          ${avatar(s.name, s.id)}
+          <span class="an">
+            <b>${esc(s.name)}</b>
+            <span>${esc(s.code || '')}${s.phone ? ' · ' + esc(s.phone) : ''} · حضور سابق ${attStats(s.id).rate}%</span>
+          </span>
+          <span class="seg">
+            ${[['present','حاضر'],['late','متأخر'],['absent','غائب'],['excused','بعذر']].map(x =>
+              `<button data-act="mark" data-id="${s.id}" class="${rec[s.id] === x[0] ? 'on' : ''}" data-v="${x[0]}">${x[1]}</button>`).join('')}
+          </span>
+        </div>`).join('')}
+      </div>
+      <div class="field" style="margin-top:14px;margin-bottom:0">
+        <label>ملاحظة الحصة ${icon('edit')}</label>
+        <input class="inp" id="attNote" placeholder="مثال: تم شرح الوحدة الثالثة، تمرين على القوانين..." value="${esc(attDraft.note)}">
+      </div>` : emptyState('لا يوجد طلبة في هذه المجموعة','أضف طلبة للمجموعة من صفحة الطلبة')}
+    </div>
+  </div>
+
+  <div class="card mt">
+    <div class="card-h"><h3>كشف حضور شهر ${monthName(a.date.slice(0,7))}</h3><span class="sub">${esc(groupName(gid))}</span>
+      <span class="sp"></span>
+      <div class="att-sum">
+        <span class="k"><i style="background:var(--ok)"></i>حاضر</span><span class="k"><i style="background:var(--bad)"></i>غائب</span>
+        <span class="k"><i style="background:var(--warn)"></i>متأخر</span><span class="k"><i style="background:var(--info)"></i>بعذر</span>
+      </div>
+    </div>
+    <div class="tbl-wrap"><table class="tbl" id="attMatrixTable">
+      <thead><tr><th style="min-width:170px">الطالب</th>
+        ${mDays.map(d => `<th style="text-align:center;padding:6px 4px;min-width:34px" class="${d === today() ? 'nowrap' : ''}">${Number(d.slice(-2))}</th>`).join('')}
+        <th>حضور</th><th>غياب</th><th>النسبة</th></tr></thead>
+      <tbody>${matrixRows.map(r => {
+        const counted = r.p + r.ab + r.l;
+        const rate = counted ? Math.round(((r.p + r.l) / counted) * 100) : 0;
+        return `<tr><td>${stuCell(r.s)}</td>
+          ${mDays.map(d => {
+            const rr = getAtt(d, gid); const v = rr && rr.records[r.s.id];
+            const cls = v === 'present' ? 'present' : v === 'absent' ? 'absent' : v === 'late' ? 'late' : v === 'excused' ? 'excused' : '';
+            const ch = v === 'present' ? '✓' : v === 'absent' ? '✕' : v === 'late' ? 'م' : v === 'excused' ? 'ع' : '';
+            return `<td style="padding:3px 2px"><div class="cd ${cls}" data-cell="${r.s.id}:${d}" style="border-radius:7px;aspect-ratio:auto;height:26px">${ch}</div></td>`;
+          }).join('')}
+          <td class="num" style="color:var(--ok)">${r.p + r.l}</td>
+          <td class="num" style="color:var(--bad)">${r.ab}</td>
+          <td>${counted ? `<span class="badge ${rate >= 75 ? 'b-ok' : rate >= 50 ? 'b-warn' : 'b-bad'}">${rate}%</span>` : '<span class="muted small">—</span>'}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table></div>
+  </div>
+  <p class="small muted mt">ملاحظة: كشف الشهر يعرض نفس المجموعة المختارة. لتغيير مجموعة الكشف غيّر المجموعة بالأعلى.</p>`;
+};
+
+/* ============ EXAMS ============ */
+Views.exams = function(){
+  const ex = S.data.exams;
+  if (!ex.length){
+    return pageHead('الامتحانات والدرجات','أضف امتحانًا ثم أدخل درجات الطلبة',
+      `<button class="btn pri" data-act="addExam">${icon('plus')} امتحان جديد</button>`) +
+      `<div class="card"><div class="card-b">${emptyState('لا توجد امتحانات','أنشئ امتحانًا (اسم، تاريخ، الدرجة النهائية) وسجّل درجات المجموعة', `<button class="btn pri" data-act="addExam">${icon('plus')} إنشاء امتحان</button>`)}</div></div>`;
+  }
+  const list = sortBy(ex, e => e.date, 'desc');
+  const sel = ex.find(e => e.id === S.ui.exam.id) || list[0];
+  const grades = S.data.grades[sel.id] || {};
+  const ss = sel.groupId ? studentsOf(sel.groupId) : S.data.students;
+  const vals = ss.map(s => grades[s.id]).filter(v => typeof v === 'number');
+  const avg = vals.length ? sum(vals) / vals.length : 0;
+  const maxG = sum(vals, v => v >= (sel.max * 0.5) ? 1 : 0);
+  const sorted = sortBy(ss.filter(s => typeof grades[s.id] === 'number'), s => grades[s.id], 'desc');
+
+  return pageHead('الامتحانات والدرجات', `${ex.length} امتحان مسجَّل`,
+      `<button class="btn" data-act="expExam" data-id="${sel.id}">${icon('download')} CSV</button>
+       <button class="btn" data-act="printExam" data-id="${sel.id}">${icon('print')} طباعة</button>
+       <button class="btn pri" data-act="addExam">${icon('plus')} امتحان جديد</button>`) + `
+  <div class="grid g-32">
+    <div class="card">
+      <div class="card-h"><h3>الامتحانات</h3><span class="sp"></span><span class="badge b-brand">${nf(ex.length)}</span></div>
+      <div class="card-b" style="max-height:520px;overflow:auto">
+        ${list.map(e => {
+          const g = S.data.grades[e.id] || {};
+          const nn = Object.keys(g).length;
+          return `<div class="alert-row ${e.id === sel.id ? 'info' : ''}" style="cursor:pointer" data-act="selExam" data-id="${e.id}">
+            <span class="ai">${icon('award')}</span>
+            <span class="at"><b>${esc(e.name)}</b><span>${esc(groupName(e.groupId))} · ${fmtDate(e.date)} · النهائي ${e.max}</span></span>
+            <span class="badge ${nn ? 'b-ok' : 'b-gray'}">${nn} درجة</span>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h3>${esc(sel.name)}</h3><span class="sub">${esc(groupName(sel.groupId))} · ${fmtDate(sel.date, true)}</span>
+        <span class="sp"></span>
+        <button class="btn sm ghost" data-act="editExam" data-id="${sel.id}">${icon('edit')} تعديل</button>
+        <button class="btn sm ghost" data-act="delExam" data-id="${sel.id}">${icon('trash')}</button>
+      </div>
+      <div class="card-b">
+        <div class="grid g-3" style="margin-bottom:14px">
+          ${statCard({ label:'المتوسط', icon:'chart', value: avg ? avg.toFixed(1) : '—', unit: 'من ' + sel.max, tone:'info',
+            foot:`<span class="muted">${nf(vals.length)} درجة مُدخلة</span>` })}
+          ${statCard({ label:'أعلى درجة', icon:'star', value: vals.length ? nf(Math.max(...vals)) : '—', tone:'ok',
+            foot:`<span class="muted">${sorted.length ? esc(sorted[0].name) : '—'}</span>` })}
+          ${statCard({ label:'نسبة النجاح (50%+)', icon:'check-square', value: vals.length ? Math.round((maxG / vals.length) * 100) + '%' : '—',
+            tone: vals.length && (maxG / vals.length) >= .7 ? 'ok' : 'bad', foot:`<span class="muted">${maxG} من ${vals.length}</span>` })}
+        </div>
+        ${ss.length ? `<div class="tbl-wrap" style="max-height:420px"><table class="tbl">
+          <thead><tr><th>الطالب</th><th style="width:130px">الدرجة (من ${sel.max})</th><th>النسبة</th><th>التقدير</th></tr></thead>
+          <tbody>${ss.map(s => {
+            const v = grades[s.id];
+            const pc = typeof v === 'number' ? Math.round((v / sel.max) * 100) : null;
+            const gr = pc == null ? '' : pc >= 90 ? ['ممتاز','b-ok'] : pc >= 80 ? ['جيد جدًا','b-ok'] : pc >= 65 ? ['جيد','b-info'] : pc >= 50 ? ['مقبول','b-warn'] : ['ضعيف','b-bad'];
+            return `<tr><td>${stuCell(s)}</td>
+              <td><input class="inp" style="padding:6px 9px" type="number" min="0" max="${sel.max}" step="0.5" data-grade="${s.id}" value="${typeof v === 'number' ? v : ''}" placeholder="—"></td>
+              <td>${pc == null ? '<span class="muted">—</span>' : bar(pc, pc >= 65 ? 'ok' : pc >= 50 ? '' : 'bad') + `<span class="small muted">${pc}%</span>`}</td>
+              <td>${gr ? `<span class="badge ${gr[1]}">${gr[0]}</span>` : ''}</td></tr>`;
+          }).join('')}</tbody></table></div>
+          <div class="flex" style="margin-top:13px"><span class="muted small">الدرجات تُحفَظ تلقائيًا عند الخروج من الخانة</span>
+            <span class="sp"></span><button class="btn pri" data-act="saveGrades" data-id="${sel.id}">${icon('save')} حفظ الدرجات</button></div>`
+        : emptyState('لا يوجد طلبة في هذه المجموعة','')}
+      </div>
+    </div>
+  </div>`;
+};
+
+/* ============ PAYMENTS ============ */
+Views.payments = function(){
+  const mk = monthKey(today());
+  const pays = sortBy(S.data.payments, p => p.date + (p.createdAt || ''), 'desc');
+  const thisMonth = pays.filter(p => monthKey(p.date) === mk);
+  const activeS = activeStudents();
+  const expected = sum(activeS.filter(s => s.sub.type === 'monthly'), s => Number(s.fee) || 0);
+  const collected = sum(thisMonth, p => Number(p.amount) || 0);
+  const debtors = sortBy(S.data.students.map(s => ({ s: s, fin: stuFinance(s) })).filter(x => x.fin.due > 0), x => x.fin.due, 'desc');
+  const totalDue = sum(debtors, x => x.fin.due);
+  const last6 = monthRange(monthKey(addMonths(mk + '-01', -5)), 6);
+  const renewList = sortBy(S.data.students.map(s => ({ s: s, dl: daysLeft(s.sub.end) }))
+    .filter(x => x.s.sub.type === 'monthly' && x.s.status !== 'stopped' && x.dl <= 30), x => x.dl);
+
+  return pageHead('الاشتراكات والمدفوعات', `تحصيل ${monthName(mk)}: ${money(collected)} من ${money(expected)}`,
+      `<button class="btn" data-act="expPayments">${icon('download')} CSV</button>
+       <button class="btn" data-act="printPayments">${icon('print')} طباعة كشف التحصيل</button>
+       <button class="btn pri" data-act="addPayment">${icon('plus')} تسجيل دفعة</button>`) + `
+
+  <div class="grid g-4">
+    ${statCard({ label:'تحصيل الشهر', icon:'wallet', value: money(collected), tone:'ok',
+      foot:`${bar(pct(collected, expected), pct(collected, expected) >= 80 ? 'ok' : '')} <span class="muted">${pct(collected, expected)}% من ${money0(expected)}</span>` })}
+    ${statCard({ label:'عدد الدفعات', icon:'receipt', value: nf(thisMonth.length), tone:'info', foot:`<span class="muted">متوسط الدفعة ${money(thisMonth.length ? collected / thisMonth.length : 0)}</span>` })}
+    ${statCard({ label:'إجمالي المتأخرات', icon:'alert', value: money(totalDue), tone: totalDue ? 'bad' : 'ok',
+      foot:`<span class="muted">${nf(debtors.length)} طالب متأخر</span>` })}
+    ${statCard({ label:'اشتراكات للتجديد', icon:'clock', value: nf(renewList.filter(x => x.dl <= (S.data.settings.expiryWarnDays || 5)).length),
+      tone: renewList.filter(x => x.dl <= 0).length ? 'bad' : '', foot:`<span class="muted">${nf(renewList.filter(x => x.dl <= 0).length)} منتهي بالفعل</span>` })}
+  </div>
+
+  <div class="grid g-23 mt">
+    <div class="card">
+      <div class="card-h"><h3>التحصيل الشهري</h3><span class="sub">آخر 6 شهور</span></div>
+      <div class="card-b"><canvas class="chart" id="chartPay2"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h3>اشتراكات تحتاج تجديد</h3><span class="sp"></span>
+        <button class="btn sm" data-act="waAllDue">${icon('whatsapp')} تذكير الكل</button></div>
+      <div class="card-b" style="max-height:340px;overflow:auto">
+        ${renewList.length ? renewList.slice(0, 25).map(x => {
+          const stt = stuStatus(x.s);
+          return `<div class="alert-row ${x.dl < 0 ? 'bad' : x.dl <= 5 ? 'warn' : 'info'}">
+            <span class="ai">${icon('clock')}</span>
+            <span class="at"><b>${esc(x.s.name)}</b><span>${x.dl < 0 ? `منتهي منذ ${Math.abs(x.dl)} يوم (${fmtDate(x.s.sub.end)})` : `باقي ${x.dl} يوم — ينتهي ${fmtDate(x.s.sub.end)}`} · ${esc(groupName(x.s.groupId))}</span></span>
+            <button class="btn sm pri" data-act="renew" data-id="${x.s.id}">تجديد</button>
+          </div>`;
+        }).join('') : '<p class="muted small">لا توجد اشتراكات قريبة من الانتهاء</p>'}
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g-23 mt">
+    <div class="card">
+      <div class="card-h"><h3>سجل الدفعات</h3><span class="sp"></span><span class="badge b-brand">الإجمالي ${money(sum(pays, p => Number(p.amount) || 0))}</span></div>
+      ${pays.length ? `<div class="tbl-wrap" style="max-height:520px"><table class="tbl">
+        <thead><tr><th>التاريخ</th><th>الطالب</th><th>المبلغ</th><th>عن شهر</th><th>طريقة الدفع</th><th></th></tr></thead>
+        <tbody>${pays.slice(0, 200).map(p => { const s = student(p.studentId); return `<tr>
+          <td class="small muted nowrap">${fmtDate(p.date)}</td>
+          <td>${s ? esc(s.name) : '<span class="muted">محذوف</span>'}</td>
+          <td class="num" style="font-weight:800;color:var(--ok)">${money(p.amount)}</td>
+          <td>${p.period ? monthName(p.period) : '<span class="muted small">—</span>'}</td>
+          <td><span class="badge b-gray">${{cash:'نقدي',transfer:'تحويل',wallet:'محفظة'}[p.method] || 'نقدي'}</span></td>
+          <td><div class="row-actions">
+            <button class="btn icon sm ghost" data-act="receipt" data-id="${p.id}" title="إيصال">${icon('receipt')}</button>
+            <button class="btn icon sm ghost" data-act="delPayment" data-id="${p.id}" title="حذف">${icon('trash')}</button>
+          </div></td></tr>`; }).join('')}</tbody></table></div>`
+      : `<div class="card-b">${emptyState('لا توجد دفعات','سجّل أول دفعة لتبدأ متابعة التحصيل')}</div>`}
+    </div>
+    <div class="card">
+      <div class="card-h"><h3>المتأخرات</h3><span class="sp"></span><span class="badge ${totalDue ? 'b-bad' : 'b-ok'}">${money(totalDue)}</span></div>
+      <div class="card-b" style="max-height:520px;overflow:auto">
+        ${debtors.length ? debtors.map(x => `
+        <div class="alert-row bad">
+          <span class="ai">${icon('alert')}</span>
+          <span class="at"><b>${esc(x.s.name)} <span class="badge b-bad">${money0(x.fin.due)}</span></b>
+            <span>${x.fin.dueMonths.map(m => monthName(m)).join(' · ')}</span>
+            <span>${x.fin.months.length ? `الاشتراك: ${money0(x.fin.fee)} / شهر` : ''}</span></span>
+          <button class="btn sm pri" data-act="addPayment" data-id="${x.s.id}">تحصيل</button>
+        </div>`).join('') : `<div class="empty" style="padding:22px"><div class="ic">${icon('check')}</div><h4>لا توجد متأخرات</h4><p>كل الطلبة مسددين 👌</p></div>`}
+      </div>
+    </div>
+  </div>`;
+};
+Views.after_payments = function(){
+  const mk = monthKey(today());
+  const months = monthRange(monthKey(addMonths(mk + '-01', -5)), 6);
+  Charts.bar($('#chartPay2'), months.map(m => AR_MONTHS[Number(m.split('-')[1]) - 1]),
+    months.map(m => sum(S.data.payments.filter(p => monthKey(p.date) === m), p => Number(p.amount) || 0)),
+    { color: '#12a150', fmt: v => money0(v) });
+};
+
+/* ============ REPORTS ============ */
+Views.reports = function(){
+  const r = S.ui.rep;
+  return pageHead('التقارير', 'تقارير جاهزة للتصدير والطباعة',
+    `<button class="btn" data-act="expReport">${icon('download')} تصدير CSV</button>
+     <button class="btn pri" data-act="printReport">${icon('print')} طباعة التقرير</button>`) + `
+
+  <div class="card">
+    <div class="card-h"><h3>اختر التقرير</h3></div>
+    <div class="card-b">
+      <div class="chips" style="margin-bottom:14px">
+        ${[['attendance','تقرير الحضور'],['students','بيانات الطلبة'],['payments','التحصيل المالي'],
+           ['dues','المتأخرات'],['exams','نتائج الامتحانات'],['summary','ملخص المركز']].map(x =>
+          `<button class="chip ${r.type === x[0] ? 'on' : ''}" data-act="repType" data-id="${x[0]}">${x[1]}</button>`).join('')}
+      </div>
+      <div class="flex wrap">
+        ${r.type === 'exams' ? `<select class="inp" style="max-width:240px" data-rep="examId">
+          ${S.data.exams.map(e => `<option value="${e.id}" ${r.examId === e.id ? 'selected' : ''}>${esc(e.name)} — ${fmtDate(e.date)}</option>`).join('') || '<option>لا توجد امتحانات</option>'}
+        </select>` : `
+        <div><label class="small muted">من تاريخ</label><input type="date" class="inp" data-rep="from" value="${r.from}"></div>
+        <div><label class="small muted">إلى تاريخ</label><input type="date" class="inp" data-rep="to" value="${r.to}"></div>`}
+        <div><label class="small muted">المجموعة</label><select class="inp" style="max-width:200px" data-rep="groupId">
+          <option value="">كل المجموعات</option>
+          ${S.data.groups.map(g => `<option value="${g.id}" ${r.groupId === g.id ? 'selected' : ''}>${esc(g.name)}</option>`).join('')}
+        </select></div>
+        <div class="sp"></div>
+        <button class="btn pri" data-act="runReport">${icon('chart')} تشغيل التقرير</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="repOut" class="mt">${reportHTML()}</div>`;
+};
+
+function reportRows(){
+  const r = S.ui.rep;
+  let ss = S.data.students.slice();
+  if (r.groupId) ss = ss.filter(s => s.groupId === r.groupId);
+  return ss;
+}
+function reportHTML(){
+  const r = S.ui.rep;
+  const ss = reportRows();
+  if (r.type === 'attendance'){
+    const rows = ss.map(s => {
+      const a = attStats(s.id, r.from, r.to);
+      return [s.name, s.code, groupName(s.groupId), a.present, a.late, a.absent, a.excused, a.total, a.rate + '%'];
+    });
+    const tot = { p:0,l:0,ab:0,ex:0,t:0 };
+    ss.forEach(s => { const a = attStats(s.id, r.from, r.to); tot.p+=a.present; tot.l+=a.late; tot.ab+=a.absent; tot.ex+=a.excused; tot.t+=a.total; });
+    return cardReport('تقرير الحضور والغياب', `من ${fmtDate(r.from)} إلى ${fmtDate(r.to)}`,
+      ['الطالب','الكود','المجموعة','حاضر','متأخر','غائب','بعذر','إجمالي','نسبة الحضور'],
+      rows, ['', '', 'الإجمالي', tot.p, tot.l, tot.ab, tot.ex, tot.t, (tot.t ? Math.round(((tot.p + tot.l) / tot.t) * 100) : 0) + '%']);
+  }
+  if (r.type === 'students'){
+    const rows = ss.map(s => { const fin = stuFinance(s); return [s.name, s.code, s.phone, s.parentPhone, groupName(s.groupId), s.level, stuStatus(s).label, fmtDate(s.joinDate), s.sub.type === 'monthly' ? fmtDate(s.sub.end) : 'باقة حصص', money0(fin.due)]; });
+    return cardReport('بيانات الطلبة', `${ss.length} طالب`, ['الاسم','الكود','هاتف','هاتف ولي الأمر','المجموعة','المستوى','الحالة','تاريخ الانضمام','الاشتراك حتى','المتأخرات'], rows);
+  }
+  if (r.type === 'payments'){
+    const pays = sortBy(S.data.payments.filter(p => (!r.from || p.date >= r.from) && (!r.to || p.date <= r.to) && (!r.groupId || (student(p.studentId) || {}).groupId === r.groupId)), p => p.date);
+    const rows = pays.map(p => { const s = student(p.studentId) || {}; return [fmtDate(p.date), s.name || '—', groupName(s.groupId), p.period ? monthName(p.period) : '—', money0(p.amount), {cash:'نقدي',transfer:'تحويل',wallet:'محفظة'}[p.method] || 'نقدي']; });
+    const total = sum(pays, p => Number(p.amount) || 0);
+    return cardReport('تقرير التحصيل المالي', `من ${fmtDate(r.from)} إلى ${fmtDate(r.to)}`, ['التاريخ','الطالب','المجموعة','عن شهر','المبلغ','طريقة الدفع'], rows, ['','','','الإجمالي', money0(total), '']);
+  }
+  if (r.type === 'dues'){
+    const rows = ss.map(s => ({ s: s, fin: stuFinance(s) })).filter(x => x.fin.due > 0)
+      .map(x => [x.s.name, x.s.phone, x.s.parentPhone, groupName(x.s.groupId), x.fin.dueMonths.map(m => monthName(m)).join(' · '), money0(x.fin.due)]);
+    const total = sum(rows, x => Number(String(x[5]).replace(/[^\d.]/g, '')) || 0);
+    return cardReport('تقرير المتأخرات', `${rows.length} طالب`, ['الطالب','هاتف','هاتف ولي الأمر','المجموعة','الشهور المتأخرة','المبلغ المستحق'], rows, ['','','','','الإجمالي', money0(total)]);
+  }
+  if (r.type === 'exams'){
+    const e = examOf(S.ui.rep.examId) || S.data.exams[0];
+    if (!e) return `<div class="card"><div class="card-b">${emptyState('لا توجد امتحانات','أضف امتحانًا من صفحة الامتحانات')}</div></div>`;
+    const g = S.data.grades[e.id] || {};
+    let sts = (e.groupId ? studentsOf(e.groupId) : S.data.students).filter(s => typeof g[s.id] === 'number');
+    sts = sortBy(sts, s => g[s.id], 'desc');
+    let rank = 0, prev = null;
+    const rows = sts.map((s, i) => { if (prev !== null && g[s.id] !== prev) rank = i; if (prev === null) rank = 0; prev = g[s.id];
+      return [String(rank + 1), s.name, groupName(s.groupId), g[s.id], e.max, Math.round((g[s.id] / e.max) * 100) + '%']; });
+    return cardReport('نتائج امتحان: ' + e.name, `${fmtDate(e.date, true)} · ${groupName(e.groupId)} · الدرجة النهائية ${e.max}`, ['ترتيب','الطالب','المجموعة','الدرجة','من','النسبة'], rows);
+  }
+  // summary
+  const act = ss.filter(s => s.status === 'active');
+  const attR = ss.map(s => attStats(s.id, r.from, r.to)).reduce((t, a) => ({ t: t.t + a.total, ok: t.ok + a.present + a.late }), { t:0, ok:0 });
+  const income = sum(S.data.payments.filter(p => (!r.from || p.date >= r.from) && (!r.to || p.date <= r.to)), p => Number(p.amount) || 0);
+  const due = sum(ss, s => stuFinance(s).due);
+  const rows = [
+    ['عدد الطلبة المسجلين', nf(ss.length)],
+    ['الطلبة النشطين', nf(act.length)],
+    ['الطلبة الموقوفين', nf(ss.length - act.length)],
+    ['عدد المجموعات', nf(S.data.groups.filter(g => !r.groupId || g.id === r.groupId).length)],
+    ['نسبة الحضور بالفترة', (attR.t ? Math.round((attR.ok / attR.t) * 100) : 0) + '%'],
+    ['عدد تسجيلات الحضور', nf(attR.t)],
+    ['إجمالي التحصيل بالفترة', money(income)],
+    ['إجمالي المتأخرات', money(due)],
+    ['عدد الامتحانات', nf(S.data.exams.length)],
+    ['متوسط الدرجات العام', (() => { const v = ss.map(s => examAvg(s.id)).filter(x => x != null); return v.length ? Math.round(sum(v) / v.length) + '%' : '—'; })()]
+  ];
+  return cardReport('ملخص المركز', `من ${fmtDate(r.from)} إلى ${fmtDate(r.to)}`, ['البند','القيمة'], rows);
+}
+function cardReport(title, sub, headers, rows, totalRow){
+  return `<div class="card">
+    <div class="card-h"><h3>${esc(title)}</h3><span class="sub">${esc(sub)}</span>
+      <span class="sp"></span><span class="badge b-brand">${nf(rows.length)} سجل</span></div>
+    ${rows.length ? `<div class="tbl-wrap" style="max-height:600px"><table class="tbl"><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead>
+      <tbody>${rows.map((r2, i) => `<tr>${r2.map((c, j) => `<td class="${[3,4,5,6,7,8].includes(j) ? 'num' : ''}"${j === 0 && headers[0] === 'البند' ? ' style="font-weight:700"' : ''}>${esc(c)}</td>`).join('')}</tr>`).join('')}
+      ${totalRow ? `<tr>${totalRow.map(c => `<td style="font-weight:800;background:var(--warn-bg)">${esc(c)}</td>`).join('')}</tr>` : ''}
+      </tbody></table></div>`
+    : `<div class="card-b">${emptyState('لا توجد بيانات مطابقة','غيّر الفترة أو المجموعة ثم أعد التشغيل')}</div>`}
+  </div>`;
+}
+
+/* ============ SETTINGS ============ */
+Views.settings = function(){
+  const st = S.data.settings, fb = S.fb.cfg || {};
+  const size = (() => { try{ return (new Blob([JSON.stringify(S.data)]).size / 1024).toFixed(1) + ' كيلوبايت'; }catch(e){ return '—'; } })();
+  return pageHead('الإعدادات','بيانات المركز، قواعد التنبيه، النسخ الاحتياطي والربط السحابي') + `
+
+  <div class="grid g-2">
+    <div class="card">
+      <div class="card-h"><h3>${icon('gear')} بيانات المركز</h3></div>
+      <div class="card-b">
+        <div class="frow">
+          <div class="field"><label>اسم المركز / الأكاديمية</label><input class="inp" data-set="centerName" value="${esc(st.centerName)}"></div>
+          <div class="field"><label>اسم المدرب</label><input class="inp" data-set="coachName" value="${esc(st.coachName)}"></div>
+        </div>
+        <div class="frow">
+          <div class="field"><label>رقم الهاتف</label><input class="inp" data-set="phone" value="${esc(st.phone)}" placeholder="01xxxxxxxxx"></div>
+          <div class="field"><label>العملة</label><input class="inp" data-set="currency" value="${esc(st.currency)}"></div>
+        </div>
+        <div class="frow-3">
+          <div class="field"><label>سعر الحصة</label><input class="inp" type="number" data-set="sessionPrice" value="${st.sessionPrice}"></div>
+          <div class="field"><label>سعر الاشتراك الشهري</label><input class="inp" type="number" data-set="monthlyPrice" value="${st.monthlyPrice}"></div>
+          <div class="field"><label>تنبيه قبل انتهاء الاشتراك (يوم)</label><input class="inp" type="number" data-set="expiryWarnDays" value="${st.expiryWarnDays}"></div>
+        </div>
+        <div class="field"><label>المستويات (افصل بينها بفاصلة)</label><input class="inp" data-set="levels" value="${esc(st.levels.join(', '))}">
+          <span class="hint">تُستخدم في تصنيف الطلبة والتقارير</span></div>
+        <div class="field"><label>عدد الغيابات الذي يُنبّه عليه خلال 30 يوم</label><input class="inp" type="number" data-set="absentWarn" value="${st.absentWarn}"></div>
+        <button class="btn pri" data-act="saveSettings">${icon('save')} حفظ الإعدادات</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h"><h3>${icon('cloud')} قاعدة البيانات السحابية (Firebase)</h3>
+        <span class="sp"></span><span class="badge ${S.fb.status === 'live' ? 'b-ok' : S.fb.status === 'error' ? 'b-bad' : 'b-gray'}">${{off:'غير متصل',live:'متصل',busy:'جارٍ الاتصال',error:'خطأ'}[S.fb.status]}</span></div>
+      <div class="card-b">
+        <div class="help" style="margin-bottom:14px">
+          <b>طريقة التشغيل:</b><br>
+          1) افتح <code>console.firebase.google.com</code> ← مشروع جديد.<br>
+          2) من <code>Build › Firestore Database</code> اضغط <b>Create database</b>.<br>
+          3) من <code>Project settings › Your apps › Web</code> انسخ قيم <code>firebaseConfig</code> والصقها هنا.<br>
+          4) اكتب <b>كود المركز</b> (أي كلمة سرية) — كل من يستخدم نفس الكود سيرى نفس البيانات.<br>
+          5) من <code>Firestore › Rules</code> استخدم القاعدة الموجودة بالأسفل.
+        </div>
+        <div class="frow">
+          <div class="field"><label>API Key <span class="req">*</span></label><input class="inp code" data-fb="apiKey" value="${esc(fb.apiKey || '')}" placeholder="AIza..."></div>
+          <div class="field"><label>Project ID <span class="req">*</span></label><input class="inp code" data-fb="projectId" value="${esc(fb.projectId || '')}" placeholder="my-center-1234"></div>
+        </div>
+        <div class="frow">
+          <div class="field"><label>Auth Domain</label><input class="inp code" data-fb="authDomain" value="${esc(fb.authDomain || '')}" placeholder="my-center.firebaseapp.com"></div>
+          <div class="field"><label>كود المركز / المجموعة <span class="req">*</span></label><input class="inp code" data-fb="code" value="${esc(fb.code || '')}" placeholder="مثال: ahmed-fathy-2026" autocomplete="off"></div>
+        </div>
+        <div class="frow-3">
+          <div class="field"><label>Storage Bucket</label><input class="inp code" data-fb="storageBucket" value="${esc(fb.storageBucket || '')}"></div>
+          <div class="field"><label>Messaging Sender ID</label><input class="inp code" data-fb="messagingSenderId" value="${esc(fb.messagingSenderId || '')}"></div>
+          <div class="field"><label>App ID</label><input class="inp code" data-fb="appId" value="${esc(fb.appId || '')}"></div>
+        </div>
+        <div class="btn-row">
+          <button class="btn pri" data-act="fbConnect">${icon('link')} ${S.fb.status === 'live' ? 'إعادة الاتصال' : 'اتصال'}</button>
+          <button class="btn" data-act="fbPull" ${S.fb.status !== 'live' ? 'disabled' : ''}>${icon('download')} تنزيل من السحابة</button>
+          <button class="btn" data-act="fbPushAll" ${S.fb.status !== 'live' ? 'disabled' : ''}>${icon('upload')} رفع كل البيانات</button>
+          <button class="btn ghost" data-act="fbDisconnect" ${S.fb.status === 'off' ? 'disabled' : ''}>${icon('x')} فصل</button>
+        </div>
+        <div class="sep"></div>
+        <b class="small">قواعد Firestore المقترحة (اقرأ التعليمات):</b>
+        <pre class="code" style="background:var(--line-2);padding:11px;border-radius:11px;overflow:auto;margin-top:8px">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /centers/{code}/{document=**} {
+      // ⚠️ للاستخدام السريع: مفتوح لمن يعرف الكود
+      // للإنتاج: استبدلها بمصادقة Firebase Auth
+      allow read, write: if true;
+    }
+  }
+}</pre>
+        <p class="small muted" style="margin-top:8px">تنبيه: القاعدة المفتوحة تعني أن أي شخص يعرف كود المركز يستطيع القراءة والكتابة. للحماية الكاملة استخدم Firebase Auth.كود المركز يعمل كاسم للمستند، فاختَر كودًا غير متوقع.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid g-3 mt">
+    <div class="card">
+      <div class="card-h"><h3>${icon('save')} نسخ احتياطي</h3></div>
+      <div class="card-b">
+        <p class="small muted">حجم البيانات الحالي: <b>${size}</b> · آخر تعديل: ${S.data.meta.updatedAt ? new Date(S.data.meta.updatedAt).toLocaleString('ar-EG') : '—'}</p>
+        <div class="btn-row" style="margin-top:10px">
+          <button class="btn pri" data-act="expJSON">${icon('download')} تصدير نسخة (JSON)</button>
+          <button class="btn" data-act="impJSON">${icon('upload')} استيراد نسخة</button>
+        </div>
+        <div class="sep"></div>
+        <div class="btn-row">
+          <button class="btn" data-act="expCSVAll">${icon('file')} تصدير كل البيانات (CSV مضغوط)</button>
+          <button class="btn" data-act="seed">${icon('star')} بيانات تجريبية</button>
+          <button class="btn bad" data-act="wipe">${icon('trash')} حذف كل البيانات</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h3>${icon('moon')} المظهر</h3></div>
+      <div class="card-b">
+        <label class="switch" style="margin-bottom:14px">
+          <input type="checkbox" id="darkToggle" ${st.theme === 'dark' ? 'checked' : ''}>
+          <span class="track"></span>
+          <span class="lb">الوضع الليلي<span>مريح للعين في الإضاءة المنخفضة</span></span>
+        </label>
+        <div class="field"><label>اسم اللوجو / الصورة الشخصية</label>
+          <p class="small muted">لأفضل نتيجة ضع صورة مربعة باسم <code>logo.jpg</code> بجانب الملف. لو مش موجودة، بيستخدم شعار بديل تلقائي.</p>
+        </div>
+        <div class="flex"><img src="logo.jpg" style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid var(--brand)" onerror="this.src=AF_LOGO_FALLBACK">
+        <span class="small muted">الشعار الحالي</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-h"><h3>${icon('book')} دليل سريع</h3></div>
+      <div class="card-b small" style="line-height:2">
+        <p><b>1.</b> أضف المجموعات من صفحة «المجموعات».</p>
+        <p><b>2.</b> أضف الطلبة وحدّد لهم مجموعة واشتراك.</p>
+        <p><b>3.</b> من «الحضور والغياب» اختر المجموعة والتاريخ ثم سجّل الحضور واحفظ.</p>
+        <p><b>4.</b> من «الاشتراكات» سجّل الدفعات واطبع الإيصال.</p>
+        <p><b>5.</b> تابع «التنبيهات» لمعرفة الاشتراكات المنتهية والمتأخرات والغياب المتكرر.</p>
+        <p><b>6.</b> من «التقارير» اطبع أي تقرير أو صدّره Excel.</p>
+        <div class="sep"></div>
+        <p class="muted">كل البيانات محفوظة في متصفحك (localStorage). اعمل نسخة احتياطية دورية من الأعلى، أو اربط Firebase للمزامنة بين الأجهزة.</p>
+      </div>
+    </div>
+  </div>`;
+};
+
+/* ==== 40-actions.js ==== */
+/* ============================================================
+   Part 3/3 : Renderer · Actions · Modals · Boot
+   ============================================================ */
+
+/* ---------------- Renderer ---------------- */
+function render(){
+  const ae = document.activeElement;
+  const rid = ae && ae.id ? ae.id : null;
+  const rs = ae && typeof ae.selectionStart === 'number' ? ae.selectionStart : null;
+  const re = ae && typeof ae.selectionEnd === 'number' ? ae.selectionEnd : null;
+
+  const v = Views[S.view] ? S.view : 'dashboard';
+  const t = TITLES[v] || TITLES.dashboard;
+  $('#pageTitle').textContent = t[0];
+  $('#pageSub').textContent = t[1];
+  $('#content').innerHTML = Views[v]();
+
+  $$('#nav a').forEach(a => a.classList.toggle('on', a.dataset.view === v));
+  const al = alerts().length;
+  const pill = $('#navAlertsPill');
+  pill.textContent = al; pill.classList.toggle('hide', !al);
+  $('#navStudentsPill').textContent = S.data.students.length;
+  $('#brandName').textContent = S.data.settings.coachName || 'أحمد فتحي';
+  document.title = t[0] + ' · ' + (S.data.settings.centerName || 'نظام المتابعة');
+  if (typeof Views['after_' + v] === 'function'){ try{ Views['after_' + v](); }catch(e){ console.warn(e); } }
+  paintCloud();
+
+  if (rid){
+    const el = document.getElementById(rid);
+    if (el){ try{ el.focus(); if (rs != null && el.setSelectionRange) el.setSelectionRange(rs, re); }catch(e){} }
+  }
+}
+function go(view, extra){
+  S.view = view;
+  if (extra && extra.groupId) S.ui.att.groupId = extra.groupId;
+  if (view === 'attendance' && !S.ui.att.groupId && S.data.groups[0]) S.ui.att.groupId = S.data.groups[0].id;
+  if (window.innerWidth <= 900) closeDrawer();
+  render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function closeDrawer(){ $('#sidebar').classList.remove('open'); $('#scrim').classList.remove('on'); }
+
+/* ---------------- Confirm ---------------- */
+function confirmDialog(title, msg, okLabel, cb, danger){
+  const id = Modal.open({
+    title: title, size: 'sm', autofocus: false,
+    body: `<p style="line-height:1.9">${esc(msg)}</p>`,
+    footer: `<button class="btn" data-close="${'__ID__'}">إلغاء</button><button class="btn ${danger ? 'bad' : 'pri'}" id="cfOk">${esc(okLabel || 'تأكيد')}</button>`
+  });
+  const ov = $(`.overlay[data-mid="${id}"]`);
+  ov.querySelector('[data-close]').setAttribute('data-close', id);
+  ov.querySelector('#cfOk').onclick = () => { Modal.close(id); cb(); };
+  return id;
+}
+
+/* ---------------- Student form ---------------- */
+function nextCode(){
+  const nums = S.data.students.map(s => Number(String(s.code || '').replace(/\D/g, '')) || 0);
+  const n = (nums.length ? Math.max.apply(null, nums) : 0) + 1;
+  return 'S' + String(n).padStart(3, '0');
+}
+function openStudentForm(id){
+  const s = id ? student(id) : null;
+  const st = s || { name:'', code: nextCode(), phone:'', parentPhone:'', guardian:'', groupId:(S.ui.stuFilter.groupId || ''), level:'', status:'active', joinDate: today(), notes:'', fee: S.data.settings.monthlyPrice, sub:{ type:'monthly', start: today(), end: addMonths(today(), 1), total:12, used:0 } };
+  Modal.open({
+    title: id ? 'تعديل بيانات الطالب' : 'إضافة طالب جديد',
+    sub: id ? s.name : 'املأ البيانات الأساسية ثم اضغط حفظ',
+    size: 'lg',
+    body: `
+      <div class="frow">
+        <div class="field"><label>اسم الطالب <span class="req">*</span></label><input class="inp" id="fName" value="${esc(st.name)}" placeholder="الاسم الثلاثي"></div>
+        <div class="field"><label>الكود</label><input class="inp" id="fCode" value="${esc(st.code)}"></div>
+      </div>
+      <div class="frow-3">
+        <div class="field"><label>هاتف الطالب</label><input class="inp" id="fPhone" value="${esc(st.phone)}" placeholder="01xxxxxxxxx"></div>
+        <div class="field"><label>هاتف ولي الأمر</label><input class="inp" id="fPPhone" value="${esc(st.parentPhone)}" placeholder="01xxxxxxxxx"></div>
+        <div class="field"><label>اسم ولي الأمر</label><input class="inp" id="fGuardian" value="${esc(st.guardian)}"></div>
+      </div>
+      <div class="frow-3">
+        <div class="field"><label>المجموعة</label><select class="inp" id="fGroup"><option value="">بدون مجموعة</option>
+          ${S.data.groups.map(g => `<option value="${g.id}" ${st.groupId === g.id ? 'selected' : ''}>${esc(g.name)}</option>`).join('')}</select></div>
+        <div class="field"><label>المستوى</label><select class="inp" id="fLevel"><option value="">غير محدد</option>
+          ${S.data.settings.levels.map(l => `<option value="${esc(l)}" ${st.level === l ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select></div>
+        <div class="field"><label>تاريخ الانضمام</label><input class="inp" type="date" id="fJoin" value="${st.joinDate || today()}"></div>
+      </div>
+      <div class="frow-3">
+        <div class="field"><label>حالة الطالب</label><select class="inp" id="fStatus">
+          <option value="active" ${st.status === 'active' ? 'selected' : ''}>نشط</option>
+          <option value="paused" ${st.status === 'paused' ? 'selected' : ''}>متوقف مؤقتًا</option>
+          <option value="stopped" ${st.status === 'stopped' ? 'selected' : ''}>موقوف</option></select></div>
+        <div class="field"><label>نوع الاشتراك</label><select class="inp" id="fSubType">
+          <option value="monthly" ${st.sub.type === 'monthly' ? 'selected' : ''}>شهري (تاريخ انتهاء)</option>
+          <option value="sessions" ${st.sub.type === 'sessions' ? 'selected' : ''}>باقة حصص (عدد حصص)</option></select></div>
+        <div class="field"><label>قيمة الاشتراك (شهر / باقة)</label><input class="inp" type="number" id="fFee" value="${st.fee || 0}"></div>
+      </div>
+      <div class="frow-3" id="subMonthly" style="${st.sub.type === 'monthly' ? '' : 'display:none'}">
+        <div class="field"><label>بداية الاشتراك</label><input class="inp" type="date" id="fStart" value="${st.sub.start || today()}"></div>
+        <div class="field"><label>نهاية الاشتراك</label><input class="inp" type="date" id="fEnd" value="${st.sub.end || addMonths(today(),1)}"></div>
+        <div class="field"><label></label><button class="btn" type="button" data-act="quickEnd">+ شهر من البداية</button></div>
+      </div>
+      <div class="frow-3" id="subSessions" style="${st.sub.type === 'sessions' ? '' : 'display:none'}">
+        <div class="field"><label>عدد الحصص في الباقة</label><input class="inp" type="number" id="fTotal" value="${st.sub.total || 12}"></div>
+        <div class="field"><label>بداية الباقة</label><input class="inp" type="date" id="fStart2" value="${st.sub.start || today()}"></div>
+        <div class="field"><label>الحصص المستهلكة</label><input class="inp" type="number" id="fUsed" value="${st.sub.used || 0}"></div>
+      </div>
+      <div class="field"><label>ملاحظات</label><textarea class="inp" id="fNotes" placeholder="مستوى الطالب، ملاحظات الأداء، أي تفاصيل مهمة...">${esc(st.notes)}</textarea></div>
+      <div class="help">💡 لو خلّيت اشتراك الباقة بالحصص، النظام هيحسب الحصص المستهلكة تلقائيًا من سجل الحضور.</div>`,
+    footer: `${id ? `<button class="btn ghost sp" data-act="delStudent" data-id="${id}">${icon('trash')} حذف الطالب</button>` : ''}
+      <button class="btn" data-close="__ID__">إلغاء</button>
+      <button class="btn pri" id="saveStu">${icon('save')} حفظ</button>`,
+    onMount(body, ov){
+      ov.querySelectorAll('[data-close]').forEach(b => b.setAttribute('data-close', ov.dataset.mid));
+      $('#fSubType', body).onchange = e => {
+        const m = e.target.value === 'monthly';
+        $('#subMonthly', body).style.display = m ? '' : 'none';
+        $('#subSessions', body).style.display = m ? 'none' : '';
+      };
+      $('[data-act=quickEnd]', body).onclick = () => { $('#fEnd', body).value = addMonths($('#fStart', body).value || today(), 1); };
+      $('#fStart', body).onchange = () => { if ($('#fEnd', body).value < $('#fStart', body).value) $('#fEnd', body).value = addMonths($('#fStart', body).value, 1); };
+      $('#fName', body).focus();
+      $('#saveStu', body).onclick = () => {
+        const name = $('#fName', body).value.trim();
+        if (!name){ toast('اكتب اسم الطالب', 'warn'); return; }
+        const type = $('#fSubType', body).value;
+        const data = {
+          name: name, code: $('#fCode', body).value.trim(), phone: $('#fPhone', body).value.trim(),
+          parentPhone: $('#fPPhone', body).value.trim(), guardian: $('#fGuardian', body).value.trim(),
+          groupId: $('#fGroup', body).value, level: $('#fLevel', body).value, status: $('#fStatus', body).value,
+          joinDate: $('#fJoin', body).value || today(), fee: Number($('#fFee', body).value) || 0,
+          notes: $('#fNotes', body).value.trim(),
+          sub: {
+            type: type,
+            start: type === 'monthly' ? ($('#fStart', body).value || today()) : ($('#fStart2', body).value || today()),
+            end: type === 'monthly' ? ($('#fEnd', body).value || addMonths(today(), 1)) : '',
+            total: type === 'sessions' ? (Number($('#fTotal', body).value) || 0) : 0,
+            used: type === 'sessions' ? (Number($('#fUsed', body).value) || 0) : 0
+          }
+        };
+        if (id){
+          const s2 = student(id);
+          s2.sub.end = data.sub.end || s2.sub.end;
+          Object.assign(s2, data);
+          toast('تم تحديث بيانات ' + name, 'ok');
+        }else{
+          S.data.students.push(Object.assign({ id: uid('s') }, data));
+          toast('تمت إضافة ' + name, 'ok');
+        }
+        Modal.closeAll();
+        commit();
+      };
+    }
+  });
+}
+
+/* ---------------- Group form ---------------- */
+function openGroupForm(id){
+  const g = id ? groupOf(id) : { name:'', level:'', days:[], time:'', price:S.data.settings.monthlyPrice, note:'' };
+  Modal.open({
+    title: id ? 'تعديل المجموعة' : 'مجموعة جديدة',
+    size: 'sm',
+    body: `
+      <div class="field"><label>اسم المجموعة <span class="req">*</span></label><input class="inp" id="gName" value="${esc(g.name)}" placeholder="مثال: مجموعة السبت والثلاثاء - المستوى الأول"></div>
+      <div class="frow">
+        <div class="field"><label>المستوى</label><input class="inp" id="gLevel" value="${esc(g.level)}" list="lvlList">
+          <datalist id="lvlList">${S.data.settings.levels.map(l => `<option value="${esc(l)}">`).join('')}</datalist></div>
+        <div class="field"><label>ميعاد الحصة</label><input class="inp" id="gTime" value="${esc(g.time)}" placeholder="مثال: 5:00 م"></div>
+      </div>
+      <div class="field"><label>أيام الحصة</label>
+        <div class="chips">${AR_DAYS.map((d, i) => `<button type="button" class="chip ${(g.days || []).includes(i) ? 'on' : ''}" data-day="${i}">${AR_DAYS_SHORT[i]}</button>`).join('')}</div></div>
+      <div class="frow">
+        <div class="field"><label>سعر الاشتراك الشهري</label><input class="inp" type="number" id="gPrice" value="${g.price || 0}"></div>
+        <div class="field"><label>عدد الطلبة</label><input class="inp" disabled value="${id ? studentsOf(id).length : 0}"></div>
+      </div>
+      <div class="field"><label>ملاحظات</label><textarea class="inp" id="gNote">${esc(g.note)}</textarea></div>`,
+    footer: `<button class="btn" data-close="__ID__">إلغاء</button><button class="btn pri" id="saveGrp">${icon('save')} حفظ</button>`,
+    onMount(body, ov){
+      ov.querySelectorAll('[data-close]').forEach(b => b.setAttribute('data-close', ov.dataset.mid));
+      const days = new Set(g.days || []);
+      $$('[data-day]', body).forEach(b => b.onclick = () => {
+        const d = Number(b.dataset.day);
+        if (days.has(d)){ days.delete(d); b.classList.remove('on'); } else { days.add(d); b.classList.add('on'); }
+      });
+      $('#gName', body).focus();
+      $('#saveGrp', body).onclick = () => {
+        const name = $('#gName', body).value.trim();
+        if (!name){ toast('اكتب اسم المجموعة', 'warn'); return; }
+        const data = { name: name, level: $('#gLevel', body).value.trim(), days: Array.from(days).sort(),
+          time: $('#gTime', body).value.trim(), price: Number($('#gPrice', body).value) || 0, note: $('#gNote', body).value.trim() };
+        if (id) Object.assign(groupOf(id), data); else S.data.groups.push(Object.assign({ id: uid('g') }, data));
+        Modal.closeAll(); commit();
+        toast(id ? 'تم تحديث المجموعة' : 'تمت إضافة المجموعة', 'ok');
+      };
+    }
+  });
+}
+
+/* ---------------- Exam form ---------------- */
+function openExamForm(id){
+  const e = id ? examOf(id) : { name:'', groupId:(S.ui.stuFilter.groupId || ''), date: today(), max: 20 };
+  Modal.open({
+    title: id ? 'تعديل الامتحان' : 'امتحان جديد', size: 'sm',
+    body: `
+      <div class="field"><label>اسم الامتحان <span class="req">*</span></label><input class="inp" id="eName" value="${esc(e.name)}" placeholder="مثال: امتحان الوحدة الثالثة"></div>
+      <div class="frow">
+        <div class="field"><label>المجموعة</label><select class="inp" id="eGroup"><option value="">كل الطلبة</option>
+          ${S.data.groups.map(g => `<option value="${g.id}" ${e.groupId === g.id ? 'selected' : ''}>${esc(g.name)}</option>`).join('')}</select></div>
+        <div class="field"><label>التاريخ</label><input class="inp" type="date" id="eDate" value="${e.date}"></div>
+      </div>
+      <div class="field"><label>الدرجة النهائية</label><input class="inp" type="number" id="eMax" value="${e.max}"></div>`,
+    footer: `<button class="btn" data-close="__ID__">إلغاء</button><button class="btn pri" id="saveExam">${icon('save')} حفظ</button>`,
+    onMount(body, ov){
+      ov.querySelectorAll('[data-close]').forEach(b => b.setAttribute('data-close', ov.dataset.mid));
+      $('#eName', body).focus();
+      $('#saveExam', body).onclick = () => {
+        const name = $('#eName', body).value.trim();
+        if (!name){ toast('اكتب اسم الامتحان', 'warn'); return; }
+        const data = { name: name, groupId: $('#eGroup', body).value, date: $('#eDate', body).value || today(), max: Number($('#eMax', body).value) || 20 };
+        if (id) Object.assign(examOf(id), data);
+        else { const ne = Object.assign({ id: uid('e'), createdAt: new Date().toISOString() }, data); S.data.exams.push(ne); S.data.grades[ne.id] = {}; S.ui.exam.id = ne.id; }
+        Modal.closeAll(); commit();
+        toast(id ? 'تم تحديث الامتحان' : 'تم إنشاء الامتحان — أدخل الدرجات الآن', 'ok');
+      };
+    }
+  });
+}
+
+/* ---------------- Payment ---------------- */
+function openPaymentForm(studentId){
+  const ss = S.data.students.filter(s => s.status !== 'stopped');
+  if (!ss.length){ toast('أضف طلبة أولًا', 'warn'); return; }
+  const mk = monthKey(today());
+  const sel = studentId ? student(studentId) : ss[0];
+  Modal.open({
+    title: 'تسجيل دفعة', sub: `الشهر الحالي: ${monthName(mk)}`, size: 'sm',
+    body: `
+      <div class="field"><label>الطالب <span class="req">*</span></label><select class="inp" id="pStu">
+        ${ss.map(s => `<option value="${s.id}" ${s.id === (sel && sel.id) ? 'selected' : ''}>${esc(s.name)} — ${esc(groupName(s.groupId))}</option>`).join('')}</select></div>
+      <div class="frow">
+        <div class="field"><label>المبلغ <span class="req">*</span></label><input class="inp" type="number" id="pAmt" value="${sel ? (sel.fee || 0) : 0}"></div>
+        <div class="field"><label>التاريخ</label><input class="inp" type="date" id="pDate" value="${today()}"></div>
+      </div>
+      <div class="frow">
+        <div class="field"><label>عن شهر</label><input class="inp" type="month" id="pPeriod" value="${mk}"></div>
+        <div class="field"><label>طريقة الدفع</label><select class="inp" id="pMethod">
+          <option value="cash">نقدي</option><option value="transfer">تحويل بنكي</option><option value="wallet">محفظة إلكترونية</option></select></div>
+      </div>
+      <div class="field"><label>ملاحظة</label><input class="inp" id="pNote" placeholder="مثال: دفعة مقدمة، خصم..."></div>
+      <div class="help" id="pInfo"></div>`,
+    footer: `<button class="btn" data-close="__ID__">إلغاء</button>
+      <button class="btn pri" id="savePay">${icon('wallet')} تسجيل الدفعة</button>`,
+    onMount(body, ov){
+      ov.querySelectorAll('[data-close]').forEach(b => b.setAttribute('data-close', ov.dataset.mid));
+      const info = () => {
+        const s = student($('#pStu', body).value);
+        if (!s){ $('#pInfo', body).innerHTML = ''; return; }
+        const fin = stuFinance(s);
+        $('#pAmt', body).value = fin.due > 0 ? fin.due : (s.fee || 0);
+        $('#pInfo', body).innerHTML = `<b>${esc(s.name)}</b> — الاشتراك: <b>${money0(s.fee)}</b> / ${s.sub.type === 'monthly' ? 'شهر' : 'باقة'} ·
+          ${fin.due > 0 ? `متأخرات: <b style="color:var(--bad)">${money(fin.due)}</b> (${fin.dueMonths.map(m => monthName(m)).join(' ، ')})` : '<b style="color:var(--ok)">لا توجد متأخرات</b>'}
+          · ينتهي: ${fmtDate(s.sub.end)}`;
+        if (fin.dueMonths.length) $('#pPeriod', body).value = fin.dueMonths[0];
+      };
+      $('#pStu', body).onchange = info;
+      info();
+      $('#savePay', body).onclick = () => {
+        const amt = Number($('#pAmt', body).value) || 0;
+        if (amt <= 0){ toast('اكتب مبلغًا صحيحًا', 'warn'); return; }
+        const p = { id: uid('p'), studentId: $('#pStu', body).value, amount: amt,
+          date: $('#pDate', body).value || today(), period: $('#pPeriod', body).value || mk,
+          method: $('#pMethod', body).value, note: $('#pNote', body).value.trim(),
+          sessions: 0, createdAt: new Date().toISOString() };
+        // auto-detect sessions plan payment
+        const s = student(p.studentId);
+        if (s && s.sub.type === 'sessions'){ p.period = ''; p.note = (p.note ? p.note + ' — ' : '') + 'باقة حصص'; }
+        S.data.payments.push(p);
+        Modal.closeAll();
+        commit();
+        toast('تم تسجيل دفعة ' + money(amt) + ' من ' + (s ? s.name : ''), 'ok');
+        setTimeout(() => openReceipt(p.id), 350);
+      };
+    }
+  });
+}
+function openReceipt(paymentId){
+  const p = S.data.payments.find(x => x.id === paymentId);
+  if (!p) return;
+  const s = student(p.studentId) || { name:'—' };
+  const inner = `<div class="receipt">
+    <div class="rh"><img src="logo.jpg" onerror="this.style.display='none'">
+      <div><b>${esc(S.data.settings.centerName || 'مركز أحمد فتحي')}</b>
+        <span>${esc(S.data.settings.coachName || 'أحمد فتحي')}${S.data.settings.phone ? ' · ' + esc(S.data.settings.phone) : ''}</span></div>
+      <div style="margin-inline-start:auto;text-align:left"><b>إيصال دفع</b><span>رقم: ${esc(String(p.id).slice(-6).toUpperCase())}</span></div>
+    </div>
+    <table>
+      <tr><td>اسم الطالب</td><td><b>${esc(s.name)}</b></td></tr>
+      <tr><td>المجموعة</td><td>${esc(groupName(s.groupId))}</td></tr>
+      <tr><td>المبلغ المسدد</td><td><b style="font-size:16px">${money(p.amount)}</b></td></tr>
+      <tr><td>عن</td><td>${p.period ? 'اشتراك شهر ' + monthName(p.period) : (s.sub && s.sub.type === 'sessions' ? 'باقة حصص' : '—')}</td></tr>
+      <tr><td>طريقة الدفع</td><td>${{cash:'نقدي',transfer:'تحويل بنكي',wallet:'محفظة إلكترونية'}[p.method] || 'نقدي'}</td></tr>
+      <tr><td>التاريخ</td><td>${fmtDate(p.date, true)}</td></tr>
+      <tr><td>الرصيد المتبقي على الطالب</td><td>${(() => { const f = stuFinance(s); return f.due > 0 ? '<b style="color:#c00">' + money(f.due) + '</b>' : 'لا يوجد'; })()}</td></tr>
+      ${p.note ? `<tr><td>ملاحظات</td><td>${esc(p.note)}</td></tr>` : ''}
+    </table>
+    <div class="rf"><span>توقيع المستلم: ....................</span><span>شكرًا لتعاونكم 🌟</span></div>
+  </div>`;
+  Modal.open({
+    title: 'إيصال دفع', sub: (s.name || '') + ' · ' + money(p.amount), size: 'sm',
+    body: inner,
+    footer: `<button class="btn ghost sp" data-act="delPayment" data-id="${p.id}">${icon('trash')} حذف</button>
+      ${(s.parentPhone || s.phone) ? `<a class="btn" target="_blank" rel="noopener" href="${waLink(s.parentPhone || s.phone, `تم تسجيل دفعة بقيمة ${money(p.amount)} لـ ${s.name}${p.period ? ' عن شهر ' + monthName(p.period) : ''}. شكرًا لكم — ${S.data.settings.centerName || ''}`)}">${icon('whatsapp')} إرسال تأكيد</a>` : ''}
+      <button class="btn pri" id="printRec">${icon('print')} طباعة الإيصال</button>`,
+    onMount(body, ov){
+      $('#printRec', body).onclick = () => printHTML('إيصال دفع — ' + s.name, inner);
+    }
+  });
+}
+
+/* ---------------- Renew ---------------- */
+function openRenew(id){
+  const s = student(id); if (!s) return;
+  const base = (s.sub.end && daysLeft(s.sub.end) > 0) ? s.sub.end : today();
+  Modal.open({
+    title: 'تجديد الاشتراك', sub: s.name, size: 'sm',
+    body: `
+      <div class="help" style="margin-bottom:13px">الاشتراك الحالي: ${s.sub.type === 'monthly' ? `ينتهي ${fmtDate(s.sub.end)} (${daysLeft(s.sub.end)} يوم)` : `باقة ${s.sub.total} حصة — متبقي ${stuFinance(s).remaining}`}</div>
+      <div class="frow">
+        <div class="field"><label>مدة التجديد</label><select class="inp" id="rMonths">
+          <option value="1">شهر واحد</option><option value="2">شهرين</option>
+          <option value="3" selected>3 شهور</option><option value="6">6 شهور</option><option value="12">سنة كاملة</option>
+        </select></div>
+        <div class="field"><label>قيمة الشهر</label><input class="inp" type="number" id="rFee" value="${s.fee || 0}"></div>
+      </div>
+      <div class="frow">
+        <div class="field"><label>يبدأ من</label><input class="inp" type="date" id="rStart" value="${base}"></div>
+        <div class="field"><label>طريقة الدفع</label><select class="inp" id="rMethod">
+          <option value="cash">نقدي</option><option value="transfer">تحويل بنكي</option><option value="wallet">محفظة</option></select></div>
+      </div>
+      <div class="field"><label>عدد حصص الباقة (للاشتراك بالحصص)</label><input class="inp" type="number" id="rSessions" value="${s.sub.total || 12}"></div>
+      <label class="switch" style="margin-top:6px">
+        <input type="checkbox" id="rPay" checked><span class="track"></span>
+        <span class="lb">تسجيل دفعة بالمبلغ<span id="rTotal">—</span></span>
+      </label>`,
+    footer: `<button class="btn" data-close="__ID__">إلغاء</button><button class="btn pri" id="doRenew">${icon('refresh')} تجديد</button>`,
+    onMount(body, ov){
+      ov.querySelectorAll('[data-close]').forEach(b => b.setAttribute('data-close', ov.dataset.mid));
+      const calc = () => {
+        const m = Number($('#rMonths', body).value) || 1;
+        const f = Number($('#rFee', body).value) || 0;
+        const start = $('#rStart', body).value || today();
+        $('#rTotal', body).textContent = ` (${money(f * m)}) — الشهور: ${monthSeq(monthKey(start), monthKey(addMonths(start, m - 1))).map(x => monthName(x)).join(' ، ')}`;
+      };
+      ['rMonths','rFee','rStart'].forEach(x => $('#' + x, body).oninput = calc);
+      calc();
+      $('#doRenew', body).onclick = () => {
+        const m = Number($('#rMonths', body).value) || 1;
+        const fee = Number($('#rFee', body).value) || 0;
+        const start = $('#rStart', body).value || today();
+        const isSess = s.sub.type === 'sessions';
+        if (isSess){
+          s.sub.total = (s.sub.total || 0) + (Number($('#rSessions', body).value) || 0);
+          s.sub.start = s.sub.start || start;
+        }else{
+          s.sub.type = 'monthly';
+          s.sub.start = s.sub.start || start;
+          s.sub.end = addMonths(start, m);
+          s.fee = fee;
+        }
+        if (s.status === 'stopped' || s.status === 'paused') s.status = 'active';
+        if ($('#rPay', body).checked && fee > 0){
+          if (isSess){
+            S.data.payments.push({ id: uid('p'), studentId: s.id, amount: fee * m, date: today(), period: '', method: $('#rMethod', body).value, note: 'تجديد باقة حصص (' + $('#rSessions', body).value + ' حصة)', createdAt: new Date().toISOString() });
+          }else{
+            monthSeq(monthKey(start), monthKey(addMonths(start, m - 1))).forEach(k => {
+              S.data.payments.push({ id: uid('p'), studentId: s.id, amount: fee, date: today(), period: k, method: $('#rMethod', body).value, note: 'تجديد اشتراك', createdAt: new Date().toISOString() });
+            });
+          }
+        }
+        Modal.closeAll(); commit();
+        toast('تم تجديد اشتراك ' + s.name + (isSess ? '' : ' حتى ' + fmtDate(s.sub.end)), 'ok');
+      };
+    }
+  });
+}
+
+/* ---------------- Student profile ---------------- */
+function openProfile(id){
+  const s = student(id); if (!s) return;
+  const fin = stuFinance(s), stt = stuStatus(s);
+  const a30 = attStats(s.id, addDays(today(), -30), today());
+  const aAll = attStats(s.id);
+  const pays = sortBy(S.data.payments.filter(p => p.studentId === id), p => p.date, 'desc');
+  const avg = examAvg(id);
+  const ss = groupOf(s.groupId);
+  // attendance calendar of current month
+  const mk = monthKey(today());
+  const y = Number(mk.slice(0,4)), m = Number(mk.slice(5,7));
+  const first = new Date(y, m - 1, 1).getDay();
+  const last = new Date(y, m, 0).getDate();
+  let cal = '';
+  for (let i = 0; i < first; i++) cal += '<div class="cd" style="background:transparent"></div>';
+  for (let d = 1; d <= last; d++){
+    const ds = `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const r = getAtt(ds, s.groupId);
+    const v = r && r.records[s.id];
+    cal += `<div class="cd ${v || ''}" title="${fmtDate(ds)}">${d}</div>`;
+  }
+  Modal.open({
+    title: s.name, sub: `${s.code || ''} · ${groupName(s.groupId)} · ${s.level || 'بدون مستوى'}`, size: 'lg',
+    body: `
+      <div class="grid g-4" style="margin-bottom:15px">
+        ${statCard({ label:'نسبة الحضور', icon:'check-square', value: aAll.rate + '%', tone: aAll.rate >= 75 ? 'ok' : aAll.rate >= 50 ? '' : 'bad', foot:`<span class="muted">${aAll.present + aAll.late} حضور من ${aAll.total}</span>` })}
+        ${statCard({ label:'حضور آخر 30 يوم', icon:'calendar', value: nf(a30.present + a30.late), tone:'info', foot:`<span class="muted">${a30.absent} غياب · ${a30.late} تأخير</span>` })}
+        ${statCard({ label:'المالية', icon:'wallet', value: fin.due > 0 ? money(fin.due) : 'مسدد', tone: fin.due > 0 ? 'bad' : 'ok', foot:`<span class="muted">إجمالي مدفوع ${money(fin.paidTotal)}</span>` })}
+        ${statCard({ label:'متوسط الدرجات', icon:'award', value: avg == null ? '—' : avg + '%', tone: avg == null ? '' : avg >= 65 ? 'ok' : 'bad', foot:`<span class="muted">${S.data.exams.filter(e => typeof (S.data.grades[e.id]||{})[s.id] === 'number').length} امتحان</span>` })}
+      </div>
+      <div class="flex wrap" style="margin-bottom:15px">
+        <span class="badge ${stt.cls}">${esc(stt.label)}</span>
+        ${s.phone ? `<span class="badge b-gray">${icon('phone')} ${esc(s.phone)}</span>` : ''}
+        ${s.parentPhone ? `<span class="badge b-gray">ولي الأمر: ${esc(s.parentPhone)}</span>` : ''}
+        ${s.sub.type === 'sessions' ? `<span class="badge b-info">باقة ${s.sub.total} حصة — متبقي ${fin.remaining}</span>` : `<span class="badge b-info">اشتراك حتى ${fmtDate(s.sub.end)}</span>`}
+      </div>
+      <div class="btn-row" style="margin-bottom:15px">
+        <button class="btn pri sm" data-act="addPayment" data-id="${s.id}">${icon('wallet')} تسجيل دفعة</button>
+        <button class="btn sm" data-act="renew" data-id="${s.id}">${icon('refresh')} تجديد</button>
+        <button class="btn sm" data-act="editStudent" data-id="${s.id}">${icon('edit')} تعديل</button>
+        ${(s.parentPhone || s.phone) ? `<a class="btn sm" target="_blank" rel="noopener" href="${waLink(s.parentPhone || s.phone, 'السلام عليكم، بخصوص ' + s.name + ': ')}">${icon('whatsapp')} واتساب</a>` : ''}
+        <button class="btn sm ghost" data-act="printProfile" data-id="${s.id}">${icon('print')} تقرير الطالب</button>
+      </div>
+      <div class="grid g-2">
+        <div class="card"><div class="card-h"><h3>حضور ${monthName(mk)}</h3></div><div class="card-b">
+          <div class="cal-hd"><div>أحد</div><div>اثنين</div><div>ثلاثاء</div><div>أربعاء</div><div>خميس</div><div>جمعة</div><div>سبت</div></div>
+          <div class="cal">${cal}</div>
+          <div class="att-sum" style="margin-top:10px">
+            <span class="k"><i style="background:var(--ok)"></i>حاضر</span><span class="k"><i style="background:var(--warn)"></i>متأخر</span>
+            <span class="k"><i style="background:var(--bad)"></i>غائب</span><span class="k"><i style="background:var(--info)"></i>بعذر</span></div>
+        </div></div>
+        <div class="card"><div class="card-h"><h3>الدرجات</h3></div><div class="card-b">
+          ${S.data.exams.length ? S.data.exams.map(e => {
+            const v = (S.data.grades[e.id] || {})[s.id];
+            const pc = typeof v === 'number' ? Math.round((v / e.max) * 100) : null;
+            return `<div class="flex" style="margin-bottom:11px">
+              <span style="flex:1;min-width:0"><b class="small">${esc(e.name)}</b><span class="small muted" style="display:block">${fmtDate(e.date)} · النهائي ${e.max}</span>
+              ${pc == null ? '' : bar(pc, pc >= 65 ? 'ok' : pc >= 50 ? '' : 'bad')}</span>
+              <b class="num">${typeof v === 'number' ? v : '—'}</b></div>`;
+          }).join('') : '<p class="muted small">لا توجد امتحانات</p>'}
+        </div></div>
+      </div>
+      <div class="grid g-2 mt">
+        <div class="card"><div class="card-h"><h3>آخر المدفوعات</h3><span class="sp"></span><b class="small">${money(fin.paidTotal)}</b></div>
+          <div class="card-b" style="max-height:250px;overflow:auto">
+            ${pays.length ? pays.slice(0, 12).map(p => `<div class="flex" style="margin-bottom:9px">
+              <span style="flex:1"><b class="small">${money(p.amount)}</b><span class="small muted" style="display:block">${p.period ? monthName(p.period) : (p.note || 'دفعة')} · ${fmtDate(p.date)}</span></span>
+              <button class="btn icon sm ghost" data-act="receipt" data-id="${p.id}">${icon('receipt')}</button></div>`).join('')
+            : '<p class="muted small">لا توجد مدفوعات</p>'}
+          </div></div>
+        <div class="card"><div class="card-h"><h3>بيانات وملاحظات</h3></div><div class="card-b">
+          <dl class="kv">
+            <dt>المجموعة</dt><dd>${esc(groupName(s.groupId))}${ss && ss.time ? ' · ' + esc(ss.time) : ''}</dd>
+            <dt>الأيام</dt><dd>${ss && ss.days && ss.days.length ? ss.days.map(d => AR_DAYS_SHORT[d]).join(' ، ') : '—'}</dd>
+            <dt>تاريخ الانضمام</dt><dd>${fmtDate(s.joinDate)}</dd>
+            <dt>ولي الأمر</dt><dd>${esc(s.guardian || '—')}</dd>
+            <dt>قيمة الاشتراك</dt><dd>${money(s.fee)}</dd>
+            <dt>الحالة</dt><dd><span class="badge ${stt.cls}">${esc(stt.label)}</span></dd>
+          </dl>
+          ${fin.dueMonths.length ? `<div class="help" style="margin-top:12px;background:var(--bad-bg);border-color:transparent"><b>شهور غير مسددة:</b> ${fin.dueMonths.map(m2 => monthName(m2)).join(' ، ')} — إجمالي ${money(fin.due)}</div>` : ''}
+          ${s.notes ? `<div class="help" style="margin-top:12px">${esc(s.notes).replace(/\n/g, '<br>')}</div>` : ''}
+        </div></div>
+      </div>`,
+    footer: `<button class="btn ghost sp" data-act="delStudent" data-id="${s.id}">${icon('trash')} حذف الطالب</button>
+      <button class="btn" data-close="__ID__">إغلاق</button>
+      <button class="btn pri" data-act="editStudent" data-id="${s.id}">${icon('edit')} تعديل البيانات</button>`
+  });
+}
+
+/* ---------------- Reports: print & export ---------------- */
+function reportTitle(){
+  const r = S.ui.rep, map = { attendance:'تقرير الحضور والغياب', students:'بيانات الطلبة', payments:'تقرير التحصيل المالي', dues:'تقرير المتأخرات', exams:'نتائج الامتحانات', summary:'ملخص المركز' };
+  return map[r.type] || 'تقرير';
+}
+function reportCSV(){
+  const r = S.ui.rep, ss = reportRows();
+  if (r.type === 'attendance')
+    return { name:'attendance-report', headers:['الطالب','الكود','المجموعة','حاضر','متأخر','غائب','بعذر','إجمالي','النسبة'],
+      rows: ss.map(s => { const a = attStats(s.id, r.from, r.to); return [s.name, s.code, groupName(s.groupId), a.present, a.late, a.absent, a.excused, a.total, a.rate + '%']; }) };
+  if (r.type === 'students')
+    return { name:'students', headers:['الاسم','الكود','هاتف','هاتف ولي الأمر','المجموعة','المستوى','الحالة','الانضمام','الاشتراك حتى','المتأخرات'],
+      rows: ss.map(s => { const f = stuFinance(s); return [s.name, s.code, s.phone, s.parentPhone, groupName(s.groupId), s.level, stuStatus(s).label, s.joinDate, s.sub.end, f.due]; }) };
+  if (r.type === 'payments')
+    return { name:'payments', headers:['التاريخ','الطالب','المجموعة','عن شهر','المبلغ','الطريقة'],
+      rows: S.data.payments.filter(p => (!r.from || p.date >= r.from) && (!r.to || p.date <= r.to)).map(p => { const s = student(p.studentId) || {}; return [p.date, s.name || '', groupName(s.groupId), p.period, p.amount, p.method]; }) };
+  if (r.type === 'dues')
+    return { name:'dues', headers:['الطالب','هاتف','المجموعة','الشهور','المستحق'],
+      rows: ss.filter(s => stuFinance(s).due > 0).map(s => { const f = stuFinance(s); return [s.name, s.phone, groupName(s.groupId), f.dueMonths.join(' | '), f.due]; }) };
+  if (r.type === 'exams'){
+    const e = examOf(S.ui.rep.examId) || S.data.exams[0];
+    if (!e) return { name:'exam', headers:['—'], rows: [] };
+    const g = S.data.grades[e.id] || {};
+    return { name:'exam-' + e.name, headers:['الطالب','المجموعة','الدرجة','من','النسبة'],
+      rows: ss.filter(s => typeof g[s.id] === 'number').map(s => [s.name, groupName(s.groupId), g[s.id], e.max, Math.round((g[s.id] / e.max) * 100) + '%']) };
+  }
+  return { name:'summary', headers:['البند','القيمة'], rows: [] };
+}
+function tableToPrint(headers, rows, title, sub){
+  return `<div class="sum">${sub || ''}</div>
+    <table><thead><tr>${headers.map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead>
+    <tbody>${rows.map(r => `<tr>${r.map(c => `<td>${esc(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+}
+function printReport(){
+  const r = S.ui.rep, ss = reportRows();
+  let headers = [], rows = [], sub = '';
+  if (r.type === 'attendance'){
+    headers = ['الطالب','المجموعة','حاضر','متأخر','غائب','بعذر','النسبة'];
+    rows = ss.map(s => { const a = attStats(s.id, r.from, r.to); return [s.name, groupName(s.groupId), a.present, a.late, a.absent, a.excused, a.rate + '%']; });
+    sub = `<div>الفترة: <b>${fmtDate(r.from)} — ${fmtDate(r.to)}</b></div><div>عدد الطلبة: <b>${ss.length}</b></div>`;
+  }else if (r.type === 'dues'){
+    headers = ['الطالب','هاتف','المجموعة','الشهور المتأخرة','المستحق'];
+    rows = ss.filter(s => stuFinance(s).due > 0).map(s => { const f = stuFinance(s); return [s.name, s.phone, groupName(s.groupId), f.dueMonths.map(m => monthName(m)).join(' · '), money0(f.due)]; });
+    sub = `<div>إجمالي المتأخرات: <b>${money(sum(rows, x => Number(String(x[4]).replace(/\D/g,'')) || 0))}</b></div>`;
+  }else if (r.type === 'payments'){
+    headers = ['التاريخ','الطالب','عن شهر','المبلغ','الطريقة'];
+    rows = sortBy(S.data.payments.filter(p => (!r.from || p.date >= r.from) && (!r.to || p.date <= r.to)), p => p.date).map(p => { const s = student(p.studentId) || {}; return [fmtDate(p.date), s.name || '', p.period ? monthName(p.period) : '—', money0(p.amount), p.method]; });
+    sub = `<div>إجمالي التحصيل: <b>${money(sum(rows, x => Number(String(x[3]).replace(/\D/g,'')) || 0))}</b></div><div>عدد الدفعات: <b>${rows.length}</b></div>`;
+  }else if (r.type === 'exams'){
+    const e = examOf(S.ui.rep.examId) || S.data.exams[0];
+    if (!e){ toast('لا توجد امتحانات', 'warn'); return; }
+    const g = S.data.grades[e.id] || {};
+    headers = ['الطالب','المجموعة','الدرجة','من','النسبة'];
+    rows = ss.filter(s => typeof g[s.id] === 'number').map(s => [s.name, groupName(s.groupId), g[s.id], e.max, Math.round((g[s.id] / e.max) * 100) + '%']);
+    sub = `<div>${esc(e.name)} — ${fmtDate(e.date)}</div>`;
+  }else if (r.type === 'students'){
+    headers = ['الاسم','هاتف','المجموعة','المستوى','الحالة','الاشتراك حتى'];
+    rows = ss.map(s => [s.name, s.phone || s.parentPhone, groupName(s.groupId), s.level, stuStatus(s).label, s.sub.end ? fmtDate(s.sub.end) : '—']);
+    sub = `<div>عدد الطلبة: <b>${ss.length}</b></div>`;
+  }else{
+    headers = ['البند','القيمة'];
+    const act = ss.filter(s => s.status === 'active');
+    rows = [['عدد الطلبة', ss.length], ['الطلبة النشطين', act.length], ['عدد المجموعات', S.data.groups.length],
+      ['إجمالي المتأخرات', money(sum(ss, s => stuFinance(s).due))],
+      ['تحصيل الشهر', money(sum(S.data.payments.filter(p => monthKey(p.date) === monthKey(today())), p => p.amount))]];
+  }
+  printHTML(reportTitle(), tableToPrint(headers, rows, reportTitle(), sub));
+}
+
+/* ---------------- Seed demo data ---------------- */
+function seedDemo(){
+  const names = ['محمد أحمد فتحي','يوسف خالد','عمر مصطفى','آدم طارق','زياد حسام','مالك إبراهيم','علي محمود','حسن سامي','كريم وليد','سيف الدين',
+    'ملك أشرف','جنى عمرو','مريم شريف','حبيبة رامي','سلمى نادر','نور الهدى','رقية أيمن','فريدة مازن','هنا خالد','ريم عصام',
+    'أحمد ياسر','مروان عادل','لؤي هشام','تميم فؤاد'];
+  const gs = [
+    { name:'المستوى الأول — سبت وثلاثاء', level:'مبتدئ', days:[6,2], time:'4:00 م', price:450, note:'' },
+    { name:'المستوى الثاني — أحد وأربعاء', level:'متوسط', days:[0,3], time:'5:30 م', price:550, note:'' },
+    { name:'المستوى الثالث — اثنين وخميس', level:'متقدم', days:[1,4], time:'7:00 م', price:650, note:'مراجعة أسبوعية' },
+    { name:'مجموعة البنات — جمعة', level:'مبتدئ', days:[5], time:'11:00 ص', price:500, note:'' }
+  ];
+  const data = defaultData();
+  const gids = gs.map(g => { const id = uid('g'); data.groups.push(Object.assign({ id: id }, g)); return id; });
+  names.forEach((n, i) => {
+    const gi = i % gids.length;
+    const start = addMonths(today(), -2 + (i % 3));
+    const type = i % 7 === 0 ? 'sessions' : 'monthly';
+    data.students.push({
+      id: uid('s'), code: 'S' + String(i + 1).padStart(3, '0'), name: n,
+      phone: '010' + String(10000000 + i * 137911).slice(0, 8),
+      parentPhone: '011' + String(20000000 + i * 271911).slice(0, 8), guardian: 'والد ' + n.split(' ')[0],
+      groupId: gids[gi], level: gs[gi].level, status: i % 13 === 12 ? 'paused' : 'active',
+      joinDate: start, notes: i % 5 === 0 ? 'طالب متميز في الحساب الذهني' : '',
+      fee: gs[gi].price,
+      sub: type === 'sessions'
+        ? { type:'sessions', start: start, end:'', total: 12, used: 0 }
+        : { type:'monthly', start: start, end: addMonths(today(), i % 4 === 3 ? -1 : (i % 3) + 1), total: 0, used: 0 }
+    });
+  });
+  // attendance last 45 days on group days
+  for (let d = 45; d >= 0; d--){
+    const date = addDays(today(), -d);
+    const dow = parseISO(date).getDay();
+    data.groups.forEach(g => {
+      if (!g.days.includes(dow)) return;
+      const ss = data.students.filter(s => s.groupId === g.id);
+      if (!ss.length) return;
+      const records = {};
+      ss.forEach(s => {
+        const r = Math.random();
+        records[s.id] = r < 0.76 ? 'present' : r < 0.85 ? 'late' : r < 0.94 ? 'absent' : 'excused';
+      });
+      data.attendance[date + '@' + g.id] = { groupId: g.id, note:'', records: records, rev: 1, savedAt: new Date().toISOString() };
+    });
+  }
+  // payments for last 3 months
+  data.students.forEach(s => {
+    const months = monthRange(monthKey(addMonths(today(), -2)), 3);
+    months.forEach((m, i) => {
+      if (Math.random() < (i === 2 ? 0.55 : 0.9)){
+        data.payments.push({ id: uid('p'), studentId: s.id, amount: s.fee, date: m + '-0' + (3 + i),
+          period: m, method: ['cash','transfer','wallet'][Math.floor(Math.random() * 3)], note:'', createdAt: new Date().toISOString() });
+      }
+    });
+  });
+  // exams
+  [['امتحان الشهر الأول', -35, 20], ['امتحان نصف المستوى', -18, 30], ['امتحان الشهر الثاني', -4, 20]].forEach((e, i) => {
+    const g = data.groups[i % data.groups.length];
+    const ex = { id: uid('e'), name: e[0], groupId: g.id, date: addDays(today(), e[1]), max: e[2], createdAt: new Date().toISOString() };
+    data.exams.push(ex); data.grades[ex.id] = {};
+    data.students.filter(s => s.groupId === g.id).forEach(s => { data.grades[ex.id][s.id] = Math.round(e[2] * (0.4 + Math.random() * 0.6) * 2) / 2; });
+  });
+  S.data = migrate(data);
+  commit();
+  toast('تم تحميل بيانات تجريبية (24 طالب · 4 مجموعات)', 'ok');
+}
+
+/* ==== 45-events.js ==== */
+/* ============================================================
+   Events · Boot
+   ============================================================ */
+function downloadJSON(){
+  const name = 'af-tracker-backup-' + today() + '.json';
+  download(name, JSON.stringify(S.data, null, 1), 'application/json');
+  toast('تم تصدير نسخة احتياطية: ' + name, 'ok');
+}
+function importJSON(file){
+  const rd = new FileReader();
+  rd.onload = () => {
+    try{
+      const d = JSON.parse(rd.result);
+      if (!d || (!d.students && !d.groups)) throw new Error('ملف غير صالح');
+      S.data = migrate(d);
+      dirty.main = true;
+      Object.keys(S.data.attendance || {}).forEach(k => { dirty.months[k.split('@')[0].slice(0,7)] = true; });
+      commit();
+      toast('تم استيراد البيانات: ' + (S.data.students.length) + ' طالب', 'ok');
+    }catch(e){ toast('فشل الاستيراد: ' + e.message, 'bad'); }
+  };
+  rd.readAsText(file);
+}
+function exportCSVAll(){
+  exportCSV('students-' + today(), ['الاسم','الكود','هاتف','هاتف ولي الأمر','المجموعة','المستوى','الحالة','الانضمام','نهاية الاشتراك','المتأخرات'],
+    S.data.students.map(s => { const f = stuFinance(s); return [s.name, s.code, s.phone, s.parentPhone, groupName(s.groupId), s.level, stuStatus(s).label, s.joinDate, s.sub.end, f.due]; }));
+  setTimeout(() => exportCSV('payments-' + today(), ['التاريخ','الطالب','المبلغ','عن شهر','طريقة الدفع','ملاحظة'],
+    S.data.payments.map(p => { const s = student(p.studentId) || {}; return [p.date, s.name || '', p.amount, p.period || '', p.method, p.note || '']; })), 500);
+  setTimeout(() => exportCSV('attendance-' + today(), ['التاريخ','المجموعة','الطالب','الحالة'],
+    allAttRecords().map(r => [r.date, groupName(r.groupId), (student(r.studentId) || { name:'—' }).name, r.status])), 1000);
+  toast('يتم تصدير الطلبة والمدفوعات والحضور...', 'info');
+}
+function waListModal(title, list){
+  const body = list.length ? list.map(x => `<div class="alert-row ${x.tone || 'info'}">
+      <span class="ai">${icon(x.icon || 'whatsapp')}</span>
+      <span class="at"><b>${esc(x.name)}</b><span>${esc(x.sub)}</span></span>
+      ${x.phone ? `<a class="btn sm" target="_blank" rel="noopener" href="${waLink(x.phone, x.msg)}">${icon('whatsapp')} إرسال</a>`
+        : '<span class="badge b-gray">لا يوجد رقم</span>'}
+    </div>`).join('') : '<p class="muted small">لا توجد أرقام متاحة</p>';
+  Modal.open({ title: title, sub: list.length + ' طالب', body: body, size: 'sm' });
+}
+
+/* ---------------- Global click delegation ---------------- */
+document.addEventListener('click', function(e){
+  const closeBtn = e.target.closest('[data-close]');
+  if (closeBtn){ Modal.close(closeBtn.getAttribute('data-close')); return; }
+
+  const nav = e.target.closest('#nav a[data-view]');
+  if (nav){ go(nav.dataset.view); return; }
+
+  const el = e.target.closest('[data-act]');
+  if (!el) return;
+  const act = el.dataset.act;
+  const id = el.dataset.id;
+  const A = el.dataset; // shortcut
+
+  switch (act){
+    /* ---- navigation ---- */
+    case 'go': go(id, { groupId: A.group }); break;
+    case 'clearFilters': S.ui.stuFilter = { groupId:'', level:'', status:'', sort:'name' }; S.query = ''; $('#globalSearch').value = ''; render(); break;
+    case 'filterGroup': S.ui.stuFilter.groupId = id; S.view = 'students'; render(); break;
+
+    /* ---- students ---- */
+    case 'addStudent': openStudentForm(); break;
+    case 'editStudent': Modal.closeAll(); setTimeout(() => openStudentForm(id), 120); break;
+    case 'profile': Modal.closeAll(); setTimeout(() => openProfile(id), 120); break;
+    case 'delStudent': {
+      const s = student(id); if (!s) break;
+      confirmDialog('حذف الطالب', `هل أنت متأكد من حذف «${s.name}»؟ سيتم حذف درجاته ومدفوعاته وسجل حضوره. لا يمكن التراجع.`, 'حذف نهائيًا', () => {
+        S.data.students = S.data.students.filter(x => x.id !== id);
+        S.data.payments = S.data.payments.filter(p => p.studentId !== id);
+        Object.keys(S.data.attendance).forEach(k => { delete S.data.attendance[k].records[id];
+          if (!Object.keys(S.data.attendance[k].records).length){ delete S.data.attendance[k]; dirty.months[k.split('@')[0].slice(0,7)] = true; } });
+        Object.keys(S.data.grades).forEach(eid => { delete S.data.grades[eid][id]; });
+        commit(); toast('تم حذف الطالب', 'ok');
+      }, true);
+      break;
+    }
+    case 'printStudents': {
+      printHTML('بيانات الطلبة', tableToPrint(['الاسم','الهاتف','المجموعة','المستوى','الحالة','الاشتراك حتى','المتأخرات'],
+        S.data.students.map(s => { const f = stuFinance(s); return [s.name, s.phone || s.parentPhone || '—', groupName(s.groupId), s.level || '—', stuStatus(s).label, s.sub.end ? fmtDate(s.sub.end) : '—', f.due ? money0(f.due) : '—']; }),
+        'بيانات الطلبة', `<div>عدد الطلبة: <b>${S.data.students.length}</b></div>`));
+      break;
+    }
+    case 'expStudents': exportCSV('students-' + today(), ['الاسم','الكود','هاتف','ولي الأمر','المجموعة','المستوى','الحالة','الانضمام','نهاية الاشتراك','المتأخرات'],
+      S.data.students.map(s => { const f = stuFinance(s); return [s.name, s.code, s.phone, s.parentPhone, groupName(s.groupId), s.level, stuStatus(s).label, s.joinDate, s.sub.end, f.due]; })); break;
+
+    /* ---- groups ---- */
+    case 'addGroup': openGroupForm(); break;
+    case 'editGroup': Modal.closeAll(); setTimeout(() => openGroupForm(id), 120); break;
+    case 'delGroup': {
+      const g = groupOf(id); if (!g) break;
+      const n = studentsOf(id).length;
+      confirmDialog('حذف المجموعة', n ? `المجموعة «${g.name}» بها ${n} طالب — سيتم نقلهم إلى «بدون مجموعة». متابعة؟` : `حذف المجموعة «${g.name}»؟`, 'حذف', () => {
+        S.data.students.forEach(s => { if (s.groupId === id) s.groupId = ''; });
+        S.data.groups = S.data.groups.filter(x => x.id !== id);
+        commit(); toast('تم حذف المجموعة', 'ok');
+      }, true);
+      break;
+    }
+
+    /* ---- attendance ---- */
+    case 'mark': {
+      if (!attDraft) break;
+      attDraft.records[id] = A.v; attDraft.dirty = true;
+      const row = el.closest('.att-row');
+      $$('.seg button', row).forEach(b => b.classList.toggle('on', b.dataset.v === A.v));
+      const cell = document.querySelector(`#attMatrixTable [data-cell="${id}:${attDraft.date}"]`);
+      if (cell){ cell.className = 'cd ' + (A.v || ''); cell.textContent = A.v === 'present' ? '✓' : A.v === 'absent' ? '✕' : A.v === 'late' ? 'م' : A.v === 'excused' ? 'ع' : ''; }
+      refreshAttCounts();
+      break;
+    }
+    case 'attAll': {
+      if (!attDraft) break;
+      studentsOf(attDraft.groupId).filter(s => s.status !== 'stopped').forEach(s => { attDraft.records[s.id] = 'present'; });
+      attDraft.dirty = true; render(); break;
+    }
+    case 'attClear': {
+      if (!attDraft) break;
+      confirmDialog('تفريغ الحضور', 'سيتم تفريغ تسجيل الحضور لهذا اليوم من الشاشة (لم يتم الحفظ بعد). متابعة؟', 'تفريغ', () => {
+        attDraft.records = {}; attDraft.dirty = true; render();
+      });
+      break;
+    }
+    case 'attSave': {
+      if (!attDraft) break;
+      const gid = attDraft.groupId, date = attDraft.date;
+      const noteEl = $('#attNote'); if (noteEl) attDraft.note = noteEl.value;
+      if (!Object.keys(attDraft.records).length){ toast('سجّل حضور طالب واحد على الأقل', 'warn'); return; }
+      setAtt(date, gid, attDraft.records, attDraft.note);
+      attDraft.dirty = false;
+      commit();
+      const absent = Object.keys(attDraft.records).filter(k => attDraft.records[k] === 'absent').map(k => student(k)).filter(Boolean);
+      toast('تم حفظ حضور ' + groupName(gid) + ' — ' + fmtDate(date), 'ok');
+      if (absent.length){
+        waListModal('غياب اليوم — إرسال تنبيه لأولياء الأمور',
+          absent.map(s => ({ name: s.name, sub: 'غائب اليوم ' + fmtDate(date), phone: s.parentPhone || s.phone, tone: 'bad', icon: 'alert',
+            msg: `السلام عليكم ${s.guardian || ''}، نود إبلاغكم بغياب ${s.name} عن حصة اليوم ${fmtDate(date)}. برجاء التواصل معنا. — ${S.data.settings.centerName || 'أكاديمية أحمد فتحي'}` })));
+      }
+      break;
+    }
+    case 'attMatrixPrint': {
+      const gid = S.ui.att.groupId || (S.data.groups[0] || {}).id;
+      const date = S.ui.att.date;
+      const y = Number(date.slice(0,4)), m = Number(date.slice(5,7));
+      const last = new Date(y, m, 0).getDate();
+      const days = []; for (let d = 1; d <= last; d++) days.push(`${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`);
+      const ss = studentsOf(gid);
+      printHTML('كشف حضور ' + monthName(date.slice(0,7)),
+        tableToPrint(['الطالب'].concat(days.map(d => String(Number(d.slice(-2))))).concat(['حضور','غياب','النسبة']),
+          ss.map(s => {
+            let p = 0, ab = 0, l = 0, ex = 0;
+            const cells = days.map(d => { const r = getAtt(d, gid); const v = r && r.records[s.id];
+              if (v === 'present'){ p++; return '✓'; } if (v === 'absent'){ ab++; return '✕'; } if (v === 'late'){ l++; return 'م'; } if (v === 'excused'){ ex++; return 'ع'; } return ''; });
+            const counted = p + ab + l;
+            return [s.name].concat(cells).concat([p + l, ab, (counted ? Math.round(((p + l) / counted) * 100) : 0) + '%']);
+          }), 'كشف حضور ' + monthName(date.slice(0,7)),
+          `<div>المجموعة: <b>${esc(groupName(gid))}</b></div><div>عدد الطلبة: <b>${ss.length}</b></div>`));
+      break;
+    }
+
+    /* ---- exams ---- */
+    case 'addExam': openExamForm(); break;
+    case 'editExam': Modal.closeAll(); setTimeout(() => openExamForm(id), 120); break;
+    case 'selExam': S.ui.exam.id = id; render(); break;
+    case 'delExam': {
+      const e2 = examOf(id); if (!e2) break;
+      confirmDialog('حذف الامتحان', `حذف «${e2.name}» وكل درجاته؟`, 'حذف', () => {
+        S.data.exams = S.data.exams.filter(x => x.id !== id); delete S.data.grades[id];
+        commit(); toast('تم حذف الامتحان', 'ok');
+      }, true);
+      break;
+    }
+    case 'saveGrades': {
+      const e2 = examOf(id); if (!e2) break;
+      let n = 0;
+      $$('[data-grade]').forEach(inp => {
+        const v = inp.value.trim();
+        S.data.grades[e2.id] = S.data.grades[e2.id] || {};
+        if (v === ''){ delete S.data.grades[e2.id][inp.dataset.grade]; }
+        else { S.data.grades[e2.id][inp.dataset.grade] = clamp(Number(v) || 0, 0, e2.max); n++; }
+      });
+      commit(); toast('تم حفظ ' + n + ' درجة', 'ok');
+      break;
+    }
+    case 'expExam': {
+      const e2 = examOf(id); if (!e2) break;
+      const g = S.data.grades[e2.id] || {};
+      exportCSV('exam-' + e2.name, ['الطالب','الكود','المجموعة','الدرجة','من','النسبة'],
+        sortBy((e2.groupId ? studentsOf(e2.groupId) : S.data.students).filter(s => typeof g[s.id] === 'number'), s => g[s.id], 'desc')
+          .map(s => [s.name, s.code, groupName(s.groupId), g[s.id], e2.max, Math.round((g[s.id] / e2.max) * 100) + '%']));
+      break;
+    }
+    case 'printExam': {
+      const e2 = examOf(id); if (!e2) break;
+      const g = S.data.grades[e2.id] || {};
+      const sts = sortBy((e2.groupId ? studentsOf(e2.groupId) : S.data.students).filter(s => typeof g[s.id] === 'number'), s => g[s.id], 'desc');
+      printHTML('نتائج ' + e2.name, tableToPrint(['الترتيب','الطالب','المجموعة','الدرجة','من','النسبة'],
+        sts.map((s, i) => [i + 1, s.name, groupName(s.groupId), g[s.id], e2.max, Math.round((g[s.id] / e2.max) * 100) + '%']),
+        'نتائج ' + e2.name, `<div>التاريخ: <b>${fmtDate(e2.date)}</b></div><div>الدرجة النهائية: <b>${e2.max}</b></div><div>عدد الطلبة: <b>${sts.length}</b></div>`));
+      break;
+    }
+
+    /* ---- payments ---- */
+    case 'addPayment': Modal.closeAll(); setTimeout(() => openPaymentForm(id), 120); break;
+    case 'receipt': openReceipt(id); break;
+    case 'renew': Modal.closeAll(); setTimeout(() => openRenew(id), 120); break;
+    case 'delPayment': {
+      const p = S.data.payments.find(x => x.id === id); if (!p) break;
+      confirmDialog('حذف الدفعة', `حذف دفعة بقيمة ${money(p.amount)}؟`, 'حذف', () => {
+        S.data.payments = S.data.payments.filter(x => x.id !== id);
+        Modal.closeAll(); commit(); toast('تم حذف الدفعة', 'ok');
+      }, true);
+      break;
+    }
+    case 'printPayments': {
+      printHTML('كشف التحصيل', tableToPrint(['التاريخ','الطالب','المجموعة','عن شهر','المبلغ','الطريقة'],
+        sortBy(S.data.payments, p => p.date, 'desc').map(p => { const s = student(p.studentId) || {}; return [fmtDate(p.date), s.name || '—', groupName(s.groupId), p.period ? monthName(p.period) : '—', money0(p.amount), {cash:'نقدي',transfer:'تحويل',wallet:'محفظة'}[p.method] || 'نقدي']; }),
+        'كشف التحصيل', `<div>إجمالي التحصيل: <b>${money(sum(S.data.payments, p => Number(p.amount) || 0))}</b></div><div>تحصيل الشهر: <b>${money(sum(S.data.payments.filter(p => monthKey(p.date) === monthKey(today())), p => Number(p.amount) || 0))}</b></div>`));
+      break;
+    }
+    case 'expPayments': exportCSV('payments-' + today(), ['التاريخ','الطالب','المجموعة','عن شهر','المبلغ','طريقة الدفع'],
+      sortBy(S.data.payments, p => p.date, 'desc').map(p => { const s = student(p.studentId) || {}; return [p.date, s.name || '', groupName(s.groupId), p.period || '', p.amount, p.method]; })); break;
+    case 'waAllDue': {
+      const list = S.data.students.map(s => ({ s: s, fin: stuFinance(s), stt: stuStatus(s) }))
+        .filter(x => x.fin.due > 0 || x.stt.key === 'expired' || x.stt.key === 'soon')
+        .map(x => ({ name: x.s.name, tone: x.fin.due > 0 ? 'bad' : 'warn', icon: x.fin.due > 0 ? 'wallet' : 'clock',
+          phone: x.s.parentPhone || x.s.phone,
+          sub: (x.fin.due > 0 ? 'متأخرات ' + money(x.fin.due) : '') + (x.stt.key === 'expired' ? ' · الاشتراك منتهي' : x.stt.key === 'soon' ? ' · ينتهي ' + fmtDate(x.s.sub.end) : ''),
+          msg: `السلام عليكم ${x.s.guardian || ''}، تذكير بخصوص اشتراك ${x.s.name}${x.fin.due > 0 ? ` — يوجد متأخرات بقيمة ${money(x.fin.due)}` : ''}${x.stt.key !== 'ok' && x.stt.key !== 'due' ? ` (ينتهي ${fmtDate(x.s.sub.end)})` : ''}. برجاء التواصل للتجديد. شكرًا — ${S.data.settings.centerName || 'أكاديمية أحمد فتحي'}` }));
+      waListModal('تذكير الاشتراكات والمتأخرات', list);
+      break;
+    }
+
+    /* ---- reports ---- */
+    case 'repType': S.ui.rep.type = id; render(); break;
+    case 'runReport': render(); toast('تم تحديث التقرير', 'info'); break;
+    case 'expReport': { const r = reportCSV(); exportCSV(r.name + '-' + today(), r.headers, r.rows); break; }
+    case 'printReport': printReport(); break;
+    case 'printProfile': printProfile(id); break;
+
+    /* ---- settings ---- */
+    case 'saveSettings': {
+      const st = S.data.settings;
+      $$('[data-set]').forEach(inp => {
+        const k = inp.dataset.set;
+        if (k === 'levels') st.levels = inp.value.split(/[,،]/).map(x => x.trim()).filter(Boolean);
+        else if (['sessionPrice','monthlyPrice','expiryWarnDays','absentWarn'].includes(k)) st[k] = Number(inp.value) || 0;
+        else st[k] = inp.value;
+      });
+      commit(); toast('تم حفظ الإعدادات', 'ok');
+      break;
+    }
+    case 'fbConnect': {
+      const cfg = {};
+      $$('[data-fb]').forEach(inp => { if (inp.value.trim()) cfg[inp.dataset.fb] = inp.value.trim(); });
+      if (!cfg.code) cfg.code = (Cloud.readCfg() || {}).code || '';
+      if (!cfg.apiKey || !cfg.projectId || !cfg.code){ toast('اكتب API Key و Project ID وكود المركز', 'warn'); return; }
+      Cloud.connect({ config: cfg });
+      break;
+    }
+    case 'fbPull': Cloud.pull(); break;
+    case 'fbPushAll': Cloud.pushAll(); break;
+    case 'fbDisconnect': Cloud.disconnect(); render(); break;
+    case 'expJSON': downloadJSON(); break;
+    case 'impJSON': $('#fileInput').click(); break;
+    case 'expCSVAll': exportCSVAll(); break;
+    case 'seed': {
+      const run = () => seedDemo();
+      if (S.data.students.length) confirmDialog('بيانات تجريبية', 'سيتم استبدال البيانات الحالية بالكامل ببيانات تجريبية. متابعة؟ (اعمل نسخة احتياطية أولًا)', 'استبدال', run, true);
+      else run();
+      break;
+    }
+    case 'wipe': confirmDialog('حذف كل البيانات', 'سيتم حذف كل الطلبة والمجموعات والمدفوعات وسجل الحضور نهائيًا. هل أنت متأكد؟', 'حذف الكل', () => {
+      localStorage.removeItem(LS_KEY);
+      S.data = defaultData();
+      commit(); toast('تم حذف كل البيانات', 'ok');
+    }, true); break;
+    case 'quickEnd': break;
+  }
+});
+
+function refreshAttCounts(){
+  if (!attDraft) return;
+  const ss = studentsOf(attDraft.groupId).filter(s => s.status !== 'stopped');
+  const counts = { present:0, absent:0, late:0, excused:0 };
+  ss.forEach(s => { const v = attDraft.records[s.id]; if (counts[v] != null) counts[v]++; });
+  const marked = sum(Object.values(counts));
+  const ch = $$('#content .att-sum .k');
+  if (ch.length >= 4) ch.forEach(k => {
+    const t = k.textContent.trim();
+    if (t.startsWith('حاضر')) k.lastChild.nodeValue = ' حاضر ' + counts.present;
+    else if (t.startsWith('متأخر')) k.lastChild.nodeValue = ' متأخر ' + counts.late;
+    else if (t.startsWith('غائب')) k.lastChild.nodeValue = ' غائب ' + counts.absent;
+    else if (t.startsWith('بعذر')) k.lastChild.nodeValue = ' بعذر ' + counts.excused;
+  });
+  const badge = $('#content .card-h .badge');
+  if (badge && /مُسجَّل/.test(badge.textContent)){ badge.textContent = marked + '/' + ss.length + ' مُسجَّل'; badge.className = 'badge ' + (marked === ss.length && ss.length ? 'b-ok' : 'b-warn'); }
+}
+function printProfile(id){
+  const s = student(id); if (!s) return;
+  const fin = stuFinance(s), a = attStats(s.id), avg = examAvg(s.id);
+  const rows = [
+    ['الاسم', s.name], ['الكود', s.code || '—'], ['المجموعة', groupName(s.groupId)], ['المستوى', s.level || '—'],
+    ['هاتف الطالب', s.phone || '—'], ['هاتف ولي الأمر', s.parentPhone || '—'], ['تاريخ الانضمام', fmtDate(s.joinDate)],
+    ['الحالة', stuStatus(s).label], ['قيمة الاشتراك', money(s.fee)],
+    [s.sub.type === 'monthly' ? 'نهاية الاشتراك' : 'باقة الحصص', s.sub.type === 'monthly' ? fmtDate(s.sub.end) + ' (' + daysLeft(s.sub.end) + ' يوم)' : (s.sub.total + ' حصة — متبقي ' + fin.remaining)],
+    ['إجمالي المدفوع', money(fin.paidTotal)], ['المتأخرات', fin.due > 0 ? money(fin.due) + ' (' + fin.dueMonths.map(m => monthName(m)).join(' ، ') + ')' : 'لا يوجد'],
+    ['نسبة الحضور', a.rate + '% (' + (a.present + a.late) + ' حضور · ' + a.absent + ' غياب · ' + a.late + ' تأخير من ' + a.total + ')'],
+    ['متوسط الدرجات', avg == null ? '—' : avg + '%'],
+    ['ملاحظات', s.notes || '—']
+  ];
+  printHTML('تقرير الطالب — ' + s.name, tableToPrint(['البند','التفاصيل'], rows, 'ملف الطالب: ' + s.name,
+    `<div>تاريخ الطباعة: <b>${fmtDate(today())}</b></div><div>الحالة: <b>${esc(stuStatus(s).label)}</b></div>`));
+}
+
+/* ---------------- Other listeners ---------------- */
+document.addEventListener('change', function(e){
+  const t = e.target;
+  if (t.matches('[data-filter]')){ S.ui.stuFilter[t.dataset.filter] = t.value; render(); return; }
+  if (t.matches('[data-att="date"]')){ S.ui.att.date = t.value; render(); return; }
+  if (t.matches('[data-att="group"]')){ S.ui.att.groupId = t.value; S.ui.att.matrixMonth = monthKey(t.value); render(); return; }
+  if (t.matches('[data-rep]')){ S.ui.rep[t.dataset.rep] = t.value; render(); return; }
+  if (t.matches('[data-grade]')){
+    const sel = S.data.exams.find(x => x.id === S.ui.exam.id) || S.data.exams[0];
+    if (!sel) return;
+    S.data.grades[sel.id] = S.data.grades[sel.id] || {};
+    const v = t.value.trim();
+    if (v === '') delete S.data.grades[sel.id][t.dataset.grade];
+    else S.data.grades[sel.id][t.dataset.grade] = clamp(Number(v) || 0, 0, sel.max);
+    commit({ silent: true });
+    return;
+  }
+  if (t.id === 'fileInput' && t.files && t.files[0]){ importJSON(t.files[0]); t.value = ''; return; }
+  if (t.id === 'darkToggle'){ setTheme(t.checked ? 'dark' : 'light'); return; }
+  if (t.matches('[data-set]') && t.dataset.set === 'levels'){ /* handled on save */ return; }
+});
+document.addEventListener('input', debounce(function(e){
+  const t = e.target;
+  if (t.id === 'globalSearch'){
+    S.query = t.value;
+    if (S.query && S.view !== 'students') S.view = 'students';
+    render();
+    return;
+  }
+  if (t.id === 'stuSearch'){ S.query = t.value; render(); return; }
+  if (t.id === 'attNote' && attDraft){ attDraft.note = t.value; return; }
+}, 260));
+
+/* sidebar / header */
+$('#burger').onclick = () => { $('#sidebar').classList.toggle('open'); $('#scrim').classList.toggle('on'); };
+$('#scrim').onclick = closeDrawer;
+$('#quickAddBtn').onclick = () => openStudentForm();
+$('#themeBtn').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
+$('#cloudChip').onclick = () => go('settings');
+
+function setTheme(t){
+  document.documentElement.dataset.theme = t;
+  S.data.settings.theme = t;
+  localStorage.setItem(LS_KEY + '_theme', t);
+  const use = $('#themeBtn use');
+  if (use) use.setAttribute('href', t === 'dark' ? '#i-sun' : '#i-moon');
+  const cb = $('#darkToggle'); if (cb) cb.checked = t === 'dark';
+  saveLocal();
+  if (S.view === 'dashboard' || S.view === 'payments') render();
+}
+window.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && Modal.stack.length){ Modal.close(); }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's'){
+    if (S.view === 'attendance' && attDraft){ e.preventDefault(); $('[data-act=attSave]').click(); }
+  }
+});
+window.addEventListener('resize', throttle(() => {
+  const v = 'after_' + S.view;
+  if (typeof Views[v] === 'function'){ try{ Views[v](); }catch(e){} }
+}, 220));
+
+/* ---------------- Boot ---------------- */
+(function boot(){
+  const theme = localStorage.getItem(LS_KEY + '_theme') || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  document.documentElement.dataset.theme = theme;
+  const had = loadLocal();
+  if (!had){
+    const d = defaultData();
+    d.meta.rev = 1;
+    S.data = d;
+    saveLocal();
+  }
+  S.data.settings.theme = theme;
+  const use = $('#themeBtn use'); if (use) use.setAttribute('href', theme === 'dark' ? '#i-sun' : '#i-moon');
+  const cfg = Cloud.readCfg();
+  if (cfg && cfg.apiKey && cfg.projectId){ S.fb.cfg = cfg; Cloud.connect({ config: cfg, save: false }); }
+  paintCloud();
+  render();
+  if (!had) setTimeout(() => toast('أهلًا بك في نظام المتابعة 👋 ابدأ بإضافة أول طالب أو حمّل بيانات تجريبية من الإعدادات', 'info', 'مرحبًا'), 700);
+  window.addEventListener('beforeunload', () => { if (dirty.main) Cloud.push(true); });
+})();
+
+/* expose for debugging */
+window.AF = { S: S, Cloud: Cloud, render: render, go: go, seedDemo: seedDemo, exportCSVAll: exportCSVAll };
+
+</script>
+</body>
+</html>
