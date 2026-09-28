@@ -711,13 +711,15 @@ const S = {
     exam: { id:'' },
     rep: { kind:'student', from: addDays(today(), -30), to: today(), stage:'', groupId:'', studentId:'', examId:'' }
   },
-  fb: { status:'off', cfg:null, err:'', errKind:'', syncing:false, syncingTxt:'', lastSync:null, remoteRev:null, behind:false, ahead:false, cloudEmpty:true, timer:null },
+  fb: { status:'off', cfg:null, err:'', errKind:'', syncing:false, syncingTxt:'', lastSync:null, remoteRev:null, behind:false, ahead:false, cloudEmpty:true, timer:null,
+        stream:null, meta:null, retries:0, lastPush:null, parts:0 },
   applyingRemote: false
 };
 
 /* ---------------- Storage ---------------- */
 const LS_KEY = 'mostar_platform_v2';
 const FB_KEY = 'mostar_platform_fb';
+const FB_PREF_KEY = 'mostar_platform_fb_pref';   // السيرفر اللي المستر اختاره بإيده (أو 'auto')
 
 function migrate(d){
   const base = defaultData();
@@ -738,6 +740,9 @@ function migrate(d){
   out.feedback = out.feedback || {};
   out.absNotes = out.absNotes || {};
   out.msgSent = out.msgSent || {};
+  out.meta.secrev = out.meta.secrev || {};
+  out.meta.attrev = out.meta.attrev || {};
+  out.meta.logorev = Number(out.meta.logorev || 0);
   return out;
 }
 function loadLocal(){
@@ -746,9 +751,14 @@ function loadLocal(){
   return false;
 }
 const saveLocal = debounce(function(){
-  try{ S.data.meta.updatedAt = new Date().toISOString(); localStorage.setItem(LS_KEY, JSON.stringify(S.data)); }
-  catch(e){ console.warn(e); toast('تعذّر الحفظ في المتصفح', 'bad'); }
-}, 200);
+  const write = () => {
+    try{ S.data.meta.updatedAt = new Date().toISOString(); localStorage.setItem(LS_KEY, JSON.stringify(S.data)); }
+    catch(e){ console.warn(e); toast('تعذّر الحفظ في المتصفح', 'bad'); }
+  };
+  // الكتابة في وقت الخمول عشان الواجهة ما تتلخبطش
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(write, { timeout: 400 });
+  else setTimeout(write, 0);
+}, 250);
 
 const dirty = { main:false };
 function commit(opts){
@@ -767,9 +777,9 @@ function commit(opts){
    ولو حصلت أي مشكلة بيحوّل للتاني لوحده. */
 const FB_PROJECTS = [
   { projectId: 'ahmedfathy-def0f', dbUrl: 'https://ahmedfathy-def0f-default-rtdb.europe-west1.firebasedatabase.app',
-    authDomain: 'ahmedfathy-def0f.firebaseapp.com', code: 'ahmedfathy-def0f', nick: 'الأساسي · أوروبا ⚡' },
+    authDomain: 'ahmedfathy-def0f.firebaseapp.com', code: 'ahmedfathy-def0f', nick: 'سيرفر أوروبا', region: 'بلجيكا (europe-west1)' },
   { projectId: 'ahmedfathy-95c10', dbUrl: 'https://ahmedfathy-95c10-default-rtdb.asia-southeast1.firebasedatabase.app',
-    authDomain: 'ahmedfathy-95c10.firebaseapp.com', code: 'ahmedfathy-95c10', nick: 'الاحتياطي · آسيا' }
+    authDomain: 'ahmedfathy-95c10.firebaseapp.com', code: 'ahmedfathy-95c10', nick: 'سيرفر آسيا', region: 'سنغافورة (asia-southeast1)' }
 ];
 const FB_DEFAULT = FB_PROJECTS[0];
 const FB_GEN = 3;   // رقم جيل الإعدادات المضمّنة — بيتغير لما نغيّر المشروع، فأي إعدادات قديمة محفوظة على الأجهزة بتتجاهل تلقائيًا
@@ -799,6 +809,44 @@ const FB_RULES_URL = 'https://console.firebase.google.com/project/ahmedfathy-def
 const FB_DATA_URL  = 'https://console.firebase.google.com/project/ahmedfathy-def0f/database/ahmedfathy-def0f-default-rtdb/data';
 
 const Cloud = {
+  /* ---------- اختيار السيرفر (بإيد المستر) ---------- */
+  pref(){ try{ return localStorage.getItem(FB_PREF_KEY) || 'auto'; }catch(e){ return 'auto'; } },
+  setPref(id){ try{ (id && id !== 'auto') ? localStorage.setItem(FB_PREF_KEY, id) : localStorage.removeItem(FB_PREF_KEY); }catch(e){} },
+  projectById(id){ return FB_PROJECTS.filter(p => p.projectId === id)[0] || null; },
+  pinned(){ const p = this.pref(); return p === 'auto' ? null : this.projectById(p); },
+  pinLabel(){ const p = this.pinned(); return p ? (p.nick || p.projectId) : ''; },
+  // ترتيب المحاولات: السيرفر اللي اخترته بإيدك الأول، وبعده الباقي للطوارئ
+  order(cfg){
+    const out = [], pin = this.pinned();
+    if (pin) out.push(pin);
+    if (cfg && cfg.dbUrl && !out.some(x => x.projectId === cfg.projectId)) out.push(cfg);
+    FB_PROJECTS.forEach(p => { if (!out.some(x => x.projectId === p.projectId)) out.push(p); });
+    return out;
+  },
+  // قياس سرعة السيرفر من الجهاز ده (بالمللي ثانية)
+  async ping(p){
+    const t0 = Date.now();
+    const url = (p.dbUrl || '') + '/platforms/' + encodeURIComponent(p.code || p.projectId) + '/meta.json';
+    const ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    const to = ctl ? setTimeout(() => { try{ ctl.abort(); }catch(e){} }, 8000) : null;
+    try{
+      const res = await fetch(url, { method:'GET', cache:'no-store', signal: ctl ? ctl.signal : undefined });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      await res.text();
+      const ms = Date.now() - t0;
+      this.lat = this.lat || {}; this.lat[p.projectId] = ms;
+      return { ok:true, ms: ms };
+    }catch(e){
+      this.lat = this.lat || {}; this.lat[p.projectId] = null;
+      return { ok:false, ms:null, err: String(e && e.message || e) };
+    } finally { if (to) clearTimeout(to); }
+  },
+  async pingAll(){
+    const self = this;
+    const out = {};
+    await Promise.all(FB_PROJECTS.map(p => self.ping(p).then(r => { out[p.projectId] = r; })));
+    return out;
+  },
   readCfg(){ try{ return JSON.parse(localStorage.getItem(FB_KEY) || 'null'); }catch(e){ return null; } },
   writeCfg(c){ try{ if (c) c.gen = FB_GEN; c ? localStorage.setItem(FB_KEY, JSON.stringify(c)) : localStorage.removeItem(FB_KEY); }catch(e){} },
   cfgIsStale(){ const c = this.readCfg(); return !!(c && c.gen !== FB_GEN); },   // إعدادات من مشروع قديم
@@ -850,11 +898,20 @@ const Cloud = {
     const base = this.dbUrl();
     if (!base) throw Object.assign(new Error('رابط قاعدة البيانات ناقص'), { kind:'cfg' });
     let res;
+    const ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
+    const to = ctl ? setTimeout(() => { try{ ctl.abort(); }catch(err){} }, this.timeout || 15000) : null;
     try{
       res = await fetch(base + '/' + path + '.json', { method: method, cache:'no-store',
+        signal: ctl ? ctl.signal : undefined,
         headers: body ? { 'Content-Type':'application/json' } : undefined,
         body: body ? JSON.stringify(body) : undefined });
-    }catch(e){ throw Object.assign(new Error('مفيش اتصال بالسحابة — راجع الإنترنت'), { kind:'net', raw:String(e && e.message || e) }); }
+    }catch(e){
+      if (to) clearTimeout(to);
+      const slow = e && (e.name === 'AbortError' || /abort/i.test(String(e && e.message)));
+      throw Object.assign(new Error(slow ? 'الاتصال بالسحابة بطيء — بنجرّب تاني لوحده' : 'مفيش اتصال بالسحابة — راجع الإنترنت'),
+        { kind:'net', raw:String(e && e.message || e) });
+    }
+    if (to) clearTimeout(to);
     const txt = await res.text();
     let j = null; try{ j = txt ? JSON.parse(txt) : null; }catch(e){ j = null; }
     // المشروع في منطقة تانية → السيرفر بيرجّع العنوان الصح، نحدّث نفسنا ونكرر مرة واحدة
@@ -954,9 +1011,8 @@ const Cloud = {
     }
   },
   async writeMeta(rev){
-    const obj = { rev: rev, at: new Date().toISOString() };
-    if (this.mode() === 'rtdb') return this.rtdb('PUT', this.rootPath() + '/meta', obj);
-    return this.upsert(this.root(), obj);
+    if (rev != null) S.data.meta.rev = Number(rev) || 0;
+    return this.writeMetaFull();       // بنكتب الـ meta كاملة بخريطة الأجزاء — مش رقم بس
   },
   async readRoot(){
     if (this.mode() === 'rtdb'){
@@ -1010,6 +1066,203 @@ const Cloud = {
     }
   },
 
+  /* ==========================================================
+     مزامنة ذكية (v3): أجزاء منفصلة + تحديث لحظي
+     بدل ما نرفع/ننزّل ملف المنصة كله كل مرة، المنصة بتتقسّم لأجزاء
+     صغيرة (طلاب، حصص، درجات، حضور بالشهر…) وكل جزء ليه رقم نسخة.
+     فاللي يتغير بس هو اللي بيتنقل، والتحديث بيوصل لحظيًا من غير
+     ما المستر يعمل ريفريش أو يدوس "تنزيل".
+     ========================================================== */
+  secKeys(){ return ['settings','groups','students','exams','grades','feedback','absNotes','msgSent']; },
+  cache(){ return this._cache = this._cache || { sec:{}, att:{}, logo:null }; },
+  attMonth(k){ return String(k).slice(0,7); },
+  attMonthsLocal(){
+    const out = {};
+    Object.keys(S.data.attendance || {}).forEach(k => {
+      const mo = this.attMonth(k); (out[mo] = out[mo] || {})[k] = S.data.attendance[k];
+    });
+    return out;
+  },
+  localRevs(){
+    const m = S.data.meta = S.data.meta || {};
+    m.secrev = m.secrev || {}; m.attrev = m.attrev || {};
+    return m;
+  },
+  locRev(kind, key){
+    const m = this.localRevs();
+    if (kind === 'sec') return Number(m.secrev[key] || 0);
+    if (kind === 'att') return Number(m.attrev[key] || 0);
+    return Number(m.logorev || 0);
+  },
+  setLocRev(kind, key, v){
+    const m = this.localRevs(); v = Number(v) || 0;
+    if (kind === 'sec') m.secrev[key] = v;
+    else if (kind === 'att') m.attrev[key] = v;
+    else m.logorev = v;
+  },
+  secJson(k){
+    const v = S.data[k];
+    const empty = (k === 'students' || k === 'groups' || k === 'exams') ? [] : (k === 'settings' ? S.data.settings : {});
+    return JSON.stringify(v === undefined || v === null ? empty : v);
+  },
+  // بعد أي تنزيل: نخزّن بصمة الأجزاء عشان أول رفع ما يبعتش نفس الحاجة تاني
+  refreshCache(){
+    const c = this.cache();
+    this.secKeys().forEach(k => { c.sec[k] = this.secJson(k); });
+    c.att = {};
+    const months = this.attMonthsLocal();
+    Object.keys(months).forEach(mo => { c.att[mo] = JSON.stringify(months[mo]); });
+    c.logo = (typeof logoRef === 'function' ? (logoRef() || '') : '');
+  },
+  async writeMetaFull(){
+    const m = this.localRevs();
+    const sec = {}, att = {};
+    this.secKeys().forEach(k => { if (m.secrev[k]) sec[k] = m.secrev[k]; });
+    Object.keys(m.attrev).forEach(mo => { if (m.attrev[mo]) att[mo] = m.attrev[mo]; });
+    const d = { v: 3, rev: m.rev || 0, at: new Date().toISOString(), sec: sec, att: att, logo: m.logorev || 0,
+      teacher: (S.data.settings || {}).teacherName || '', students: (S.data.students || []).length, groups: (S.data.groups || []).length };
+    S.fb.meta = d;
+    if (this.mode() === 'rtdb') return this.rtdb('PUT', this.rootPath() + '/meta', d);
+    return this.upsert(this.root(), { json: JSON.stringify(d) });
+  },
+  // الرفع: بس الأجزاء اللي اتغيرت — وبتتكتب مع بعض (بالتوازي) = أسرع بكتير
+  async pushSections(all){
+    const self = this, c = this.cache(), jobs = [];
+    const at = new Date().toISOString();
+    this.secKeys().forEach(k => {
+      const json = self.secJson(k);
+      if (!all && c.sec[k] === json && self.locRev('sec', k)) return;
+      const rev = self.locRev('sec', k) + 1;
+      jobs.push(self.rtdb('PUT', self.rootPath() + '/sec/' + k, { rev: rev, at: at, v: S.data[k] })
+        .then(() => { c.sec[k] = json; self.setLocRev('sec', k, rev); }));
+    });
+    const months = this.attMonthsLocal();
+    Object.keys(months).forEach(mo => {
+      const json = JSON.stringify(months[mo]);
+      if (!all && c.att[mo] === json && self.locRev('att', mo)) return;
+      const rev = self.locRev('att', mo) + 1;
+      jobs.push(self.rtdb('PUT', self.rootPath() + '/att/' + mo, { rev: rev, at: at, v: months[mo] })
+        .then(() => { c.att[mo] = json; self.setLocRev('att', mo, rev); }));
+    });
+    const lg = (typeof logoRef === 'function' ? (logoRef() || '') : '');
+    const lgPush = (lg && lg.length <= 300000) ? lg : '';
+    if (all || c.logo !== lgPush || (lgPush && !self.locRev('logo'))){
+      const rev = self.locRev('logo') + 1;
+      jobs.push(self.rtdb('PUT', self.rootPath() + '/logo', { rev: rev, at: at, v: lgPush })
+        .then(() => { c.logo = lgPush; self.setLocRev('logo', '', rev); }));
+    }
+    if (!jobs.length) return 0;
+    S.fb.syncingTxt = jobs.length + (jobs.length === 1 ? ' جزء' : ' أجزاء');
+    S.fb.parts = jobs.length;
+    await Promise.all(jobs);
+    S.data.meta.rev = (S.data.meta.rev || 0) + 1;
+    await this.writeMetaFull();
+    return jobs.length;
+  },
+  // التنزيل: نقرأ الـ meta الصغيرة الأول، وننزّل بس الأجزاء اللي اتغيرت
+  async pullSections(silent){
+    const meta = await this.readMeta();
+    S.fb.meta = meta.data || null;
+    S.fb.remoteRev = meta.rev || 0;
+    if (!meta.exists){ S.fb.cloudEmpty = true; S.fb.behind = false; return -1; }
+    const d = meta.data || {};
+    if (d.v !== 3 || !d.sec) return this.doPullLegacy(silent);      // نسخة قديمة على السحابة
+    const self = this, jobs = [], changed = [];
+    this.secKeys().forEach(k => {
+      const rr = Number((d.sec || {})[k] || 0);
+      if (rr <= self.locRev('sec', k)) return;
+      jobs.push(self.rtdb('GET', self.rootPath() + '/sec/' + k).then(node => {
+        if (node && node.v !== undefined && node.v !== null){
+          S.data[k] = node.v;
+          self.setLocRev('sec', k, Number(node.rev || rr));
+          changed.push(k);
+        }
+      }));
+    });
+    Object.keys(d.att || {}).forEach(mo => {
+      const rr = Number(d.att[mo] || 0);
+      if (rr <= self.locRev('att', mo)) return;
+      jobs.push(self.rtdb('GET', self.rootPath() + '/att/' + mo).then(node => {
+        if (node && node.v && typeof node.v === 'object'){
+          S.data.attendance = Object.assign({}, S.data.attendance || {}, node.v);
+          self.setLocRev('att', mo, Number(node.rev || rr));
+          changed.push('حضور ' + mo);
+        }
+      }));
+    });
+    if (Number(d.logo || 0) > self.locRev('logo')){
+      jobs.push(self.rtdb('GET', self.rootPath() + '/logo').then(node => {
+        if (!node) return;
+        if (typeof node.v === 'string' && node.v.indexOf('data:image/') === 0){ try{ setLogo(node.v); }catch(e){} }
+        else if (node.v === ''){ try{ clearLogo(); }catch(e){} }
+        self.setLocRev('logo', '', Number(node.rev || 0));
+      }));
+    }
+    await Promise.all(jobs);
+    S.data.meta = S.data.meta || {};
+    S.data.meta.rev = Math.max(Number(S.data.meta.rev || 0), Number(meta.rev || 0));
+    S.fb.remoteRev = Number(meta.rev || 0);
+    this.refreshCache();
+    S.fb.behind = false; S.fb.ahead = false; S.fb.cloudEmpty = false;
+    S.fb.lastSync = new Date(); S.fb.errKind = '';
+    this.setStatus('live');
+    if (changed.length){
+      attDraft = null;
+      saveLocal(); render();
+      if (!silent) toast('تم تحديث ' + changed.length + (changed.length === 1 ? ' جزء' : ' أجزاء') + ' من السحابة ✅', 'ok', 'السحابة');
+    }
+    return changed.length;
+  },
+
+  /* ---------- التحديث اللحظي (بث مباشر من Firebase) ---------- */
+  stream(){
+    this.stopStream();
+    if (S.fb.status !== 'live') return;
+    if (this.mode() !== 'rtdb' || typeof EventSource === 'undefined'){ this.startPolling(8000); return; }
+    const url = this.dbUrl() + '/' + this.rootPath() + '/meta.json';
+    let es = null;
+    try{ es = new EventSource(url); }catch(e){ this.startPolling(8000); return; }
+    const self = this;
+    this._es = es; S.fb.stream = 'connecting'; paintCloud();
+    this.watchdog();
+    const onData = ev => {
+      let d = null; try{ d = JSON.parse(ev.data); }catch(e){ return; }
+      if (!d || !d.data) return;
+      S.fb.stream = 'live'; S.fb.meta = d.data;
+      const rev = Number(d.data.rev || 0);
+      if (rev > Number(S.data.meta.rev || 0)) self.onRemoteChange(rev);
+      else { S.fb.remoteRev = rev; S.fb.behind = false; paintCloud(); }
+    };
+    es.addEventListener('put', onData);
+    es.addEventListener('patch', onData);
+    es.addEventListener('open', () => { S.fb.stream = 'live'; S.fb.retries = 0; self.startPolling(45000); paintCloud(); });
+    es.addEventListener('error', () => {
+      S.fb.stream = 'down'; S.fb.retries = (S.fb.retries || 0) + 1;
+      self.startPolling(8000); paintCloud();
+    });
+  },
+  stopStream(){
+    this.stopWatchdog();
+    if (this._es){ try{ this._es.close(); }catch(e){} this._es = null; }
+    if (this._pullTimer){ clearTimeout(this._pullTimer); this._pullTimer = null; }
+    S.fb.stream = null;
+  },
+  // فيه حاجة جديدة على السحابة: ننزّل الجزء اللي اتغير بس
+  onRemoteChange(rev){
+    const self = this;
+    S.fb.remoteRev = rev;
+    if (this._pullTimer) return;
+    this._pullTimer = setTimeout(async () => {
+      self._pullTimer = null;
+      if (S.fb.status !== 'live' || S.fb.syncing) return;
+      if (dirty.main){ S.fb.behind = true; S.fb.ahead = true; paintCloud(); return; }
+      try{
+        const n = await self.pullSections(true);
+        if (n > 0){ toast('تم تحديث البيانات من السحابة 🔄', 'info', 'السحابة'); paintCloud(); }
+      }catch(e){ if (e.kind === 'net' || e.kind === 'rules') self.setStatus('error', e.message); }
+    }, 600);
+  },
+
   /* ---------- الاتصال ---------- */
   async connect(opts){
     opts = opts || {};
@@ -1018,8 +1271,8 @@ const Cloud = {
     if (!cfg.dbUrl && (!cfg.apiKey || !cfg.projectId)){ this.setStatus('off'); toast('إعدادات السحابة ناقصة', 'bad'); return false; }
     S.fb.cfg = cfg;
     this.setStatus('busy');
-    // نجرب المشروع الحالي، وبعدين أي مشروع تاني مضمّن (تبديل تلقائي لو فيه مشكلة)
-    const list = [cfg].concat(FB_PROJECTS.filter(p => p.projectId !== cfg.projectId));
+    // الترتيب: السيرفر اللي المستر اختاره بإيده الأول، وبعده الباقي للطوارئ
+    const list = this.order(cfg);
     let hasData = false, remoteRev = 0, err = null, used = cfg;
     for (let i = 0; i < list.length; i++){
       S.fb.cfg = list[i];
@@ -1032,10 +1285,20 @@ const Cloud = {
     }
     this._active = null;
     S.fb.cfg = used; S.fb.remoteRev = remoteRev;
+    const pin = this.pinned();
+    S.fb.pinned = pin ? pin.projectId : '';
+    S.fb.pinnedNick = pin ? (pin.nick || pin.projectId) : '';
+    S.fb.fellBack = !!(pin && !err && used.projectId !== pin.projectId);
+    S.fb.pinBack = false;
     if (!err && used.projectId !== cfg.projectId){
-      this.writeCfg(used);                       // نحفظ المشروع الشغال
-      if (!opts.silent) toast('اتصلنا بالمشروع ' + (used.nick || used.projectId) + ' تلقائيًا', 'info', 'السحابة');
+      this.writeCfg(used);                       // نحفظ السيرفر الشغال
+      if (!opts.silent && !S.fb.fellBack) toast('اتصلنا بـ' + (used.nick || used.projectId), 'info', 'السحابة');
     }
+    if (S.fb.fellBack && this._fallbackTold !== pin.projectId){
+      this._fallbackTold = pin.projectId;          // نخبره مرة واحدة بالحالة دي
+      toast('السيرفر اللي اخترته (' + (pin.nick || pin.projectId) + ') مش راد دلوقتي — شغالين على ' +
+        (used.nick || used.projectId) + ' مؤقتًا، وبياناتك بتتزامن عادي', 'warn', 'السحابة');
+    } else if (!S.fb.fellBack) this._fallbackTold = null;
     if (err){
       this.setStatus('error', err.message);
       S.fb.errKind = err.kind;
@@ -1046,7 +1309,7 @@ const Cloud = {
     if (used && used.projectId) this.writeCfg(used);      // الإعدادات الشغالة تتحفظ تلقائيًا
     S.fb.errKind = ''; S.fb.remoteRev = remoteRev; S.fb.cloudEmpty = !hasData;
     this.setStatus('live');
-    this.startPolling();
+    this.stream();                       // تحديث لحظي + فحص احتياطي
     if (!opts.silent) toast(hasData ? 'تم الاتصال بالسحابة ✅' : 'تم الاتصال — السحابة فاضية، ارفع بياناتك', hasData ? 'ok' : 'info', 'السحابة');
     if (opts.auto) this.autoSync(hasData, remoteRev);
     return true;
@@ -1061,13 +1324,22 @@ const Cloud = {
       toast('جارٍ تنزيل بياناتك من السحابة...', 'info', 'السحابة');
       this.doPull(true);
     } else if (hasData && hasLocal){
-      S.fb.behind = remoteRev > localRev;
-      S.fb.ahead = localRev > remoteRev;
-      paintCloud();
+      if (remoteRev > localRev && !dirty.main){
+        // بيانات السحابة أحدث → ننزّلها أوتوماتيك من غير ما المستر يدوس حاجة
+        toast('جارٍ تحديث بياناتك من السحابة...', 'info', 'السحابة');
+        this.doPull(true).then(n => { if (n) toast('بياناتك محدّثة ✅', 'ok', 'السحابة'); });
+      } else if (remoteRev > localRev && dirty.main){
+        S.fb.behind = true; S.fb.ahead = true; paintCloud();      // فيه تعديلات محلية → نسأله
+      } else if (localRev > remoteRev && dirty.main){
+        this.doPush(false);                                      // تعديلات لسه مرفوعتش
+      } else {
+        S.fb.behind = false; S.fb.ahead = false; paintCloud();
+      }
     }
   },
   disconnect(){
     this._active = null;
+    this.stopStream();
     this.stopPolling();
     S.fb.remoteRev = null; S.fb.behind = false; S.fb.ahead = false;
     this.setStatus('off');
@@ -1075,14 +1347,55 @@ const Cloud = {
   },
 
   /* ---------- الفحص الدوري ---------- */
-  startPolling(){
+  startPolling(ms){
+    const every = Number(ms) || 20000;
+    if (S.fb.timer && S.fb.timerMs === every) return;
     this.stopPolling();
-    S.fb.timer = setInterval(() => { if (!document.hidden) this.checkRemote(); }, 20000);
+    S.fb.timerMs = every;
+    S.fb.timer = setInterval(() => { if (!document.hidden) this.checkRemote(); }, every);
   },
+  // حارس المزامنة: كل 6 ثواني يتأكد إن مفيش تعديل محلي عالق، وإن مفيش نسخة أحدث نازلة
+  watchdog(){
+    if (S.fb.wd) return;
+    S.fb.wd = setInterval(() => {
+      if (S.fb.status !== 'live' || S.fb.syncing || document.hidden) return;
+      if (dirty.main) this.doPush(false);
+      else if (Number(S.fb.remoteRev || 0) > Number(S.data.meta.rev || 0)) this.onRemoteChange(Number(S.fb.remoteRev));
+      // كل دقيقة: لو شغالين على سيرفر طوارئ، نشوف سيرفرك المختار رجع ولا لأ
+      if (Date.now() - (this._pinCheck || 0) > 60000){ this._pinCheck = Date.now(); this.checkPinBack(); }
+    }, 6000);
+  },
+  // هل السيرفر اللي اختاره رجع شغال؟
+  async checkPinBack(){
+    if (!S.fb.fellBack || S.fb.pinBack) return false;
+    const pin = this.pinned();
+    if (!pin) return false;
+    const r = await this.ping(pin);
+    if (!r.ok) return false;
+    S.fb.pinBack = true; paintCloud();
+    toast('سيرفرك المختار (' + (pin.nick || pin.projectId) + ') رجع شغال — اضغط للرجوع ليه', 'info', 'السحابة');
+    return true;
+  },
+  // الرجوع للسيرفر المختار بضغطة
+  async backToPinned(){
+    const pin = this.pinned();
+    if (!pin){ toast('مفيش سيرفر مختار — اختار من شاشة اختيار السيرفر', 'warn'); return false; }
+    toast('بنرجع لـ' + (pin.nick || pin.projectId) + '...', 'info', 'السحابة');
+    this.stopStream();
+    this.writeCfg(pin);
+    return await this.connect({ silent:false });
+  },
+  stopWatchdog(){ if (S.fb.wd){ clearInterval(S.fb.wd); S.fb.wd = null; } },
   stopPolling(){ if (S.fb.timer){ clearInterval(S.fb.timer); S.fb.timer = null; } },
   async checkRemote(){
     if (S.fb.status !== 'live' || S.fb.syncing) return;
     try{
+      if (this.mode() === 'rtdb'){
+        const n = await this.pullSections(true);      // بيقرأ meta صغيرة وينزّل المتغير بس
+        if (n > 0 && !dirty.main) toast('تم تحديث البيانات من السحابة 🔄', 'info', 'السحابة');
+        paintCloud();
+        return;
+      }
       const meta = await this.readMeta();
       const rev = meta.rev || 0;
       S.fb.remoteRev = rev;
@@ -1111,43 +1424,87 @@ const Cloud = {
   async doPush(all){
     const cfg = this.merged();
     if (!cfg.dbUrl && !cfg.apiKey){ toast('إعدادات السحابة ناقصة', 'bad'); return false; }
+    if (S.fb.syncing){ this._pushAgain = true; return true; }      // مفيش رفعين في نفس الوقت
     S.fb.syncing = true; paintCloud();
     try{
-      if (all) S.data.meta.rev = (S.data.meta.rev || 0) + 1;
-      const rev = S.data.meta.rev || 0;
-      let p = this.payload(this.mode() === 'firestore'), split = this.mode() === 'rtdb';
-      let json = JSON.stringify(p);
-      if (this.mode() === 'firestore' && json.length > 700000){ split = true; p.attendance = {}; json = JSON.stringify(p); }
-      await this.writeRoot(Object.assign({ json: json, rev: rev, updatedAt: new Date().toISOString(), split: split }, {}));
-      await this.writeMeta(rev);
-      if (split) await this.writeAttendance();
-      dirty.main = false; S.fb.syncing = false; S.fb.lastSync = new Date();
-      S.fb.remoteRev = rev; S.fb.behind = false; S.fb.ahead = false; S.fb.cloudEmpty = false;
+      if (this.mode() === 'rtdb'){
+        const n = await this.pushSections(!!all);
+        // نسخة كاملة بملف واحد للأجهزة القديمة: بس مع "رفع الكل" عشان السرعة
+        if (all) await this.writeRoot({ json: JSON.stringify(this.payload(true)), rev: S.data.meta.rev, updatedAt: new Date().toISOString(), split: true });
+        S.fb.lastPush = new Date();
+        if (!n && !all){                                  // مفيش أي تغيير حقيقي → مفيش حاجة تتكتب
+          dirty.main = false;
+          S.fb.syncing = false; S.fb.syncingTxt = ''; this.setStatus('live');
+          if (this._pushAgain){ this._pushAgain = false; setTimeout(() => this.doPush(false), 300); }
+          return true;
+        }
+      } else {
+        if (all) S.data.meta.rev = (S.data.meta.rev || 0) + 1;
+        const rev = S.data.meta.rev || 0;
+        let p = this.payload(true), split = true;
+        let json = JSON.stringify(p);
+        if (json.length > 700000){ p.attendance = {}; json = JSON.stringify(p); }
+        await this.writeRoot({ json: json, rev: rev, updatedAt: new Date().toISOString(), split: split });
+        await this.writeMeta(rev);
+        await this.writeAttendance();
+      }
+      dirty.main = false; S.fb.syncing = false; S.fb.syncingTxt = ''; S.fb.lastSync = new Date();
+      S.fb.remoteRev = S.data.meta.rev; S.fb.behind = false; S.fb.ahead = false; S.fb.cloudEmpty = false;
       this.setStatus('live'); S.fb.errKind = '';
       if (all) toast('تم رفع كل البيانات للسحابة ✅', 'ok', 'السحابة');
+      // لو وصل تحديث أحدث أثناء الرفع: ننزّله فورًا بدل ما يفضل معلّق
+      if (Number(S.fb.remoteRev || 0) > Number(S.data.meta.rev || 0)) this.onRemoteChange(Number(S.fb.remoteRev));
+      if (this._pushAgain){ this._pushAgain = false; setTimeout(() => this.doPush(false), 400); }
       return true;
     }catch(e){
-      S.fb.syncing = false; S.fb.errKind = e.kind;
+      S.fb.syncing = false; S.fb.syncingTxt = ''; S.fb.errKind = e.kind;
       this.setStatus('error', e.message);
+      if (!dirty.main) dirty.main = true;                       // نعيد المحاولة بعد شوية
       toast('فشل الرفع: ' + e.message, 'bad', 'السحابة');
+      if (!this._retry){ this._retry = setTimeout(() => { this._retry = null; if (dirty.main && S.fb.status !== 'off') this.doPush(false); }, 12000); }
+      if (this._pushAgain) this._pushAgain = false;
       return false;
     }
   },
 
   /* ---------- التنزيل ---------- */
   async doPull(silent){
+    if (this.mode() === 'rtdb'){
+      S.fb.syncing = true; paintCloud();
+      try{
+        const n = await this.pullSections(!!silent);
+        S.fb.syncing = false; S.fb.syncingTxt = '';
+        this.setStatus('live');
+        if (n === -1){
+          S.fb.cloudEmpty = true;
+          if (!silent) toast('مفيش بيانات مرفوعة على السحابة لسه — من الجهاز اللي فيه البيانات اعمل "رفع الكل"', 'info', 'السحابة');
+          return false;
+        }
+        if (!silent && n === 0) toast('البيانات عندك محدّثة بالفعل ✅', 'ok', 'السحابة');
+        return true;
+      }catch(e){
+        S.fb.syncing = false; S.fb.syncingTxt = ''; S.fb.errKind = e.kind;
+        this.setStatus('error', e.message);
+        if (!silent) toast('فشل التنزيل: ' + e.message, 'bad', 'السحابة');
+        return false;
+      }
+    }
+    return this.doPullLegacy(silent);
+  },
+  /* نسخة قديمة (ملف واحد) — للتوافق مع مشاريع Firestore أو بيانات قديمة على السحابة */
+  async doPullLegacy(silent){
     S.fb.syncing = true; paintCloud();
     try{
       const r = await this.readRoot();
       const d = r.data;
       if (!d || !d.json){ S.fb.syncing = false; this.setStatus('live'); S.fb.cloudEmpty = true;
-        if (!silent) toast('مفيش بيانات مرفوعة على السحابة لسه — من الجهاز اللي فيه البيانات اضغط "رفع الكل"', 'warn', 'السحابة');
+        if (!silent) toast('مفيش بيانات مرفوعة على السحابة لسه — من الجهاز اللي فيه البيانات اعمل "رفع الكل"', 'info', 'السحابة');
         return false; }
       const remote = JSON.parse(d.json);
-      // الحضور ممكن يكون جوه الملف الأساسي (Firestore) أو في نود منفصل (RTDB) — ندمج الاتنين
       remote.attendance = Object.assign({}, remote.attendance || {}, await this.readAttendanceAll());
       this.applyRemote(remote, Number(d.rev || 0));
       if (remote._logo){ try{ setLogo(remote._logo); }catch(e){} }
+      await this.afterLegacyPull();
       S.fb.syncing = false; S.fb.lastSync = new Date(); S.fb.cloudEmpty = false;
       this.setStatus('live');
       if (!silent) toast('تم تنزيل البيانات من السحابة ✅ (' + (remote.students || []).length + ' طالب)', 'ok', 'السحابة');
@@ -1159,6 +1516,12 @@ const Cloud = {
       return false;
     }
   },
+  /* بعد تنزيل نسخة قديمة: نحوّل بياناتها لأجزاء ونحدّث البصمة */
+  async afterLegacyPull(){
+    this.refreshCache();
+    try{ await this.pushSections(true); }catch(e){}
+  },
+
   applyRemote(remote, rev){
     const att = Object.assign({}, S.data.attendance, remote.attendance || {});
     S.applyingRemote = true;
@@ -1209,6 +1572,13 @@ const Cloud = {
     const c = this.merged();
     const kindTxt = this.mode() === 'rtdb' ? 'Realtime Database' : 'Firestore';
     out.push(['نوع قاعدة البيانات', '✅ ' + kindTxt + ' · ' + (c.projectId || '—') + ' · كود المنصة: ' + (c.code || '—'), 'ok']);
+    const pin = this.pinned();
+    const lat = (this.lat || {})[c.projectId];
+    out.push(['السيرفر المختار', pin
+      ? ('✅ ' + (pin.nick || pin.projectId) + (pin.projectId === c.projectId ? ' (شغال عليه دلوقتي)' : ' (شغال على ' + (c.nick || c.projectId) + ' مؤقتًا)'))
+      : 'تلقائي — المنصة بتختار لوحدها وتتحوّل عند الحاجة', pin && pin.projectId !== c.projectId ? 'warn' : 'ok']);
+    out.push(['سرعة السيرفر من مكانك', lat != null ? ('⚡ ' + nf(lat) + ' مللي ثانية' + (lat < 300 ? ' — ممتاز' : lat < 800 ? ' — مقبول' : ' — بطيء، جرّب سيرفر تاني'))
+      : 'اضغط "اختيار السيرفر" وشوف السرعة لكل سيرفر', lat != null && lat < 800 ? 'ok' : 'warn']);
     let okBase = false;
     try{
       await this.readMeta();
@@ -1223,10 +1593,27 @@ const Cloud = {
         out.push(['الكتابة على السحابة', '✅ الكتابة مسموحة من قواعد الحماية', 'ok']);
       }catch(e){ out.push(['الكتابة على السحابة', '❌ ' + e.message, 'bad']); }
       try{
-        const r = await this.readRoot();
-        const d = r.data || {};
-        out.push(['البيانات المرفوعة', d.json ? ('✅ موجودة — آخر تعديل: ' + (d.updatedAt ? new Date(d.updatedAt).toLocaleString('ar-EG') : '—') + ' · نسخة ' + (d.rev || 0)) : '⚠️ لسه مفيش بيانات مرفوعة — اضغط "رفع الكل"', d.json ? 'ok' : 'warn']);
+        if (this.mode() === 'rtdb'){
+          const meta = await this.readMeta();
+          const d = meta.data || {};
+          const secs = d.sec ? Object.keys(d.sec).length : 0;
+          const atts = d.att ? Object.keys(d.att).length : 0;
+          if (!meta.exists || (!secs && !d.rev)) out.push(['البيانات المرفوعة', '⚠️ لسه مفيش بيانات مرفوعة', 'warn']);
+          else out.push(['البيانات المرفوعة', '✅ موجودة — ' + secs + ' جزء · ' + atts + (atts === 1 ? ' شهر حضور' : ' شهور حضور') +
+            ' · نسخة ' + (d.rev || 0) + (d.at ? ' · آخر تحديث: ' + new Date(d.at).toLocaleString('ar-EG') : ''), 'ok']);
+        } else {
+          const r = await this.readRoot();
+          const d = r.data || {};
+          out.push(['البيانات المرفوعة', d.json ? ('✅ موجودة — آخر تعديل: ' + (d.updatedAt ? new Date(d.updatedAt).toLocaleString('ar-EG') : '—') + ' · نسخة ' + (d.rev || 0)) : '⚠️ لسه مفيش بيانات مرفوعة', d.json ? 'ok' : 'warn']);
+        }
       }catch(e){ out.push(['البيانات المرفوعة', '⚠️ مش قادر أقرأها (' + e.message + ')', 'warn']); }
+      if (this.mode() === 'rtdb'){
+        const stt = S.fb.stream;
+        out.push(['التحديث اللحظي', stt === 'live' ? '✅ شغال — أي تعديل بيوصل لحظيًا من غير ريفريش' :
+          stt === 'connecting' ? '⏳ بنوصّله دلوقتي — والفحص الاحتياطي شغال' :
+          '⚠️ الفحص الدوري شغال كل 8 ثواني (التحديث اللحظي مش متاح دلوقتي)', stt === 'live' ? 'ok' : 'warn']);
+        out.push(['طريقة النقل', '✅ ' + (this.secKeys().length + Object.keys(this.attMonthsLocal()).length) + ' جزء منفصل — بيتنقل اللي اتغير بس بدل الملف كله', 'ok']);
+      }
       const hasLocal = (S.data.students.length + S.data.groups.length) > 0;
       out.push(['بيانات الجهاز ده', (hasLocal ? '✅ ' + nf(S.data.students.length) + ' طالب · ' + nf(S.data.groups.length) + ' حصة' : '⚠️ فاضية — اضغط "تنزيل" لجلب بياناتك'), hasLocal ? 'ok' : 'warn']);
     }
@@ -1255,9 +1642,13 @@ function paintCloud(){
   if (st === 'busy'){ cls = 'busy'; title = 'جارٍ الاتصال...'; sub = 'Firebase'; }
   else if (st === 'live'){
     cls = 'live'; title = 'متصل بالسحابة';
-    if (S.fb.syncing) sub = S.fb.syncingTxt ? ('جارٍ الرفع ' + S.fb.syncingTxt) : 'جارٍ المزامنة...';
-    else if (S.fb.behind) { cls = 'warn'; title = 'فيه تحديث أحدث على السحابة'; sub = 'اضغط "تنزيل" لجيبه'; }
-    else if (S.fb.ahead) { cls = 'warn'; title = 'عندك تعديلات لم تُرفع'; sub = 'اضغط "رفع الكل"'; }
+    if (S.fb.syncing) sub = S.fb.syncingTxt ? ('جارٍ رفع ' + S.fb.syncingTxt) : 'جارٍ المزامنة...';
+    else if (S.fb.behind) { cls = 'warn'; title = 'فيه تحديث أحدث على السحابة'; sub = 'بيتنزّل لوحده كمان لحظة'; }
+    else if (S.fb.ahead) { cls = 'warn'; title = 'عندك تعديلات لم تُرفع'; sub = 'بتترفع لوحدها'; }
+    else if (S.fb.pinBack){ cls = 'warn'; title = 'سيرفرك المختار رجع ✅'; sub = 'اضغط للرجوع ليه'; }
+    else if (S.fb.fellBack){ cls = 'warn'; title = 'شغال على سيرفر الطوارئ'; sub = S.fb.pinnedNick ? ('المختار: ' + S.fb.pinnedNick + ' · اضغط للاختيار') : 'اضغط للاختيار'; }
+    else if (S.fb.stream === 'live') sub = 'مزامنة لحظية ⚡' + (S.fb.pinnedNick ? ' · ' + S.fb.pinnedNick : '') + (S.fb.lastSync ? ' · ' + S.fb.lastSync.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'}) : '');
+    else if (S.fb.stream === 'connecting') sub = 'بنوصّل التحديث اللحظي...';
     else sub = S.fb.lastSync ? ('آخر مزامنة ' + S.fb.lastSync.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'})) : 'المزامنة تلقائية';
   }
   else if (st === 'error'){ cls = 'err'; title = 'مشكلة في السحابة'; sub = 'اضغط للتشخيص والحل'; }
@@ -2700,12 +3091,21 @@ Views.settings = function(){
           : `<div class="help brand" style="margin-bottom:12px;line-height:1.9">
                <b>${icon('check')} كل حاجة متظبطة — مش محتاج تكتب أي حاجة</b><br>
                المنصة بتتصل لوحدها أول ما تفتح، وأي تعديل بيترفع تلقائي، وأي جهاز تاني بينزّل التحديثات لوحده.
+               ولو حبيت <b>تختار السيرفر بنفسك</b> (أوروبا أو آسيا) اضغط "اختيار السيرفر" وشوف سرعة كل واحد من مكانك.
              </div>`}
 
         <div class="grid g-2" style="gap:11px">
-          <div class="field"><label>المشروع المتصل</label>
-            <div class="flex" style="gap:8px;align-items:center"><b>${esc(S.fb.cfg && S.fb.cfg.nick || (S.fb.cfg && S.fb.cfg.projectId) || FB_DEFAULT.nick)}</b>
-            <span class="badge b-gray">${esc((S.fb.cfg && S.fb.cfg.dbUrl) ? 'Realtime Database' : 'Firestore')}</span></div></div>
+          <div class="field"><label>السيرفر المتصل دلوقتي</label>
+            <div class="flex wrap" style="gap:8px;align-items:center">
+              <b>${esc((S.fb.cfg && (S.fb.cfg.nick || S.fb.cfg.projectId)) || FB_DEFAULT.nick)}</b>
+              <span class="badge b-gray">${esc((S.fb.cfg && S.fb.cfg.dbUrl) ? 'Realtime Database' : 'Firestore')}</span>
+              ${Cloud.pref() === 'auto'
+                ? '<span class="badge b-info">تلقائي</span>'
+                : `<span class="badge b-ok">${icon('check')} اختيارك: ${esc(Cloud.pinLabel())}</span>`}
+              ${S.fb.fellBack ? '<span class="badge b-warn">شغال مؤقتًا على سيرفر طوارئ</span>' : ''}
+            </div>
+            ${Cloud.lat && Object.keys(Cloud.lat).length ? `<div class="small muted" style="margin-top:6px">قياس السرعة من مكانك: ${FB_PROJECTS.map(p => esc(p.nick || p.projectId) + ' ' + (Cloud.lat[p.projectId] != null ? nf(Cloud.lat[p.projectId]) + ' مللي' : 'مش راد')).join(' · ')}</div>` : ''}
+          </div>
           <div class="field"><label>كود المنصة <span class="small muted">(اسم تخزين البيانات)</span></label>
             <div><b class="code">${esc((S.fb.cfg && S.fb.cfg.code) || FB_DEFAULT.code)}</b></div></div>
         </div>
@@ -2717,7 +3117,7 @@ Views.settings = function(){
           <button class="btn ghost" data-act="fbConnect">${icon('refresh')} إعادة الاتصال</button>
         </div>
         <div class="btn-row" style="margin-top:9px">
-          <button class="btn sm ghost" data-act="fbProjects">${icon('layers')} المشاريع المتاحة</button>
+          <button class="btn sm ghost" data-act="fbServers">${icon('layers')} اختيار السيرفر (انت اللي تختار)</button>
           <button class="btn sm ghost" data-act="fbPasteCfg">${icon('upload')} مشروع فايربيز تاني</button>
           <button class="btn sm ghost" data-act="fbCfgReset">${icon('refresh')} ارجع للمشاريع المضمّنة</button>
           <button class="btn sm ghost" data-act="fbRules">${icon('file')} قواعد الحماية (انسخها)</button>
@@ -3676,6 +4076,69 @@ function waAbsentList(date, gid){
     footer: `<button class="btn" data-close="__ID__">إغلاق</button>` });
 }
 
+/* ============ شاشة اختيار السيرفر (بإيد المستر) ============ */
+function latBadge(ms, ok){
+  if (ok === false) return '<span class="badge b-bad">مش راد ❌</span>';
+  if (ms == null) return '<span class="badge b-gray">بنقيس...</span>';
+  const cls = ms < 300 ? 'b-ok' : ms < 800 ? 'b-warn' : 'b-bad';
+  const txt = ms < 300 ? 'سريع ⚡' : ms < 800 ? 'متوسط' : 'بطيء';
+  return `<span class="badge ${cls}">${nf(ms)} مللي ثانية · ${txt}</span>`;
+}
+function openServers(){
+  const cur = (S.fb.cfg && S.fb.cfg.projectId) || '';
+  const pref = Cloud.pref();
+  const auto = pref === 'auto';
+  const autoRow = `
+    <div class="alert-row ${auto ? 'ok' : 'info'}" style="cursor:pointer" data-act="fbAutoServer">
+      <span class="ai">${icon(auto ? 'check' : 'refresh')}</span>
+      <span class="at"><b>تلقائي${auto ? ' ✓ (شغال دلوقتي)' : ''}</b>
+        <span>المنصة تختار لوحدها وتتحوّل لسيرفر تاني لو حصلت مشكلة</span></span>
+      ${auto ? '<span class="badge b-ok">مُختار</span>' : `<button class="btn sm" data-act="fbAutoServer">استخدم ده</button>`}
+    </div>`;
+  const rows = FB_PROJECTS.map(p => {
+    const isCur = p.projectId === cur;
+    const isPin = pref === p.projectId;
+    const lat = (Cloud.lat || {})[p.projectId];
+    return `<div class="alert-row ${isPin ? 'ok' : isCur ? 'info' : ''}">
+      <span class="ai">${icon(isPin ? 'check' : 'cloud')}</span>
+      <span class="at"><b>${esc(p.nick || p.projectId)}${isPin ? ' ✓ (اختيارك)' : ''}${isCur ? ' — متصل دلوقتي' : ''}</b>
+        <span>${esc(p.region || '')} · ${esc(p.projectId)}</span>
+        <span id="lat-${p.projectId}">${latBadge(lat, lat === undefined ? null : (lat != null))}</span>
+      </span>
+      ${isPin ? '<span class="badge b-ok">مُختار</span>'
+              : `<button class="btn sm pri" data-act="fbPickServer" data-id="${p.projectId}">اشتغل على ده</button>`}
+    </div>`;
+  }).join('');
+  Modal.open({
+    title: 'اختيار السيرفر',
+    sub: 'انت اللي بتحدّد السيرفر اللي المنصة تشتغل عليه',
+    size: 'sm',
+    body: autoRow + rows + `
+      <div class="help brand" style="margin-top:11px;line-height:1.9">
+        <b>${icon('check')} ازاي تختار؟</b><br>
+        اضغط <b>"قياس السرعة"</b> وشوف المللي ثانية لكل سيرفر من مكانك انت، وبعدين اختار الأسرع.<br>
+        لو السيرفر اللي اخترته وقع لأي سبب، المنصة بتشتغل على سيرفر تاني <b>مؤقتًا</b> وتقولك، وأول ما يرجع تقدر ترجعله بضغطة — ومفيش أي بيانات بتضيع.
+      </div>`,
+    footer: `<button class="btn" data-act="fbPingServers">${icon('refresh')} قياس السرعة</button>
+      <button class="btn ghost" data-act="fbTryNext">${icon('link')} جرّب السيرفر التالي</button>
+      <span class="sp"></span>
+      ${S.fb.fellBack ? `<button class="btn pri" data-act="fbBackPinned">${icon('link')} ارجع لسيرفري المختار</button>` : ''}
+      <button class="btn ghost" data-close="__ID__">إغلاق</button>`,
+    onMount(body){
+      const self = Cloud;
+      const paint = (pid, r) => {
+        const el = $('#lat-' + pid, body);
+        if (el) el.outerHTML = `<span id="lat-${pid}">${latBadge(r.ok ? r.ms : null, r.ok)}</span>`;
+      };
+      setTimeout(async () => {
+        await Promise.all(FB_PROJECTS.map(p => self.ping(p).then(r => { try{ paint(p.projectId, r); }catch(e){} })));
+        const list = FB_PROJECTS.map(p => ({ p: p, ms: self.lat[p.projectId] })).filter(x => x.ms != null).sort((a, b) => a.ms - b.ms);
+        if (list.length) toast('الأسرع من مكانك: ' + (list[0].p.nick || list[0].p.projectId) + ' (' + nf(list[0].ms) + ' مللي ثانية)', 'info', 'السحابة');
+      }, 120);
+    }
+  });
+}
+
 function waListModal(title, list){
   Modal.open({ title: title, sub: list.length + ' طالب', size: 'sm',
     body: list.length ? list.map(x => `<div class="alert-row ${x.tone || 'info'}">
@@ -3898,25 +4361,36 @@ document.addEventListener('click', function(e){
     case 'install': PWA.install(); break;
     case 'swUpdate': PWA.update(); break;
     case 'fbConnect': Cloud.connect({}); break;
-    case 'fbProjects': {
-      const cur = (S.fb.cfg && S.fb.cfg.projectId) || '';
-      Modal.open({ title:'المشاريع المتاحة', sub:'المنصة بتجرّبهم لوحدها بالترتيب', size:'sm',
-        body: FB_PROJECTS.map(p => `<div class="alert-row ${p.projectId === cur ? 'ok' : 'info'}">
-            <span class="ai">${icon(p.projectId === cur ? 'check' : 'cloud')}</span>
-            <span class="at"><b>${esc(p.nick || p.projectId)}${p.projectId === cur ? ' — متصل دلوقتي' : ''}</b>
-            <span>${esc(p.projectId)} · ${esc(p.dbUrl || 'Firestore')}</span></span></div>`).join('') +
-          `<div class="help brand" style="margin-top:11px;line-height:1.85">المنصة بتجرّب المشاريع بالترتيب من فوق لتحت، وأول واحد يشتغل بتستخدمه وتحفظه على الجهاز.
-            لو الأول وقع، بتحوّل للتاني <b>لوحدها</b> — مفيش حاجة مطلوبة منك.</div>`,
-        footer: `<button class="btn pri" data-act="fbTryNext">${icon('refresh')} جرّب المشروع التالي</button>
-          <button class="btn ghost" data-close>إغلاق</button>` });
+    case 'fbProjects': case 'fbServers': openServers(); break;
+    case 'fbPingServers': { $$('.overlay').forEach(o => o.remove()); openServers(); toast('بنقيس سرعة السيرفرات من مكانك...', 'info', 'السحابة'); break; }
+    case 'fbPickServer': {
+      const p = Cloud.projectById(id);
+      if (!p) break;
+      Cloud.setPref(p.projectId);
+      S.fb.fellBack = false; S.fb.pinBack = false;
+      $$('.overlay').forEach(o => o.remove());
+      toast('اتختار ' + (p.nick || p.projectId) + ' — بنتصل بيه دلوقتي...', 'info', 'السحابة');
+      Cloud.stopStream();
+      Cloud.writeCfg(p);
+      setTimeout(() => Cloud.connect({ silent:false }), 60);
       break;
     }
+    case 'fbAutoServer': {
+      Cloud.setPref('auto');
+      $$('.overlay').forEach(o => o.remove());
+      toast('رجعنا للوضع التلقائي — المنصة تختار وتتحوّل لوحدها', 'info', 'السحابة');
+      Cloud.stopStream();
+      setTimeout(() => Cloud.connect({ silent:false }), 60);
+      break;
+    }
+    case 'fbBackPinned': { $$('.overlay').forEach(o => o.remove()); Cloud.backToPinned(); break; }
     case 'fbTryNext': {
       $$('.overlay').forEach(o => o.remove());
       const cur = (S.fb.cfg && S.fb.cfg.projectId) || FB_DEFAULT.projectId;
       const idx = FB_PROJECTS.findIndex(p => p.projectId === cur);
       const next = FB_PROJECTS[(idx + 1 + FB_PROJECTS.length) % FB_PROJECTS.length];
-      Cloud.disconnect();
+      Cloud.setPref(next.projectId);
+      Cloud.stopStream();
       toast('بنجرّب: ' + (next.nick || next.projectId), 'info', 'السحابة');
       Cloud.connect({ config: next, silent: false });
       break;
@@ -4086,6 +4560,8 @@ $('#quickAddBtn').onclick = () => openStudentForm();
 $('#installBtn').onclick = () => PWA.install();
 $('#themeBtn').onclick = () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark');
 $('#cloudChip').onclick = () => {
+  // لو فيه حاجة عن السيرفر (طوارئ أو الرجوع متاح) → شاشة اختيار السيرفر مباشرة
+  if (S.fb.fellBack || S.fb.pinBack){ openServers(); return; }
   const st = S.fb.status;
   const body = `
     <div class="alert-row ${st === 'live' ? (S.fb.err ? 'warn' : 'ok') : st === 'error' ? 'bad' : 'info'}">
@@ -4152,9 +4628,18 @@ window.addEventListener('resize', throttle(() => {
 
   /* فحص فوري لما ترجع للصفحة أو تفتحها تاني */
   window.addEventListener('focus', () => { if (S.fb.status === 'live') Cloud.checkRemote(); });
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && S.fb.status === 'live') Cloud.checkRemote(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    if (S.fb.status === 'live') Cloud.checkRemote();
+    // لو البث وقف وهو بعيد: نوصّله تاني
+    if (S.fb.status === 'live' && S.fb.stream !== 'live' && navigator.onLine !== false) Cloud.stream();
+  });
   window.addEventListener('beforeunload', () => { if (dirty.main) Cloud.push(true); });
-  window.addEventListener('online', () => { if (S.fb.status === 'error') Cloud.connect({ silent:true }); });
+  window.addEventListener('online', () => {
+    if (S.fb.status === 'error') Cloud.connect({ silent:true });
+    else if (S.fb.status === 'live' && S.fb.stream !== 'live') Cloud.stream();
+  });
+  window.addEventListener('offline', () => { S.fb.stream = 'down'; paintCloud(); });
 })();
 
 window.FB_DEFAULT = FB_DEFAULT; window.FB_RULES = FB_RULES; window.FB_RULES_RTDB = FB_RULES_RTDB; window.FB_CONSOLE = FB_CONSOLE; window.FB_APILIB = FB_APILIB; window.FB_RULES_URL = FB_RULES_URL;
