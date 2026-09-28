@@ -477,6 +477,7 @@ window.AF_logoNext=function(img){
   <symbol id="i-cap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10L12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5"/></symbol>
   <symbol id="i-tag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0l-7.2-7.2a2 2 0 0 1-.6-1.4V4a2 2 0 0 1 2-2h8a2 2 0 0 1 1.4.6l6.4 6.4a2 2 0 0 1 0 2.8z"/><circle cx="7.5" cy="7.5" r="1.5"/></symbol>
   <symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+  <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
   <symbol id="i-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></symbol>
 </defs></svg>
 
@@ -693,7 +694,9 @@ function defaultData(){
       absentWarn: 3,
       theme: 'light'
     },
-    groups: [], students: [], exams: [], grades: {}, attendance: {}
+    groups: [], students: [], exams: [], grades: {}, attendance: {},
+    /* متابعة الرسائل: أخطاء وحالة واجب لكل امتحان/طالب + أسباب الغياب + سجل الرسائل المبعوتة */
+    feedback: {}, absNotes: {}, msgSent: {}
   };
 }
 
@@ -729,9 +732,12 @@ function migrate(d){
     id: uid('s'), code:'', name:'', stage:'', studySystem:'', type:'', level:'', groupId:'',
     payMode:'monthly', phone:'', parentPhone:'', guardian:'', joinDate: today(), status:'active', notes:''
   }, s));
-  out.exams = (out.exams || []).map(e => Object.assign({ id: uid('e'), name:'', stage:'', groupId:'', date: today(), max: 20, note:'' }, e));
+  out.exams = (out.exams || []).map(e => Object.assign({ id: uid('e'), name:'', stage:'', groupId:'', date: today(), max: 20, hw:'', note:'' }, e));
   out.grades = out.grades || {};
   out.attendance = out.attendance || {};
+  out.feedback = out.feedback || {};
+  out.absNotes = out.absNotes || {};
+  out.msgSent = out.msgSent || {};
   return out;
 }
 function loadLocal(){
@@ -1095,7 +1101,8 @@ const Cloud = {
   /* ---------- الرفع ---------- */
   payload(withAtt){
     const p = { appVersion: 2, meta: S.data.meta, settings: S.data.settings, groups: S.data.groups,
-      students: S.data.students, exams: S.data.exams, grades: S.data.grades };
+      students: S.data.students, exams: S.data.exams, grades: S.data.grades,
+      feedback: S.data.feedback || {}, absNotes: S.data.absNotes || {}, msgSent: S.data.msgSent || {} };
     if (withAtt) p.attendance = S.data.attendance;
     const lg = logoRef();
     if (lg && lg.length <= 300000) p._logo = lg;
@@ -1160,7 +1167,8 @@ const Cloud = {
         meta: Object.assign({}, S.data.meta, remote.meta || {}, { rev: Number(rev || 0) }),
         settings: Object.assign({}, S.data.settings, remote.settings || {}),
         groups: remote.groups || [], students: remote.students || [], exams: remote.exams || [],
-        grades: remote.grades || {}, attendance: att
+        grades: remote.grades || {}, attendance: att,
+        feedback: remote.feedback || {}, absNotes: remote.absNotes || {}, msgSent: remote.msgSent || {}
       });
       attDraft = null;
       saveLocal(); render();
@@ -1556,6 +1564,211 @@ function studentStatus(s){
   if (!s.groupId) return { key:'nogroup', label:'بدون حصة', cls:'b-warn' };
   return { key:'ok', label:'منتظم', cls:'b-ok' };
 }
+
+/* ==========================================================
+   رسائل الواتساب — ولي الأمر والطالب
+   الرسالة بتتبني من بيانات المنصة نفسها: الدرجات، الأخطاء،
+   الواجب، الحضور والغياب — والمستر يقدر يعدّل النص قبل الإرسال.
+   ========================================================== */
+const HW_LABEL = { done:'سلّم الواجب كامل ✅', late:'سلّم الواجب متأخر ⏰', none:'ما سلّمش الواجب ❌' };
+function gradePC(exam, sid){
+  const v = (S.data.grades[exam.id] || {})[sid];
+  return typeof v === 'number' ? Math.round(v / exam.max * 100) : null;
+}
+function gradeWord(pc){
+  if (pc == null) return '';
+  return pc >= 90 ? 'ممتاز' : pc >= 80 ? 'جيد جدًا' : pc >= 65 ? 'جيد' : pc >= 50 ? 'مقبول' : 'يحتاج تحسين';
+}
+function gradeOf(exam, sid){ const v = (S.data.grades[exam.id] || {})[sid]; return typeof v === 'number' ? v : null; }
+/* الأخطاء وحالة الواجب لكل امتحان/طالب */
+function fbOf(examId, sid){
+  const box = (S.data.feedback || {})[examId] || {};
+  return box[sid] || {};
+}
+function setFb(examId, sid, patch){
+  if (!examId || !sid) return;
+  S.data.feedback = S.data.feedback || {};
+  const box = S.data.feedback[examId] = S.data.feedback[examId] || {};
+  const cur = Object.assign({}, box[sid] || {}, patch);
+  if (cur.err !== undefined) cur.err = String(cur.err || '').trim();
+  if (!cur.err && !cur.hw) delete box[sid]; else box[sid] = Object.assign(cur, { at: new Date().toISOString() });
+  if (!Object.keys(box).length) delete S.data.feedback[examId];
+}
+/* كل امتحانات الطالب بترتيب الأحدث (الحصص اللي فاتت) */
+function examHistory(sid, limit){
+  const list = sortBy(S.data.exams.filter(e => typeof (S.data.grades[e.id] || {})[sid] === 'number'), e => e.date || '', 'desc');
+  return limit ? list.slice(0, limit) : list;
+}
+function lastExamOf(sid){
+  const h = examHistory(sid, 1);
+  if (h.length) return h[0];
+  const s = student(sid);
+  const pool = s && s.groupId ? S.data.exams.filter(e => e.groupId === s.groupId) : S.data.exams;
+  return sortBy(pool, e => e.date || '', 'desc')[0] || null;
+}
+/* الواجب المطلوب: من الامتحان المحدد، أو آخر امتحان مطلوب فيه واجب */
+function hwFor(sid, examId){
+  if (examId){ const ex = examOf(examId); if (ex && ex.hw) return { text: ex.hw, exam: ex }; }
+  const s = student(sid);
+  const pool = S.data.exams.filter(e => e.hw && (!s || !s.groupId || !e.groupId || e.groupId === s.groupId));
+  const ex = sortBy(pool, e => e.date || '', 'desc')[0];
+  return ex ? { text: ex.hw, exam: ex } : null;
+}
+/* سجل الغياب */
+function absRecordsOf(sid, limit){
+  const out = [];
+  Object.keys(S.data.attendance || {}).forEach(k => {
+    const rec = S.data.attendance[k], parts = k.split('@');
+    if (((rec || {}).records || {})[sid] === 'absent') out.push({ date: parts[0], groupId: parts[1] === 'none' ? '' : parts[1] });
+  });
+  return sortBy(out, r => r.date, 'desc').slice(0, limit || 8);
+}
+function absReason(date, sid){ return (((S.data.absNotes || {})[sid] || {})[date]) || ''; }
+function setAbsReason(sid, date, v){
+  S.data.absNotes = S.data.absNotes || {};
+  const box = S.data.absNotes[sid] = S.data.absNotes[sid] || {};
+  const txt = String(v || '').trim();
+  if (txt) box[date] = txt; else delete box[date];
+  if (!Object.keys(box).length) delete S.data.absNotes[sid];
+}
+function msgSign(){
+  const st = S.data.settings;
+  return 'تحياتي — أ. ' + (st.teacherName || 'أحمد فتحي') + (st.phone ? ' · ' + st.phone : '');
+}
+function absWord(n){ n = Number(n) || 0; return n === 1 ? 'مرة واحدة' : n === 2 ? 'مرتين' : n + ' مرات'; }
+function shortDate(s){ const d = parseISO(s); return d ? (d.getDate() + '/' + (d.getMonth() + 1)) : String(s || ''); }
+function datesTxt(arr){ return arr.map(shortDate).join('، '); }
+
+/* ---------- رسالة ولي الأمر: المستوى + الدرجات + الأخطاء + الواجب + الغياب ---------- */
+function buildParentMsg(sid, opts){
+  opts = opts || {};
+  const s = student(sid); if (!s) return '';
+  const st = S.data.settings;
+  const exam = (opts.examId ? examOf(opts.examId) : null) || examHistory(sid, 1)[0] || null;
+  const att = attStats(sid);
+  const hist = examHistory(sid, 6);
+  const abs = absRecordsOf(sid, 4);
+  const L = [];
+  L.push('السلام عليكم' + (s.guardian ? ' ' + s.guardian : ''));
+  L.push('معاك أ. ' + (st.teacherName || 'أحمد فتحي') + ' من ' + (st.platformName || 'منصة المستر') + ' 🌟');
+  L.push('تقرير متابعة: ' + s.name + (s.stage ? ' — ' + s.stage : '') + (s.studySystem ? ' (' + s.studySystem + ')' : ''));
+  L.push('');
+  if (exam && gradeOf(exam, sid) != null){
+    const v = gradeOf(exam, sid), pc = gradePC(exam, sid), word = gradeWord(pc);
+    const fb = fbOf(exam.id, sid);
+    L.push('📝 نتيجة: ' + exam.name + (exam.date ? ' (' + fmtDate(exam.date) + ')' : ''));
+    L.push('الدرجة: ' + v + ' من ' + exam.max + (pc != null ? ' — ' + pc + '%' + (word ? ' (' + word + ')' : '') : ''));
+    L.push('الأخطاء: ' + (fb.err || 'مفيش أخطاء تستاهل التنبيه 👌'));
+    if (exam.hw) L.push('📌 الواجب المطلوب: ' + exam.hw);
+    if (fb.hw) L.push('حالة الواجب: ' + (HW_LABEL[fb.hw] || fb.hw));
+    L.push('');
+  }
+  L.push('📊 المستوى في الحصص اللي فاتت (' + nf(hist.length) + (hist.length === 1 ? ' امتحان' : ' امتحانات') + '):');
+  if (hist.length){
+    hist.forEach(e => {
+      const pc = gradePC(e, sid), w = gradeWord(pc);
+      L.push('• ' + e.name + ' — ' + gradeOf(e, sid) + ' من ' + e.max + (pc != null ? ' (' + pc + '%' + (w ? ' — ' + w : '') + ')' : ''));
+    });
+    const avg = examAvg(sid);
+    if (avg != null && hist.length > 1) L.push('المتوسط العام: ' + avg + '% — ' + gradeWord(avg));
+  } else L.push('• لسه مفيش درجات مسجّلة');
+  L.push('');
+  L.push('🗓️ الحضور: ' + nf(att.present + att.late) + ' حضور من ' + nf(att.total) + (att.total ? ' (' + att.rate + '%)' : '') + ' · غياب ' + nf(att.absent) + (att.late ? ' · تأخير ' + nf(att.late) : ''));
+  if (abs.length){
+    L.push('⚠️ غياب ' + absWord(att.absent) + ' في: ' + datesTxt(abs.map(a => a.date)));
+    const why = abs.map(a => absReason(a.date, sid)).filter(Boolean);
+    if (why.length) L.push('السبب المسجّل عندنا: ' + unique(why).join(' / '));
+    else L.push('برجاء توضيح سبب الغياب عشان نتابعه ونعوّض اللي فاته 🙏');
+  }
+  const hwn = hwFor(sid, exam ? exam.id : '');
+  if (hwn && (!exam || !exam.hw)) L.push('📌 الواجب المطلوب حاليًا: ' + hwn.text);
+  L.push('');
+  L.push(msgSign());
+  return L.join('\n');
+}
+
+/* ---------- رسالة الطالب: الواجب + الدرجة + الأخطاء ---------- */
+function buildStudentMsg(sid, opts){
+  opts = opts || {};
+  const s = student(sid); if (!s) return '';
+  const st = S.data.settings;
+  const exam = (opts.examId ? examOf(opts.examId) : null) || examHistory(sid, 1)[0] || null;
+  const att = attStats(sid);
+  const L = [];
+  L.push('أهلاً ' + String(s.name || '').split(' ')[0] + ' 👋');
+  L.push('معاك أ. ' + (st.teacherName || 'أحمد فتحي'));
+  L.push('');
+  if (exam && gradeOf(exam, sid) != null){
+    const v = gradeOf(exam, sid), pc = gradePC(exam, sid), word = gradeWord(pc), fb = fbOf(exam.id, sid);
+    L.push('امتحان: ' + exam.name + (exam.date ? ' (' + fmtDate(exam.date) + ')' : ''));
+    L.push('درجتك: ' + v + ' من ' + exam.max + (pc != null ? ' — ' + pc + '%' : '') + (word ? ' (' + word + ')' : ''));
+    L.push('غلطت في إيه: ' + (fb.err || 'مفيش أخطاء مهمة — شغل ممتاز 👏'));
+    L.push('📌 الواجب: ' + (exam.hw || 'مفيش واجب مطلوب في الامتحان ده'));
+    if (fb.hw) L.push('تسليمك للواجب: ' + (HW_LABEL[fb.hw] || fb.hw));
+    if (fb.tip) L.push('نصيحتي: ' + fb.tip);
+  } else {
+    const hwn = hwFor(sid, '');
+    L.push('لسه مفيش درجة مسجّلة لك في امتحان.');
+    if (hwn) L.push('📌 الواجب المطلوب: ' + hwn.text);
+    L.push('استعد للامتحان الجاي وأنا معاك 💪');
+  }
+  L.push('');
+  L.push('🗓️ حضورك: ' + nf(att.present + att.late) + ' من ' + nf(att.total));
+  const abs = absRecordsOf(sid, 3);
+  if (abs.length) L.push('⚠️ عندك غياب في: ' + datesTxt(abs.map(a => a.date)) + ' — لو فيه عذر ابعتلي.');
+  L.push('');
+  L.push('بالتوفيق 🌟');
+  L.push(msgSign());
+  return L.join('\n');
+}
+
+/* ---------- رسالة استفسار عن الغياب ---------- */
+function buildAbsenceMsg(sid, date, groupId){
+  const s = student(sid); if (!s) return '';
+  const st = S.data.settings;
+  const recs = date ? [{ date: date, groupId: groupId || s.groupId }] : absRecordsOf(sid, 3);
+  const g = groupOf((recs[0] || {}).groupId || s.groupId);
+  const reason = (recs.map(r => absReason(r.date, sid)).filter(Boolean)[0]) || '';
+  const L = [];
+  L.push('السلام عليكم' + (s.guardian ? ' ' + s.guardian : ''));
+  L.push('معاك أ. ' + (st.teacherName || 'أحمد فتحي') + ' من ' + (st.platformName || 'منصة المستر'));
+  L.push('');
+  L.push('📌 ' + s.name + ' مكانش موجود' + (g ? ' في ' + g.name : '') + (recs.length ? ' يوم ' + datesTxt(recs.map(r => r.date)) : ''));
+  if (reason) L.push('السبب المسجّل: ' + reason);
+  L.push('بنستفسر عن سبب الغياب عشان نتابعه ونعوّض اللي فاته 🙏');
+  const abs = absRecordsOf(sid, 6);
+  if (abs.length > 1) L.push('(إجمالي الغياب المسجّل: ' + absWord(attStats(sid).absent) + ' — آخرها ' + datesTxt(abs.slice(0, 3).map(a => a.date)) + ')');
+  const avg = examAvg(sid);
+  if (avg != null) L.push('مستواه الحالي في الامتحانات: ' + avg + '% (' + gradeWord(avg) + ')');
+  L.push('');
+  L.push('لو الغياب بعذر رسمي ابعتلي وأنا أسجّله ✅');
+  L.push(msgSign());
+  return L.join('\n');
+}
+
+function buildMsg(sid, draft){
+  draft = draft || {};
+  if (draft.kind === 'student') return buildStudentMsg(sid, { examId: draft.examId });
+  if (draft.absDate) return buildAbsenceMsg(sid, draft.absDate, draft.groupId);
+  return buildParentMsg(sid, { examId: draft.examId });
+}
+function msgPhoneOf(s, kind){
+  return kind === 'student' ? (s.phone || '') : (s.parentPhone || s.phone || '');
+}
+function msgEditCount(sid){
+  let n = 0;
+  Object.keys(S.data.feedback || {}).forEach(e => { if ((S.data.feedback[e] || {})[sid]) n++; });
+  return n;
+}
+function markMsgSent(sid, kind){
+  S.data.msgSent = S.data.msgSent || {};
+  S.data.msgSent[sid + ':' + kind] = today();
+}
+function lastMsgSent(sid, kind){
+  const k = sid + ':' + kind;
+  return (S.data.msgSent || {})[k] || '';
+}
+
 function alerts(){
   const out = [], t = today();
   S.data.students.forEach(s => {
@@ -1899,7 +2112,7 @@ function alertBtn(a){
   if (a.act === 'assign') return `<button class="btn sm pri" data-act="assign" data-id="${a.id}">تحديد حصة</button>`;
   if (a.act === 'edit') return `<button class="btn sm" data-act="editStudent" data-id="${a.id}">تعديل</button>`;
   if (a.act === 'profile') return `<button class="btn sm" data-act="profile" data-id="${a.id}">الملف</button>`;
-  if (a.act === 'wa' && phone) return `<a class="btn sm" target="_blank" rel="noopener" href="${waLink(phone, 'السلام عليكم، نودّ الاطمئنان على ' + (s ? s.name : '') + ' — لاحظنا تكرار الغياب. برجاء التواصل معنا.')}">${icon('whatsapp')} واتساب</a>`;
+  if (a.act === 'wa' && phone) return `<a class="btn sm" target="_blank" rel="noopener" href="${waLink(phone, buildAbsenceMsg(a.id))}">${icon('whatsapp')} استفسار غياب</a>`;
   return '';
 }
 Views.after_dashboard = function(){
@@ -1968,6 +2181,7 @@ Views.students = function(){
       <td>${avg == null ? '<span class="muted small">—</span>' : `<span class="badge ${avg >= 65 ? 'b-ok' : avg >= 50 ? 'b-warn' : 'b-bad'}">${avg}%</span>`}</td>
       <td><span class="badge ${stt.cls}">${esc(stt.label)}</span></td>
       <td><div class="row-actions">
+        <button class="btn icon sm ghost" data-act="waCompose" data-id="${s.id}" title="رسالة واتساب لولي الأمر">${icon('whatsapp')}</button>
         <button class="btn icon sm ghost" data-act="profile" data-id="${s.id}" title="ملف الطالب">${icon('eye')}</button>
         <button class="btn icon sm ghost" data-act="editStudent" data-id="${s.id}" title="تعديل">${icon('edit')}</button>
         <button class="btn icon sm ghost" data-act="delStudent" data-id="${s.id}" title="حذف">${icon('trash')}</button>
@@ -2134,7 +2348,8 @@ Views.attendance = function(){
   return pageHead('الحضور والغياب', `${esc(g ? g.name : '')} · ${ar(ss.length)} طالب`,
     `<button class="btn" data-act="attPDF">${icon('pdf')} كشف الحضور PDF</button>
      <button class="btn" data-act="expAtt">${icon('download')} Excel</button>
-     <button class="btn pri" data-act="attSave">${icon('save')} حفظ الحضور</button>`) + `
+     <button class="btn pri" data-act="attSave">${icon('save')} حفظ الحضور</button>
+     <button class="btn" data-act="waAbsent">${icon('whatsapp')} رسائل الغياب${counts.absent ? ' (' + ar(counts.absent) + ')' : ''}</button>`) + `
 
   <div class="card">
     <div class="card-h">
@@ -2228,7 +2443,8 @@ Views.exams = function(){
   return pageHead('الامتحانات والدرجات', `${ex.length} امتحان · ${sel.name}`,
     `<button class="btn" data-act="expExam" data-id="${sel.id}">${icon('download')} Excel</button>
      <button class="btn" data-act="pdfExam" data-id="${sel.id}">${icon('pdf')} النتيجة PDF</button>
-     <button class="btn pri" data-act="addExam">${icon('plus')} امتحان جديد</button>`) + `
+     <button class="btn pri" data-act="waExamResults" data-id="${sel.id}">${icon('whatsapp')} رسائل النتائج</button>
+     <button class="btn" data-act="addExam">${icon('plus')} امتحان جديد</button>`) + `
   <div class="grid g-32">
     <div class="card">
       <div class="card-h"><h3>${icon('award')} الامتحانات</h3><span class="sp"></span><span class="badge b-brand">${nf(ex.length)}</span></div>
@@ -2264,9 +2480,17 @@ Views.exams = function(){
               <td><input class="inp" style="padding:6px 9px" type="number" min="0" max="${sel.max}" step="0.5" data-grade="${s.id}" value="${typeof v === 'number' ? v : ''}" placeholder="—"></td>
               <td>${pc == null ? '<span class="muted">—</span>' : bar(pc, pc >= 65 ? 'ok' : pc >= 50 ? '' : 'bad') + `<span class="small muted">${pc}%</span>`}</td>
               <td>${gr ? `<span class="badge ${gr[1]}">${gr[0]}</span>` : ''}</td>
-              <td>${typeof v === 'number' ? `<button class="btn icon sm ghost" data-act="clearGrade" data-id="${s.id}" title="مسح الدرجة">${icon('x')}</button>` : ''}</td></tr>`;
+              <td><div class="row-actions">
+                <button class="btn icon sm ghost" data-act="waCompose" data-id="${s.id}" data-exam="${sel.id}" title="رسالة واتساب لولي الأمر">${icon('whatsapp')}</button>
+                <button class="btn icon sm ghost" data-act="waCompose" data-id="${s.id}" data-exam="${sel.id}" data-kind="student" title="رسالة للطالب">${icon('user')}</button>
+                ${typeof v === 'number' ? `<button class="btn icon sm ghost" data-act="clearGrade" data-id="${s.id}" title="مسح الدرجة">${icon('x')}</button>` : ''}
+              </div></td></tr>`;
           }).join('')}</tbody></table></div>
-        <div class="flex" style="margin-top:12px"><span class="muted small">الدرجات بتتحفظ تلقائيًا عند الخروج من الخانة</span>
+        <div class="field" style="margin-top:14px">
+          <label>📌 الواجب المطلوب في الامتحان ده (بيتكتب في رسالة الطالب وولي الأمر)</label>
+          <input class="inp" data-exam-hw="${sel.id}" value="${esc(sel.hw || '')}" placeholder="مثال: حل تمارين صفحة ٤٠ + مراجعة الدرس الثاني + حل الامتحان اللي فات">
+        </div>
+        <div class="flex" style="margin-top:12px"><span class="muted small">الدرجات والواجب بيتحفظوا تلقائيًا — واضغط أيقونة الواتساب جنب أي طالب عشان تكتب الأخطاء وتبعتله الرسالة</span>
           <span class="sp"></span><button class="btn pri" data-act="saveGrades" data-id="${sel.id}">${icon('save')} حفظ الدرجات</button></div>`
         : emptyState('لا يوجد طلاب في هذه المجموعة', 'أضف طلاب للحصة أولًا')}
       </div>
@@ -2980,6 +3204,8 @@ function openProfile(id){
       </div>
       <div class="btn-row" style="margin-bottom:14px">
         <button class="btn pri sm" data-act="pdfStudent" data-id="${s.id}">${icon('pdf')} تقرير PDF</button>
+        <button class="btn sm" data-act="waCompose" data-id="${s.id}">${icon('whatsapp')} رسالة لولي الأمر</button>
+        <button class="btn sm" data-act="waCompose" data-id="${s.id}" data-kind="student">${icon('user')} رسالة للطالب</button>
         <button class="btn sm" data-act="editStudent" data-id="${s.id}">${icon('edit')} تعديل</button>
         <button class="btn sm" data-act="assign" data-id="${s.id}">${icon('link')} تحديد حصة</button>
         ${s.stage ? `<button class="btn sm ghost" data-act="filterStage" data-id="${esc(s.stage)}">${icon('users')} طلاب ${esc(s.stage)}</button>` : ''}
@@ -3312,6 +3538,144 @@ function refreshAttCounts(){
   const badge = $('#content .att-sum .badge');
   if (badge){ badge.textContent = marked + '/' + ss.length + ' مُسجَّل'; badge.className = 'badge ' + (marked === ss.length && ss.length ? 'b-ok' : 'b-warn'); }
 }
+/* ============ نافذة كتابة وتعديل الرسالة قبل الإرسال ============ */
+let msgDraft = null;
+function openMsgCompose(sid, opts){
+  opts = opts || {};
+  const s = student(sid); if (!s) return;
+  const kind = opts.kind === 'student' ? 'student' : 'parent';
+  const exam = opts.examId ? examOf(opts.examId) : (examHistory(sid, 1)[0] || null);
+  msgDraft = { sid: sid, kind: kind, examId: exam ? exam.id : '', absDate: opts.absDate || '', groupId: opts.groupId || '', edited: false };
+  const fb = exam ? fbOf(exam.id, sid) : {};
+  const phone = msgPhoneOf(s, kind);
+  Modal.open({
+    title: 'رسالة واتساب — ' + s.name,
+    sub: 'اكتب الأخطاء والواجب، عدّل النص، وبعدين ابعت من واتساب على رقمك',
+    size: 'lg',
+    body: `
+      <div class="chips" style="margin-bottom:12px">
+        <button class="chip ${kind === 'parent' ? 'on' : ''}" data-act="msgKind" data-kind="parent">${icon('users')} لولي الأمر</button>
+        <button class="chip ${kind === 'student' ? 'on' : ''}" data-act="msgKind" data-kind="student">${icon('user')} للطالب</button>
+        ${exam ? `<span class="chip" style="cursor:default">${icon('award')} ${esc(exam.name)}</span>` : ''}
+        ${opts.absDate ? `<span class="chip" style="cursor:default">${icon('alert')} غياب ${esc(shortDate(opts.absDate))}</span>` : ''}
+      </div>
+      <div class="frow">
+        <div class="field"><label>رقم الواتساب (${kind === 'parent' ? 'ولي الأمر' : 'الطالب'})</label>
+          <input class="inp" id="msgPhone" value="${esc(phone)}" placeholder="01xxxxxxxxx"></div>
+        ${exam ? `<div class="field"><label>حالة تسليم الواجب</label>
+          <select class="inp" id="msgHw">
+            <option value="">— غير محدد —</option>
+            ${Object.keys(HW_LABEL).map(k => `<option value="${k}" ${fb.hw === k ? 'selected' : ''}>${HW_LABEL[k]}</option>`).join('')}
+          </select></div>` : ''}
+      </div>
+      ${exam ? `<div class="field"><label>📌 الواجب المطلوب</label>
+        <input class="inp" id="msgHwReq" value="${esc(exam.hw || '')}" placeholder="مثال: حل تمارين صفحة ٤٠ + مراجعة الدرس الثاني"></div>` : ''}
+      ${exam ? `<div class="field"><label>الأخطاء / ملاحظات على أداء الطالب</label>
+        <textarea class="inp" id="msgErr" rows="3" placeholder="مثال: بيغلط في تحويل الوحدات، ولازم يتدرب على مسائل الحركة">${esc(fb.err || '')}</textarea></div>` : ''}
+      <div class="field"><label>نص الرسالة (قابل للتعديل بالكامل)</label>
+        <textarea class="inp" id="msgText" rows="15">${esc(buildMsg(sid, msgDraft))}</textarea></div>
+      <p class="small muted">الحفظ أوتوماتيك للأخطاء وحالة الواجب. لو عدّلت النص بإيدك، اضغط «تحديث النص» لو حبيت ترجع للنسخة المبنية من البيانات.</p>
+      ${lastMsgSent(sid, kind) ? `<p class="small muted">آخر رسالة ${kind === 'parent' ? 'لولي الأمر' : 'للطالب'}: ${esc(fmtDate(lastMsgSent(sid, kind)))}</p>` : ''}`,
+    footer: `<button class="btn ghost" data-act="msgCopy">${icon('copy')} نسخ النص</button>
+      <button class="btn ghost" data-act="msgReload">${icon('refresh')} تحديث النص</button>
+      <span class="sp"></span>
+      <button class="btn" data-act="msgSend" data-kind="student">${icon('whatsapp')} للطالب</button>
+      <button class="btn pri" data-act="msgSend" data-kind="parent">${icon('whatsapp')} لولي الأمر</button>`,
+    onMount(body, ov){
+      const box = $('#msgText', body);
+      box.addEventListener('input', () => { if (msgDraft) msgDraft.edited = true; });
+      const save = () => {
+        if (!exam || !msgDraft) return;
+        const hwReq = $('#msgHwReq', body), errIn = $('#msgErr', body), hwSel = $('#msgHw', body);
+        if (hwReq.value.trim() !== (exam.hw || '')) exam.hw = hwReq.value.trim();
+        setFb(exam.id, sid, { err: errIn.value, hw: hwSel.value });
+        commit({ silent:true });
+        if (!msgDraft.edited) box.value = buildMsg(sid, msgDraft);
+      };
+      ['msgHwReq','msgHw'].forEach(i => { const el = $('#' + i, body); if (el) el.addEventListener('change', save); });
+      const errIn = $('#msgErr', body);
+      if (errIn) errIn.addEventListener('input', debounce(save, 600));
+      const ph = $('#msgPhone', body);
+      if (ph) ph.addEventListener('change', () => {
+        const v = ph.value.trim(); if (!v || !msgDraft) return;
+        if (msgDraft.kind === 'student') s.phone = v; else s.parentPhone = v;
+        commit({ silent:true });
+      });
+    }
+  });
+}
+function msgSendFromModal(kind){
+  if (!msgDraft) return;
+  const s = student(msgDraft.sid); if (!s) return;
+  const ta = $('#msgText');
+  const txt = (ta && ta.value.trim()) || buildMsg(msgDraft.sid, msgDraft);
+  const pin = $('#msgPhone');
+  const typed = ((pin && pin.value) || '').trim();
+  const stored = (msgPhoneOf(s, kind) || '').trim();
+  /* الرقم المكتوب في الخانة بيتستخدم بس لو الخانة دي أصلًا بتاعة نفس الجهة،
+     عشان رسالة الطالب ما تروحش بالغلط على رقم ولي الأمر */
+  const phone = (msgDraft && msgDraft.kind === kind) ? (typed || stored) : (stored || typed);
+  if (!phone || parsePhone(phone).length < 8){ toast('مفيش رقم واتساب صحيح — اكتبه في خانة الرقم', 'warn'); return; }
+  const url = waLink(phone, txt);
+  try{ window.open(url, '_blank', 'noopener'); }catch(e){ toast(url, 'info'); }
+  markMsgSent(msgDraft.sid, kind);
+  commit({ silent:true });
+  toast('فتحنا واتساب برسالة ' + (kind === 'parent' ? 'ولي الأمر' : 'الطالب') + ' — ابعت الرسالة من عندك 📲', 'ok', 'واتساب');
+}
+function refreshMsgCompose(){
+  if (!msgDraft) return;
+  openMsgCompose(msgDraft.sid, { kind: msgDraft.kind, examId: msgDraft.examId, absDate: msgDraft.absDate, groupId: msgDraft.groupId });
+}
+function waComposeFromEl(el){
+  const sid = el.dataset.id;
+  openMsgCompose(sid, { kind: el.dataset.kind, examId: el.dataset.exam || '', absDate: el.dataset.absdate || '', groupId: el.dataset.absgroup || '' });
+}
+
+/* ============ قائمة رسائل نتيجة امتحان (كل الطلاب) ============ */
+function waExamResults(examId){
+  const ex = examOf(examId); if (!ex) return;
+  const gr = S.data.grades[ex.id] || {};
+  const ss = (ex.groupId ? studentsOfGroup(ex.groupId) : (ex.stage ? studentsOfStage(ex.stage) : S.data.students))
+    .filter(s => typeof gr[s.id] === 'number');
+  const rows = sortBy(ss, s => gr[s.id], 'desc').map(s => {
+    const pc = Math.round(gr[s.id] / ex.max * 100), fb = fbOf(ex.id, s.id);
+    const ph = s.parentPhone || s.phone, phS = s.phone;
+    return `<div class="alert-row ${pc >= 65 ? 'ok' : pc >= 50 ? 'warn' : 'bad'}">
+      <span class="ai">${icon(pc >= 65 ? 'check' : 'alert')}</span>
+      <span class="at"><b>${esc(s.name)} — ${gr[s.id]} من ${ex.max} (${pc}%)</b>
+        <span>${fb.err ? 'الأخطاء: ' + esc(fb.err) : 'لسه مفيش أخطاء مكتوبة'}${fb.hw ? ' · ' + esc(HW_LABEL[fb.hw] || '') : ''}</span></span>
+      ${ph ? `<a class="btn sm" target="_blank" rel="noopener" href="${waLink(ph, buildParentMsg(s.id, { examId: ex.id }))}">${icon('whatsapp')} ولي الأمر</a>` : '<span class="badge b-warn">مفيش رقم</span>'}
+      ${phS ? `<a class="btn sm ghost" target="_blank" rel="noopener" href="${waLink(phS, buildStudentMsg(s.id, { examId: ex.id }))}">${icon('user')} الطالب</a>` : ''}
+      <button class="btn sm ghost" data-act="waCompose" data-id="${s.id}" data-exam="${ex.id}">${icon('edit')} تعديل</button>
+    </div>`;
+  }).join('');
+  Modal.open({ title: 'رسائل نتيجة — ' + ex.name, sub: 'الواجب المطلوب: ' + (ex.hw || 'لسه مش مكتوب — اكتبه من شاشة الامتحان'), size: 'lg',
+    body: rows || '<p class="muted small">لسه مفيش درجات مسجّلة في الامتحان ده</p>',
+    footer: `<button class="btn ghost" data-act="copyParents" data-id="${ex.id}">${icon('copy')} نسخ أرقام أولياء الأمور</button>
+      <button class="btn" data-act="pdfExam" data-id="${ex.id}">${icon('pdf')} النتيجة PDF</button>
+      <button class="btn pri" data-close="__ID__">تم</button>` });
+}
+
+/* ============ قائمة رسائل الغياب لحصة/يوم ============ */
+function waAbsentList(date, gid){
+  const g = groupOf(gid);
+  const ss = studentsOfGroup(gid).filter(s => s.status !== 'stopped');
+  const recs = (attDraft && attDraft.date === date && attDraft.groupId === gid) ? attDraft.records : (((getAtt(date, gid) || {}).records) || {});
+  const rows = ss.filter(s => recs[s.id] === 'absent').map(s => {
+    const ph = s.parentPhone || s.phone;
+    const reason = absReason(date, s.id);
+    return `<div class="alert-row bad">
+      <span class="ai">${icon('alert')}</span>
+      <span class="at"><b>${esc(s.name)}</b><span>${reason ? 'السبب: ' + esc(reason) : 'غياب يوم ' + esc(fmtDate(date)) + ' — لسه مفيش سبب مسجّل'}</span></span>
+      ${ph ? `<a class="btn sm" target="_blank" rel="noopener" href="${waLink(ph, buildAbsenceMsg(s.id, date, gid))}">${icon('whatsapp')} استفسار</a>` : '<span class="badge b-warn">مفيش رقم</span>'}
+      <button class="btn sm ghost" data-act="waCompose" data-id="${s.id}" data-absdate="${date}" data-absgroup="${gid}">${icon('edit')} تخصيص</button>
+    </div>`;
+  }).join('');
+  Modal.open({ title:'رسائل الغياب', sub: (g ? g.name + ' · ' : '') + fmtDate(date, true), size:'lg',
+    body: rows || '<p class="muted small">مفيش غياب مسجّل في اليوم ده — كل الطلاب حاضرين 👌</p>',
+    footer: `<button class="btn" data-close="__ID__">إغلاق</button>` });
+}
+
 function waListModal(title, list){
   Modal.open({ title: title, sub: list.length + ' طالب', size: 'sm',
     body: list.length ? list.map(x => `<div class="alert-row ${x.tone || 'info'}">
@@ -3491,8 +3855,31 @@ document.addEventListener('click', function(e){
       const list = S.data.students.filter(s => { const a = attStats(s.id, addDays(today(), -30), today()); return (s.groupId && a.absent >= (S.data.settings.absentWarn || 3)) || (!s.groupId && s.status === 'active'); })
         .map(s => ({ name: s.name, tone:'warn', icon:'alert', phone: s.parentPhone || s.phone,
           sub: (!s.groupId ? 'بدون حصة' : 'غياب ' + attStats(s.id, addDays(today(), -30), today()).absent + ' مرات'),
-          msg: `السلام عليكم ${s.guardian || ''}، بخصوص ${s.name}: ${!s.groupId ? 'نرجو تحديد موعد الحصة المناسب' : 'نلاحظ تكرار الغياب، نرجو المتابعة'}. — ${S.data.settings.platformName || ''}` }));
+          msg: (!s.groupId && !absRecordsOf(s.id, 1).length)
+            ? buildParentMsg(s.id).replace('برجاء توضيح سبب الغياب عشان نتابعه ونعوّض اللي فاته 🙏', 'برجاء تحديد موعد الحصة المناسب')
+            : buildParentMsg(s.id) }));
       waListModal('تنبيه أولياء الأمور', list);
+      break;
+    }
+    /* --- رسائل الواتساب --- */
+    case 'waCompose': waComposeFromEl(el); break;
+    case 'msgKind': if (msgDraft){ msgDraft.kind = el.dataset.kind; refreshMsgCompose(); } break;
+    case 'msgSend': msgSendFromModal(el.dataset.kind || (msgDraft && msgDraft.kind) || 'parent'); break;
+    case 'msgCopy': {
+      const ta = $('#msgText');
+      copyText(ta ? ta.value : (msgDraft ? buildMsg(msgDraft.sid, msgDraft) : ''), 'تم نسخ نص الرسالة — الصقه في أي مكان');
+      break;
+    }
+    case 'msgReload': if (msgDraft){ msgDraft.edited = false; refreshMsgCompose(); toast('تم تحديث نص الرسالة من البيانات', 'ok'); } break;
+    case 'waExamResults': waExamResults(id || S.ui.exam.id); break;
+    case 'waAbsent': waAbsentList(S.ui.att.date, S.ui.att.groupId); break;
+    case 'copyParents': {
+      const ex = examOf(id); if (!ex) break;
+      const gr = S.data.grades[ex.id] || {};
+      const ss = (ex.groupId ? studentsOfGroup(ex.groupId) : (ex.stage ? studentsOfStage(ex.stage) : S.data.students)).filter(s => typeof gr[s.id] === 'number');
+      const nums = ss.map(s => (s.parentPhone || s.phone || '')).filter(Boolean);
+      if (!nums.length){ toast('مفيش أرقام أولياء أمور للطلاب دول', 'warn'); break; }
+      copyText(nums.join('\n'), 'تم نسخ ' + nums.length + ' رقم — تقدر تعمل بيهم جروب واتساب');
       break;
     }
 
@@ -3645,6 +4032,12 @@ document.addEventListener('change', function(e){
   if (t.matches('[data-att]')){
     S.ui.att[t.dataset.att === 'date' ? 'date' : 'groupId'] = t.value; attDraft = null; render(); return; }
   if (t.matches('[data-rep]')){ S.ui.rep[t.dataset.rep] = t.value; render(); return; }
+  if (t.matches('[data-exam-hw]')){
+    const ex = examOf(t.dataset.examHw); if (!ex) return;
+    ex.hw = t.value.trim(); commit({ silent:true });
+    toast(ex.hw ? 'تم حفظ الواجب المطلوب 📌' : 'تم مسح الواجب المطلوب', 'ok');
+    return;
+  }
   if (t.matches('[data-grade]')){
     const ex = examOf(S.ui.exam.id) || S.data.exams[0]; if (!ex) return;
     S.data.grades[ex.id] = S.data.grades[ex.id] || {};
@@ -3652,6 +4045,12 @@ document.addEventListener('change', function(e){
     if (v === '') delete S.data.grades[ex.id][t.dataset.grade];
     else S.data.grades[ex.id][t.dataset.grade] = clamp(Number(v) || 0, 0, ex.max);
     commit({ silent:true }); return;
+  }
+  if (t.matches('[data-absnote]')){
+    const parts = t.dataset.absnote.split('|');
+    setAbsReason(parts[0], parts[1], t.value); commit({ silent:true });
+    toast(t.value.trim() ? 'تم تسجيل سبب الغياب' : 'تم مسح السبب', 'ok');
+    return;
   }
   if (t.id === 'darkToggle'){ setTheme(t.checked ? 'dark' : 'light'); return; }
   if (t.id === 'logoInput' && t.files && t.files[0]){ readLogoFile(t.files[0]); return; }
