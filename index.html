@@ -787,6 +787,8 @@ const dirty = { main:false };
 function commit(opts){
   opts = opts || {};
   bustCache();
+  try{ Cloud.stamp(); }catch(e){}          // ختم وقت لكل تعديل — أساس الطابور والدمج الذكي
+  if (Cloud.hasAnyData()) S.data.meta.hadData = true;    // الجهاز ده فيه بيانات — أي فراغ بعد كده يبقى مقصود
   S.data.meta.rev = (S.data.meta.rev || 0) + 1;
   S.data.meta.updatedAt = new Date().toISOString();
   dirty.main = true;
@@ -837,8 +839,9 @@ const Cloud = {
   // حالة المزامنة بالكلام — بدل أرقام النسخ اللي كانت بتلخبط
   stateText(){
     const loc = Number(S.data.meta.rev || 0), rem = S.fb.remoteRev;
-    if (S.fb.status !== 'live') return 'مش متصل — بياناتك محفوظة على الجهاز';
+    if (S.fb.status !== 'live') return 'مش متصل — بياناتك محفوظة على الجهاز وبتترفع لوحدها أول ما النت يرجع';
     if (S.fb.syncing) return 'بيزامن دلوقتي...';
+    if (!navigator.onLine) return 'مفيش نت دلوقتي — التعديلات بتتسجل وترفع لوحدها';
     if (rem != null && Number(rem) > loc) return 'فيه تحديث نازل من السحابة دلوقتي...';
     if (S.fb.ahead) return 'عندك تعديل لسه بيترفع...';
     const ago = S.fb.lastSync ? Math.round((Date.now() - S.fb.lastSync.getTime())/1000) : null;
@@ -852,12 +855,31 @@ const Cloud = {
   projectById(id){ return FB_PROJECTS.filter(p => p.projectId === id)[0] || null; },
   pinned(){ const p = this.pref(); return p === 'auto' ? null : this.projectById(p); },
   pinLabel(){ const p = this.pinned(); return p ? (p.nick || p.projectId) : ''; },
+  // السيرفر اللي وصل حدّه المجاني ده الشهر → يتأخّر لآخر الترتيب
+  quotaOf(){
+    const q = (S.data.meta || {}).quotaHit;
+    if (!q) return '';
+    const now = new Date(), mo = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    return q.mo === mo ? q.from : '';
+  },
+  setQuotaHit(from){
+    const now = new Date(), mo = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+    S.data.meta.quotaHit = { from: from, mo: mo, at: new Date().toISOString() };
+    saveLocal();
+  },
+  clearQuotaHit(){ if (S.data.meta) S.data.meta.quotaHit = null; saveLocal(); },
   // ترتيب المحاولات: السيرفر اللي اخترته بإيدك الأول، وبعده الباقي للطوارئ
   order(cfg){
     const out = [], pin = this.pinned();
+    const atLimit = this.quotaOf();
     if (pin) out.push(pin);
     if (cfg && cfg.dbUrl && !out.some(x => x.projectId === cfg.projectId)) out.push(cfg);
     FB_PROJECTS.forEach(p => { if (!out.some(x => x.projectId === p.projectId)) out.push(p); });
+    // السيرفر اللي خلصت كميته المجانية يبقى آخر واحد (عشان ما نضيّعش وقت في محاولته)
+    if (atLimit){
+      const i = out.findIndex(x => x.projectId === atLimit);
+      if (i >= 0) out.push(out.splice(i, 1)[0]);
+    }
     return out;
   },
   // قياس سرعة السيرفر من الجهاز ده (بالمللي ثانية)
@@ -931,14 +953,14 @@ const Cloud = {
   base(){ return 'https://firestore.googleapis.com/v1/projects/' + encodeURIComponent(this.cfgNow().projectId) + '/databases/(default)/documents/'; },
 
   /* ---------- نقل Realtime Database ---------- */
-  async rtdb(method, path, body, retry){
+  async rtdb(method, path, body, retry, query){
     const base = this.dbUrl();
     if (!base) throw Object.assign(new Error('رابط قاعدة البيانات ناقص'), { kind:'cfg' });
     let res;
     const ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
     const to = ctl ? setTimeout(() => { try{ ctl.abort(); }catch(err){} }, this.timeout || 15000) : null;
     try{
-      res = await fetch(base + '/' + path + '.json', { method: method, cache:'no-store',
+      res = await fetch(base + '/' + path + '.json' + (query || ''), { method: method, cache:'no-store',
         signal: ctl ? ctl.signal : undefined,
         headers: body ? { 'Content-Type':'application/json' } : undefined,
         body: body ? JSON.stringify(body) : undefined });
@@ -951,17 +973,222 @@ const Cloud = {
     if (to) clearTimeout(to);
     const txt = await res.text();
     let j = null; try{ j = txt ? JSON.parse(txt) : null; }catch(e){ j = null; }
+    this.bw(method, body, txt);                 // عداد الاستهلاك (بنقيس اللي بيعدي من الجهاز ده)
     // المشروع في منطقة تانية → السيرفر بيرجّع العنوان الصح، نحدّث نفسنا ونكرر مرة واحدة
     if (j && j.correctUrl && !retry){
       const c = this.merged(); c.dbUrl = String(j.correctUrl).replace(/\/+$/,'');
       this.writeCfg(c); S.fb.cfg = c;
-      return this.rtdb(method, path, body, true);
+      return this.rtdb(method, path, body, true, query);
     }
     if (!res.ok || (j && j.error)){
       const raw = (j && (j.error || j.message)) || ('HTTP ' + res.status);
-      throw Object.assign(new Error(this.diagnose(raw, res.status).msg), { kind: this.diagnose(raw, res.status).kind, raw: raw, http: res.status });
+      const diag = this.diagnose(raw, res.status);
+      throw Object.assign(new Error(diag.msg), { kind: diag.kind, raw: raw, http: res.status });
     }
+    // ✅ نجح: نمرّر نفس الكتابة للسيرفر التاني (مرآة) — عشان لو سيرفر وقع أو خلص، التاني فيه كل حاجة
+    if (method === 'PUT' || method === 'DELETE') this.mirror(method, path, body);
     return j;
+  },
+  // السيرفر الحالي وصل حدّه المجاني → نروح للسيرفر التاني فورًا وبياناتنا كلها تفضل معانا
+  async switchOnQuota(e){
+    const cur = this.cfgNow().projectId;
+    const other = FB_PROJECTS.filter(p => p.projectId !== cur)[0];
+    if (!other){ this.setStatus('error', e.message); toast(e.message, 'bad', 'السحابة'); return false; }
+    if (this._quotaSwitch === other.projectId) return false;         // جربنا ده قبل كده
+    this._quotaSwitch = other.projectId;
+    S.fb.quotaHit = { from: cur, to: other.projectId, at: new Date() };
+    this.setQuotaHit(cur);                                            // يتفضل معروف بعد الريفريش
+    toast('خلصت الكمية المجانية لسيرفر ' + (this.cfgNow().nick || cur) + ' — بنحوّل على ' + (other.nick || other.projectId) + ' تلقائيًا وكل بياناتك بتتزامن من غير أي نقصان', 'warn', 'السحابة');
+    this._active = null;
+    this.writeCfg(other, true);          // نفضل على السيرفر التاني لحد بداية الشهر الجديد
+    S.fb.fellBack = true; S.fb.pinned = cur;
+    const ok = await this.connect({ silent:true });
+    if (ok){ this.markSynced(); dirty.main = true; await this.doPush(false); }
+    paintCloud();
+    return ok;
+  },
+  // الكتابة اختبار حقيقي: بنكتب قيمة صغيرة ونمسحها — عشان نعرف إن السيرفر فكّ الحد فعلًا
+  async probeWrite(cfg){
+    const base = String((cfg || {}).dbUrl || '').replace(/\/+$/,'');
+    if (!base) return false;
+    const url = base + '/_mostar_probe.json';
+    try{
+      let r = await fetch(url, { method:'PUT', cache:'no-store', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ t: Date.now() }) });
+      if (!r.ok) return false;
+      await fetch(url, { method:'DELETE', cache:'no-store' });
+      return true;
+    }catch(e){ return false; }
+  },
+  // هل نرجع لسيرفرنا الأساسي؟ بنجرّب كتابة فعلية كل شوية (لو الحد اتفك)
+  async maybeReturnFromQuota(force){
+    const q = S.fb.quotaHit;
+    if (!q) return false;
+    const pin = FB_PROJECTS.filter(p => p.projectId === q.from)[0];
+    if (!pin) return false;
+    if (!force && Date.now() - (this._quotaProbeAt || 0) < 3 * 3600000) return false;
+    this._quotaProbeAt = Date.now();
+    if (!(await this.probeWrite(pin))) return false;                  // لسه عند حده
+    this._quotaSwitch = null; S.fb.quotaHit = null; S.fb.fellBack = false; S.fb.pinBack = false;
+    this.clearQuotaHit();                                             // نمسح الحد قبل الاتصال عشان يرجع للأساسي
+    this.writeCfg(pin);
+    toast('سيرفرك الأساسي (' + (pin.nick || pin.projectId) + ') رجع شغال — بنرجع ليه تلقائيًا', 'ok', 'السحابة');
+    const ok = await this.connect({ silent:true });
+    if (ok){ await this.doPush(true); }
+    return ok;
+  },
+  /* ---------- المرآة: نفس البيانات على السيرفرين ---------- */
+  mirrorCfg(){
+    const cur = this.cfgNow().projectId;
+    if (S.data.settings && S.data.settings.fbMirror === false) return null;
+    const atLimit = S.fb.quotaHit && S.fb.quotaHit.from;
+    const other = FB_PROJECTS.filter(p => p.projectId !== cur && p.projectId !== atLimit)[0];
+    return other || null;
+  },
+  // دمج من النسخة التانية (المرآة): بناخد منها أي حاجة أحدث أو ناقصة عندنا — واللي عندنا أحدث يفضل
+  async mirrorMerge(){
+    const cur = this.cfgNow().projectId;
+    const others = FB_PROJECTS.filter(p => p.projectId !== cur);
+    if (!others.length){ toast('مفيش سيرفر تاني متاح للدمج', 'warn', 'السحابة'); return false; }
+    const get = async (base, p) => {
+      const r = await fetch(base + '/' + p + '.json', { cache:'no-store' });
+      if (!r.ok) throw Object.assign(new Error('HTTP ' + r.status), { kind:'net' });
+      return r.json();
+    };
+    S.fb.syncing = true; S.fb.syncingTxt = 'دمج من النسخ التانية'; paintCloud();
+    let n = 0, firstErr = null, tried = 0;
+    try{
+      for (const m of others){
+        const base = String(m.dbUrl || '').replace(/\/+$/,'');
+        if (!base) continue;
+        tried++;
+        const root = 'platforms/' + encodeURIComponent(m.code || m.projectId);
+        const ts = await get(base, root + '/ts').catch(() => null);
+        if (ts && typeof ts === 'object') S.fb.ts = ts;
+        for (const k of this.secKeys()){
+          const node = await get(base, root + '/sec/' + k).catch(e => { firstErr = firstErr || e; return null; });
+          if (!node || node.v === undefined || node.v === null) continue;
+          const merged = this.mergeSec(k, S.data[k], node.v);
+          this.markKnown('sec', k, node.v);
+          if (this.fp(JSON.stringify(merged == null ? null : merged)) !== this.fp(this.secJson(k))){ S.data[k] = merged; n++; }
+        }
+        const meta = await get(base, root + '/meta').catch(() => null);
+        const months = Object.keys((meta && meta.att) || {});
+        for (const mo of unique(months.concat(Object.keys(this.attMonthsLocal())))){
+          const node = await get(base, root + '/att/' + mo).catch(() => null);
+          if (!node || !node.v || typeof node.v !== 'object') continue;
+          const mine = this.attMonthsLocal()[mo] || {};
+          const merged = this.mergeAtt(mine, node.v);
+          let ch = false;
+          Object.keys(merged).forEach(key => { if (this.fp(JSON.stringify(merged[key])) !== this.fp(JSON.stringify(S.data.attendance[key] || null))){ S.data.attendance[key] = merged[key]; ch = true; } });
+          if (ch) n++;
+        }
+        const logo = await get(base, root + '/logo').catch(() => null);
+        if (logo && typeof logo.v === 'string' && logo.v.indexOf('data:image/') === 0 && Number(logo.rev || 0) > this.locRev('logo')){
+          try{ setLogo(logo.v); n++; }catch(e){}
+        }
+      }
+      bustCache(); attDraft = null; saveLocal(); render();
+      dirty.main = true; S.fb.syncing = false; S.fb.syncingTxt = '';
+      if (n){ await this.doPush(true); toast('تم الدمج من السيرفرات التانية ✅ (' + n + ' جزء اتحدّث)', 'ok', 'السحابة'); }
+      else if (tried === 0) toast('مفيش سيرفر تاني متاح', 'warn', 'السحابة');
+      else toast('النسخ التانية مطابقة لبياناتك — مفيش حاجة جديدة', 'info', 'السحابة');
+      paintCloud();
+      return true;
+    }catch(e){
+      S.fb.syncing = false; S.fb.syncingTxt = '';
+      toast('فشل الدمج: ' + (firstErr ? firstErr.message : e.message), 'bad', 'السحابة');
+      paintCloud();
+      return false;
+    }
+  },
+  // إيه الأجزاء اللي الجهاز ده فعلًا شاف فيها بيانات؟ (بتتخزن محليًا ومش بتطلع للسحابة)
+  knownMaps(){
+    const m = this.metaMaps();
+    m.known = m.known || {};
+    m.known.sec = m.known.sec || {}; m.known.att = m.known.att || {};
+    if (m.known.logo == null) m.known.logo = false;
+    return m.known;
+  },
+  markKnown(kind, key, val){
+    const k = this.knownMaps();
+    if (kind === 'sec'){ if (!this._isEmptyVal(val)) k.sec[key] = true; return; }
+    if (kind === 'att'){ if (!this._isEmptyVal(val)) k.att[key] = true; return; }
+    if (typeof val === 'string' && val.indexOf('data:image/') === 0) k.logo = true;
+  },
+  _isEmptyVal(v){
+    if (v === '' || v == null) return true;
+    if (Array.isArray(v)) return !v.length;
+    if (typeof v === 'object') return !Object.keys(v).length;
+    return false;
+  },
+  // إرسال الكتابة للسيرفر التاني في الخلفية (من غير ما تأخّر المستر)
+  // بنحتفظ بأحدث نسخة لكل مسار؛ لو وصلت كتابة أحدث أثناء ما فيه واحدة بتتبعت، بتبعت بعدها فورًا
+  mirror(method, path, body){
+    const m = this.mirrorCfg();
+    if (!m || S.fb.status !== 'live') return;
+    const base = String(m.dbUrl || '').replace(/\/+$/,'');
+    if (!base) return;
+    // كل مشروع ليه مسار باسمه على سحابته، فبنحوّل المسار لمسار السيرفر التاني
+    const myCode = encodeURIComponent(this.cfgNow().code || 'default');
+    const hisCode = encodeURIComponent(m.code || m.projectId);
+    const hisPath = (path.indexOf('platforms/' + myCode) === 0) ? ('platforms/' + hisCode + path.slice(('platforms/' + myCode).length)) : path;
+    const key = hisPath;
+    // 🛡️ حماية المرآة: جهاز عنده بيانات ناقصة (مثلاً لسه ما نزّلش جزء) مايمسحش نسخة المرآة السليمة.
+    // لو القيمة فاضية والجهاز ده عمره ما شاف الجزء ده → نتخطى الكتابة (مش بنمسح حاجة مش عارفينها).
+    if (method === 'PUT' && body && body.v !== undefined && this._isEmptyVal(body.v)){
+      const partKey = String(path).split('/').pop();
+      const known = this.knownMaps();
+      const att = String(path).indexOf('/att/') >= 0;
+      const has = att ? !!known.att[partKey] : (String(path).indexOf('/sec/') >= 0 ? !!known.sec[partKey] : !!known.logo);
+      if (!has) return;
+    }
+    this._mq = this._mq || {}; this._mrun = this._mrun || {};
+    this._mq[key] = { method: method, body: body };        // آخر قيمة دايمًا هي اللي بتتبعت
+    if (this._mrun[key]) return;                           // فيه واحدة شغالة على نفس المسار → هتاخد دي بعدها
+    const self = this;
+    (async () => {
+      self._mrun[key] = true;
+      while (self._mq[key]){
+        const job = self._mq[key]; self._mq[key] = null;
+        try{
+          const res = await fetch(base + '/' + hisPath + '.json', { method: job.method, cache:'no-store',
+            headers: job.body ? { 'Content-Type':'application/json' } : undefined,
+            body: job.body ? JSON.stringify(job.body) : undefined });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          S.fb.mirrorAt = new Date(); S.fb.mirrorErr = '';
+          if (S.fb.mirrorBad){ S.fb.mirrorBad = false; paintCloud(); }
+        }catch(e){
+          S.fb.mirrorErr = String(e && e.message || e);
+          if (!S.fb.mirrorBad){ S.fb.mirrorBad = true; paintCloud(); }   // نبيّن للمستر إن المرآة واقفة
+          break;
+        }
+      }
+      self._mrun[key] = false;
+    })();
+  },
+  // عداد الاستهلاك (تقديري من الجهاز ده) — عشان المستر يشوف إنه بعيد جدًا عن الحد
+  bw(method, body, txt){
+    try{
+      const m = S.data.meta = S.data.meta || {};
+      const now = new Date(), mo = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+      if (!m.bw || m.bw.m !== mo) m.bw = { m: mo, up: 0, down: 0, n: 0 };
+      m.bw.n++;
+      m.bw.up += (body ? JSON.stringify(body).length : 0) + 120;
+      m.bw.down += ((txt ? txt.length : 0) + 120) * (method === 'GET' ? 1 : 0.2);
+    }catch(e){}
+  },
+  /* ---------- الحدود المجانية ---------- */
+  LIMITS(){ return { store: 1024, down: 10240, conn: 100 }; },   // ميجا: تخزين 1 جيجا · تنزيل 10 جيجا/شهر · 100 اتصال
+  bwText(){
+    const b = (S.data.meta || {}).bw || { up:0, down:0 };
+    const mb = x => (x / 1048576);
+    const sizeKB = (() => { try{ return (new Blob([JSON.stringify(S.data)]).size / 1024); }catch(e){ return 0; } })();
+    const L = this.LIMITS();
+    return {
+      up: mb(b.up).toFixed(2), down: mb(b.down).toFixed(2),
+      storeKB: sizeKB.toFixed(0), storePct: (sizeKB / 1024 / L.store * 100),
+      downPct: (mb(b.down) / L.down * 100)
+    };
   },
 
   /* ---------- نقل Firestore ---------- */
@@ -985,6 +1212,9 @@ const Cloud = {
   },
   diagnose(raw, http){
     const m = String(raw || '');
+    // حدود الخطة المجانية: فايربيز بيوقف الكتابة لحد ما الشهر يخلص (بترجع 402/429)
+    if (http === 402 || http === 429 || /exceeded|quota|billing|limit reached|too many requests/i.test(m))
+      return { kind:'quota', msg:'وصلنا لحد الاستخدام المجاني للسيرفر ده — بنحوّل تلقائيًا للسيرفر التاني عشان كل حاجة تكمل' };
     if (/Permission denied|permission_denied|Missing or insufficient permissions|PERMISSION_DENIED/i.test(m) || http === 403)
       return { kind:'rules', msg:'قواعد الحماية بتمنع الوصول — افتح تبويب Rules والصق القواعد الجاهزة (زر "قواعد الحماية")' };
     if (/database \(default\) does not exist|datastore\/setup/i.test(m))
@@ -1124,6 +1354,263 @@ const Cloud = {
     if (kind === 'att') return Number((m.att || {})[key] || 0);
     return Number(m.logo || 0);
   },
+  /* ================= محرك السحابة الذكي (v3) =================
+     1) طابور أوفلاين مضمون: كل تعديل بياخد ختم وقت وبصمة، فبنعرف في أي لحظة إيه اللي
+        لسه محتاج يطلع للسحابة — حتى لو قفلنا المتصفح في نص الشغل أو النت قطع.
+     2) دمج سجل بسجل: لو جهازين عدّلوا نفس الجزء، بنقرا نسخة السحابة وندمجها مع نسختنا
+        قبل ما نرفع — الأحدث لكل سجل هو اللي بيفضل، ومفيش بيانات تضيع.
+     3) النسخ الاحتياطية على السحابة (تحت في قسم النسخ).
+     ========================================================== */
+  // بصمة سريعة (FNV-1a) — بنعرف بيها إيه اللي اتغير من غير مقارنة نصوص كبيرة
+  fp(str){
+    let h = 2166136261;
+    str = String(str == null ? '' : str);
+    for (let i = 0; i < str.length; i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    return h;
+  },
+  // كل الخرايط اللي بنحتاجها للمزامنة الذكية — بتتخزن محليًا مع بيانات الجهاز
+  metaMaps(){
+    const m = S.data.meta = S.data.meta || {};
+    if (!m.last || typeof m.last !== 'object') m.last = {};
+    m.last.sec = m.last.sec || {}; m.last.att = m.last.att || {};
+    if (m.last.logo == null) m.last.logo = '';
+    m.fp = m.fp || {}; m.del = m.del || {}; m.st = m.st || {}; m.gt = m.gt || {};
+    m.attT = m.attT || {}; m._sec = m._sec || {};
+    m.fp.settings = m.fp.settings || {}; m.fp.att = m.fp.att || {}; m.fp.grades = m.fp.grades || {};
+    m.del.grades = m.del.grades || {};
+    ['students','groups','exams'].forEach(k => { m.fp[k] = m.fp[k] || {}; m.del[k] = m.del[k] || {}; });
+    return m;
+  },
+  // ختم الوقت: أي سجل اتغير بياخد _t بالوقت الحالي، وأي سجل اختفى بيتسجّل في المحذوفات
+  // (بتتنادى من commit — يعني مع أي تعديل، وبتتخطّى الأجزاء اللي ما اتغيرتش)
+  stamp(){
+    const m = this.metaMaps(), now = Date.now();
+    ['settings','students','groups','exams'].forEach(k => {
+      const whole = this.fp(this.secJson(k));
+      if (m._sec[k] === whole) return;
+      m._sec[k] = whole;
+      if (k === 'settings'){
+        const cur = S.data.settings || {}, f = m.fp.settings;
+        Object.keys(cur).forEach(fld => {
+          const v = JSON.stringify(cur[fld]);
+          if (f[fld] !== v){ f[fld] = v; m.st[fld] = now; }
+        });
+        return;
+      }
+      const arr = Array.isArray(S.data[k]) ? S.data[k] : [];
+      const f = m.fp[k], del = m.del[k], seen = Object.create(null);
+      arr.forEach(r => {
+        if (!r || !r.id) return;
+        seen[r.id] = 1;
+        const v = JSON.stringify(Object.assign({}, r, { _t: 0 }));
+        if (f[r.id] !== v){ f[r.id] = v; r._t = now; }          // جديد أو اتعدّل → ختم وقت
+      });
+      Object.keys(f).forEach(id => { if (!seen[id]){ delete f[id]; if (!del[id]) del[id] = now; } });
+    });
+    const gwhole = this.fp(JSON.stringify(S.data.grades || {}));
+    if (m._sec.grades !== gwhole){
+      m._sec.grades = gwhole;
+      const gt = m.gt, gf = m.fp.grades, gdel = m.del.grades;
+      Object.keys(S.data.grades || {}).forEach(eid => {
+        const row = S.data.grades[eid] || {};
+        gt[eid] = gt[eid] || {}; gf[eid] = gf[eid] || {}; gdel[eid] = gdel[eid] || {};
+        Object.keys(row).forEach(sid => {
+          const v = String(row[sid]);
+          if (gf[eid][sid] !== v){ gf[eid][sid] = v; gt[eid][sid] = now; }
+        });
+        Object.keys(gf[eid]).forEach(sid => { if (!(sid in row)){ delete gf[eid][sid]; if (!gdel[eid][sid]) gdel[eid][sid] = now; } });
+      });
+    }
+    const awhole = this.fp(JSON.stringify(this.attMonthsLocal()));
+    if (m._sec.att !== awhole){
+      m._sec.att = awhole;
+      const at = m.attT, af = m.fp.att;
+      Object.keys(S.data.attendance || {}).forEach(key => {
+        const rec = (S.data.attendance[key] || {}).records || {};
+        at[key] = at[key] || {}; af[key] = af[key] || {};
+        Object.keys(rec).forEach(sid => {
+          const v = String(rec[sid]);
+          if (af[key][sid] !== v){ af[key][sid] = v; at[key][sid] = now; }
+        });
+      });
+    }
+  },
+  // إيه اللي لسه محتاج يطلع للسحابة؟ (بيشتغل حتى بعد قفل المتصفح — مش مجرد علم في الذاكرة)
+  pending(){
+    const m = this.metaMaps(), months = this.attMonthsLocal();
+    if (!Object.keys(m.last.sec).length && !Object.keys(m.last.att).length){
+      return { any:true, full:true, sec:this.secKeys().slice(), att:Object.keys(months), count:this.secKeys().length + Object.keys(months).length };
+    }
+    const sec = [], att = [];
+    this.secKeys().forEach(k => { if (m.last.sec[k] !== this.fp(this.secJson(k))) sec.push(k); });
+    Object.keys(months).forEach(mo => { if (m.last.att[mo] !== this.fp(JSON.stringify(months[mo]))) att.push(mo); });
+    const logo = (typeof logoRef === 'function' && (logoRef() || '') !== (m.last.logo || '')) ? 1 : 0;
+    return { any: !!(sec.length || att.length || logo), full:false, sec: sec, att: att, count: sec.length + att.length + logo };
+  },
+  markPart(kind, key){                       // الجزء ده بقى متطابق مع السحابة
+    const m = this.metaMaps();
+    if (kind === 'logo'){ m.last.logo = (typeof logoRef === 'function' ? (logoRef() || '') : ''); return; }
+    if (kind === 'sec'){ m.last.sec[key] = this.fp(this.secJson(key)); return; }
+    const mo = this.attMonthsLocal()[key];
+    m.last.att[key] = this.fp(JSON.stringify(mo || {}));
+  },
+  markSynced(){                              // كل اللي عندنا دلوقتي = اللي على السحابة
+    const m = this.metaMaps();
+    m.last = { sec:{}, att:{}, logo: (typeof logoRef === 'function' ? (logoRef() || '') : '') };
+    this.secKeys().forEach(k => { m.last.sec[k] = this.fp(this.secJson(k)); });
+    const months = this.attMonthsLocal();
+    Object.keys(months).forEach(mo => { m.last.att[mo] = this.fp(JSON.stringify(months[mo])); });
+  },
+  pendText(){
+    const p = this.pending();
+    if (!p.any) return '';
+    const names = { settings:'الإعدادات', groups:'الحصص', students:'الطلاب', exams:'الامتحانات', grades:'الدرجات', feedback:'الملاحظات', absNotes:'ملاحظات الغياب', msgSent:'الرسائل' };
+    return p.sec.map(k => names[k] || k).concat(p.att.map(mo => 'حضور ' + mo)).join(' · ') + (p.count ? ' (' + p.count + ')' : '');
+  },
+  // رفع أي تعديلات معلّقة — بتتنادى لوحدها أول ما النت يرجع أو أول ما نفتح المنصة
+  async flushPending(manual){
+    if (S.fb.status !== 'live' || S.fb.syncing) return false;
+    const p = this.pending();
+    if (!p.any){ paintCloud(); return false; }
+    const hasLocal = this.hasAnyData();
+    if (!hasLocal && !(S.data.meta || {}).hadData && !S.fb.cloudEmpty){   // جهاز فاضي والسحابة فيها بيانات → ننزّل مش نرفع
+      await this.doPull(true);
+      return false;
+    }
+    const ok = await this.doPush(!!p.full);
+    if (ok){
+      if (manual) toast('تم رفع كل التعديلات المعلّقة ✅', 'ok', 'السحابة');
+      else if (this._offlineSeen) toast('التعديلات اللي اتسجلت وانت بدون نت اترفعت للسحابة ✅', 'ok', 'السحابة');
+      this._offlineSeen = false;
+    }
+    return ok;
+  },
+
+  /* ---------- الدمج الذكي (سجل بسجل) ---------- */
+  // سجلات (طلاب/حصص/امتحانات): الأحدث لكل سجل بيكسب، والحذف بيتنقل بختم وقت
+  mergeRecords(kind, locArr, cloudArr){
+    const m = this.metaMaps();
+    const del = m.del[kind] || {};
+    const cts = S.fb.ts || {};
+    const cdel = (cts.del || {})[kind] || {};
+    const loc = Object.create(null), cloud = Object.create(null);
+    (locArr || []).forEach(r => { if (r && r.id) loc[r.id] = r; });
+    (cloudArr || []).forEach(r => { if (r && r.id) cloud[r.id] = r; });
+    const out = [], ids = Object.create(null);
+    Object.keys(cloud).forEach(id => {
+      ids[id] = 1;
+      const a = cloud[id], b = loc[id], at = Number(a._t || 0);
+      if (b){
+        const bt = Number(b._t || 0);
+        out.push(bt >= at ? b : a);                       // الاتنين موجودين → الأحدث يكسب
+      } else {
+        if (del[id] && Number(del[id]) > at) return;      // أنا مسحته بعد النسخة دي → يختفي
+        out.push(a);                                      // مش عندي → نكمله (مفيش ضياع)
+      }
+    });
+    Object.keys(loc).forEach(id => {
+      if (ids[id]) return;
+      const b = loc[id], bt = Number(b._t || 0);
+      if (cdel[id] && Number(cdel[id]) > bt) return;      // جهاز تاني مسحه بعد نسختي → يختفي
+      out.push(b);
+    });
+    return out;
+  },
+  // الدرجات: خلية خلية (امتحان/طالب) بأختام الوقت
+  mergeGrades(loc, cloud){
+    const m = this.metaMaps();
+    const cts = (S.fb.ts || {}).gt || {};
+    const cdel = (S.fb.ts || {}).gdel || {};
+    const out = {};
+    unique(Object.keys(loc || {}).concat(Object.keys(cloud || {}))).forEach(eid => {
+      const row = Object.assign({}, (cloud || {})[eid] || {});
+      const lrow = (loc || {})[eid] || {};
+      const gt = m.gt[eid] || {}, cgt = cts[eid] || {}, gd = m.del.grades[eid] || {}, cgd = cdel[eid] || {};
+      Object.keys(row).forEach(sid => {
+        const ct = Number(cgt[sid] || 0), lt = Number(gt[sid] || 0);
+        if (sid in lrow){ if (lt >= ct) row[sid] = lrow[sid]; }
+        else if (gd[sid] && Number(gd[sid]) > ct) delete row[sid];
+      });
+      Object.keys(lrow).forEach(sid => {
+        if (sid in row) return;
+        if (cgd[sid] && Number(cgd[sid]) > Number(gt[sid] || 0)) return;
+        row[sid] = lrow[sid];
+      });
+      out[eid] = row;
+    });
+    return out;
+  },
+  // الحضور: حصة حصة، وطالب طالب
+  mergeAtt(loc, cloud){
+    const m = this.metaMaps();
+    const cts = (S.fb.ts || {}).attT || {};
+    const out = {};
+    unique(Object.keys(loc || {}).concat(Object.keys(cloud || {}))).forEach(key => {
+      const a = cloud[key], b = loc[key];
+      if (!b){ out[key] = a; return; }
+      if (!a){ out[key] = b; return; }
+      const rec = Object.assign({}, a.records || {}), lrec = b.records || {};
+      const at = m.attT[key] || {}, ct = cts[key] || {};
+      Object.keys(rec).forEach(sid => {
+        if (sid in lrec){ if (Number(at[sid] || 0) >= Number(ct[sid] || 0)) rec[sid] = lrec[sid]; }
+      });
+      Object.keys(lrec).forEach(sid => { if (!(sid in rec)) rec[sid] = lrec[sid]; });
+      out[key] = Object.assign({}, a, b, { records: rec });
+    });
+    return out;
+  },
+  // الإعدادات: حقل حقل (الأحدث يكسب)
+  mergeSettings(loc, cloud){
+    const m = this.metaMaps();
+    const cst = (S.fb.ts || {}).st || {};
+    const out = Object.assign({}, cloud || {}), l = loc || {};
+    unique(Object.keys(l).concat(Object.keys(out))).forEach(fld => {
+      if (!(fld in l)) return;
+      if (Number(m.st[fld] || 0) >= Number(cst[fld] || 0)) out[fld] = l[fld];
+    });
+    return out;
+  },
+  // الخرايط الصغيرة (ملاحظات/رسائل): كل الطرفين بيتحفظوا، واللي عندنا يكسب لو نفس المفتاح
+  mergeMaps(loc, cloud){ return Object.assign({}, cloud || {}, loc || {}); },
+  mergeSec(k, loc, cloud){
+    if (k === 'students' || k === 'groups' || k === 'exams') return this.mergeRecords(k, loc, cloud);
+    if (k === 'grades') return this.mergeGrades(loc, cloud);
+    if (k === 'settings') return this.mergeSettings(loc, cloud);
+    return this.mergeMaps(loc, cloud);
+  },
+  // هل الجزء ده فيه تعديلات محلية لسه ما طلعتش؟
+  secDirty(k){ const m = this.metaMaps(); return m.last.sec[k] !== this.fp(this.secJson(k)); },
+  // رفع جزء واحد، ولمّا السحابة يكون فيها تعديل من جهاز تاني → ندمج الأول (مفيش ضياع بيانات)
+  async secPushOne(k, at, merge){
+    const c = this.cache();
+    let value = S.data[k], merged = false;
+    if (merge){
+      await this.ensureTs();
+      const before = this.fp(this.secJson(k));
+      let node = null;
+      try{ node = await this.rtdb('GET', this.rootPath() + '/sec/' + k); }catch(e){ node = null; }
+      if (node && node.v !== undefined && node.v !== null){
+        const m = this.mergeSec(k, S.data[k], node.v);
+        if (this.fp(JSON.stringify(m == null ? null : m)) !== before){
+          S.data[k] = m; value = m; merged = true;
+          bustCache(); attDraft = null; saveLocal(); render();
+        }
+      }
+    }
+    const rev = this.nowRev(this.cloudRevOf('sec', k), this.locRev('sec', k));
+    await this.rtdb('PUT', this.rootPath() + '/sec/' + k, { rev: rev, at: at, v: value });
+    this.setLocRev('sec', k, rev);
+    c.sec[k] = this.secJson(k);
+    this.markPart('sec', k);
+    this.markKnown('sec', k, value);
+    return merged;
+  },
+  // نسخة خفيفة من البيانات الوصفية للملف القديم (بدون الخرايط الكبيرة) — عشان الرفع يفضل سريع
+  slimMeta(){
+    const m = S.data.meta || {};
+    return { version: m.version, rev: m.rev, updatedAt: m.updatedAt, createdAt: m.createdAt,
+      secrev: m.secrev || {}, attrev: m.attrev || {}, logorev: m.logorev || 0, syncv: m.syncv || 0 };
+  },
   cache(){ return this._cache = this._cache || { sec:{}, att:{}, logo:null }; },
   attMonth(k){ return String(k).slice(0,7); },
   attMonthsLocal(){
@@ -1164,6 +1651,45 @@ const Cloud = {
     Object.keys(months).forEach(mo => { c.att[mo] = JSON.stringify(months[mo]); });
     c.logo = (typeof logoRef === 'function' ? (logoRef() || '') : '');
   },
+  // أختام الوقت بتتخزن في عقدة صغيرة لوحدها (/ts) — عشان ملف المزامنة يفضل صغير وسريع
+  async ensureTs(force){
+    if (!force && S.fb.ts && Date.now() - (S.fb.tsAt || 0) < 30000) return S.fb.ts;
+    try{
+      const d = await this.rtdb('GET', this.rootPath() + '/ts');
+      S.fb.ts = (d && typeof d === 'object' && !d.correctUrl) ? d : {};
+    }catch(e){ S.fb.ts = S.fb.ts || {}; }
+    S.fb.tsAt = Date.now();
+    return S.fb.ts;
+  },
+  // تجهيز أختام الوقت (مدموجة مع اللي على السحابة + مقلمة) — بتتكتب في /ts
+  buildStamps(){
+    const m = this.metaMaps(), cts = S.fb.ts || {};
+    const days = 120 * 86400000, cutoff = Date.now() - days, cap = 2500;
+    const maxMap = (a, b, c) => { const out = {}; [a, b, c].forEach(src => Object.keys(src || {}).forEach(k => { const v = Number(src[k] || 0); if (v > Number(out[k] || 0)) out[k] = v; })); return out; };
+    const prune = (map) => {
+      const keys = Object.keys(map || {});
+      if (!keys.length) return {};
+      let keep = keys.filter(k => Number(map[k] || 0) >= cutoff);
+      if (keep.length > cap){ keep.sort((x, y) => Number(map[y]) - Number(map[x])); keep = keep.slice(0, cap); }
+      const out = {}; keep.forEach(k => { out[k] = map[k]; });
+      return out;
+    };
+    const prune2 = (map) => {   // خرايط من مستويين (امتحان → طالب)
+      const out = {};
+      Object.keys(map || {}).forEach(k => { const inner = prune(map[k]); if (Object.keys(inner).length) out[k] = inner; });
+      return out;
+    };
+    const out = {
+      st: prune(maxMap(m.st, cts.st)),
+      gt: prune2(maxMap2(m.gt, cts.gt)),
+      attT: prune2(maxMap2(m.attT, cts.attT)),
+      del: {}, gdel: {}
+    };
+    ['students','groups','exams'].forEach(k => { out.del[k] = prune(maxMap((m.del || {})[k], (cts.del || {})[k])); });
+    out.gdel = prune2(maxMap2(m.del.grades || {}, cts.gdel));
+    return out;
+    function maxMap2(a, b){ const out = {}; [a, b].forEach(src => Object.keys(src || {}).forEach(k => { out[k] = maxMap((src || {})[k], (out[k] || {})); })); return out; }
+  },
   async writeMetaFull(){
     const m = this.localRevs();
     const cloud = S.fb.meta || {};
@@ -1175,6 +1701,8 @@ const Cloud = {
       const v = maxOf((cloud.att || {})[mo], m.attrev[mo]); if (v) att[mo] = v;
     });
     const rev = this.nowRev(cloud.rev, m.rev);
+    // أختام الوقت بتتنقل مع /ts (عقدة صغيرة لوحدها) — مش مع ملف المزامنة السريع
+    const ts = this.buildStamps();
     // ملاحظة مهمة: تنسيق التخزين على السحابة ما اتغيرش (نفس الأجزاء ونفس الخريطة)،
     // فبنكتب v = 3 عشان أي جهاز لسه على النسخة القديمة يفضل شايف البيانات ويزامن عادي
     // (لو كتبنا 4 كان الجهاز القديم هيفتكره ملف قديم ويعمل تنزيل بالطريقة القديمة ويضيع السكة).
@@ -1183,41 +1711,75 @@ const Cloud = {
       students: (S.data.students || []).length, groups: (S.data.groups || []).length };
     S.fb.meta = d;
     m.rev = rev;                      // نسخة الجهاز تتبع السحابة
-    if (this.mode() === 'rtdb') return this.rtdb('PUT', this.rootPath() + '/meta', d);
+    if (this.mode() === 'rtdb'){
+      // نكتب الأختام بس لو اتغيرت (توفير في الكتابة والرفع)
+      const tfp = this.fp(JSON.stringify(ts));
+      if (this._tsFp !== tfp){
+        this._tsFp = tfp;
+        this.rtdb('PUT', this.rootPath() + '/ts', ts).then(() => { S.fb.ts = ts; S.fb.tsAt = Date.now(); }).catch(() => { this._tsFp = null; });
+      }
+      return this.rtdb('PUT', this.rootPath() + '/meta', d);
+    }
     return this.upsert(this.root(), { json: JSON.stringify(d) });
   },
   // الرفع: بس الأجزاء اللي اتغيرت — وبتتكتب مع بعض (بالتوازي) = أسرع بكتير
   async pushSections(all){
     const self = this, c = this.cache(), jobs = [];
     const at = new Date().toISOString();
+    try{ this.stamp(); }catch(e){}                     // نتأكد إن كل تعديل معاه ختم وقت
+    // قبل أي رفع: نقرا ملف المزامنة من السحابة من جديد (ملف صغير جدًا) عشان قرار الدمج
+    // يبقى مبني على آخر نسخة — مش على نسخة قديمة في الذاكرة (ده اللي كان ممكن يضيّع تعديلات جهاز تاني)
+    try{
+      const fresh = await this.readMeta();
+      if (fresh && fresh.exists){ S.fb.meta = fresh.data || null; S.fb.remoteRev = fresh.rev || 0; }
+    }catch(e){}
     this.secKeys().forEach(k => {
       const json = self.secJson(k);
-      if (!all && c.sec[k] === json && self.locRev('sec', k)) return;
-      const rev = self.nowRev(self.cloudRevOf('sec', k), self.locRev('sec', k));
-      jobs.push(self.rtdb('PUT', self.rootPath() + '/sec/' + k, { rev: rev, at: at, v: S.data[k] })
-        .then(() => { c.sec[k] = json; self.setLocRev('sec', k, rev); }));
+      const cloudNewer = self.cloudRevOf('sec', k) > self.locRev('sec', k);   // السحابة فيها تعديل أحدث
+      if (!all && c.sec[k] === json && self.locRev('sec', k) && !cloudNewer) return;
+      // لو فيه تعديل من جهاز تاني: بنقراه وندمجه سجل بسجل قبل الرفع (مفيش بيانات تضيع)
+      jobs.push(self.secPushOne(k, at, cloudNewer));
     });
     const months = this.attMonthsLocal();
     Object.keys(months).forEach(mo => {
       const json = JSON.stringify(months[mo]);
-      if (!all && c.att[mo] === json && self.locRev('att', mo)) return;
-      const rev = self.nowRev(self.cloudRevOf('att', mo), self.locRev('att', mo));
-      jobs.push(self.rtdb('PUT', self.rootPath() + '/att/' + mo, { rev: rev, at: at, v: months[mo] })
-        .then(() => { c.att[mo] = json; self.setLocRev('att', mo, rev); }));
+      const cloudNewer = self.cloudRevOf('att', mo) > self.locRev('att', mo);
+      if (!all && c.att[mo] === json && self.locRev('att', mo) && !cloudNewer) return;
+      jobs.push((async () => {
+        let value = months[mo];
+        if (cloudNewer){
+          await self.ensureTs();
+          let node = null;
+          try{ node = await self.rtdb('GET', self.rootPath() + '/att/' + mo); }catch(e){ node = null; }
+          if (node && node.v && typeof node.v === 'object'){
+            const m = self.mergeAtt(months[mo], node.v);
+            if (self.fp(JSON.stringify(m)) !== self.fp(JSON.stringify(months[mo]))){
+              Object.keys(m).forEach(key => { S.data.attendance[key] = m[key]; });   // نطبّق الدمج عندنا
+              value = m;
+              bustCache(); attDraft = null; saveLocal(); render();
+            } else value = m;
+          }
+        }
+        const rev = self.nowRev(self.cloudRevOf('att', mo), self.locRev('att', mo));
+        await self.rtdb('PUT', self.rootPath() + '/att/' + mo, { rev: rev, at: at, v: value });
+        c.att[mo] = JSON.stringify(value); self.setLocRev('att', mo, rev); self.markPart('att', mo);
+        self.markKnown('att', mo, value);
+      })());
     });
     const lg = (typeof logoRef === 'function' ? (logoRef() || '') : '');
     const lgPush = (lg && lg.length <= 300000) ? lg : '';
     if (all || c.logo !== lgPush || (lgPush && !self.locRev('logo'))){
       const rev = self.nowRev(self.cloudRevOf('logo', ''), self.locRev('logo'));
       jobs.push(self.rtdb('PUT', self.rootPath() + '/logo', { rev: rev, at: at, v: lgPush })
-        .then(() => { c.logo = lgPush; self.setLocRev('logo', '', rev); }));
+        .then(() => { c.logo = lgPush; self.setLocRev('logo', '', rev); self.markPart('logo'); self.markKnown('logo', '', lgPush); }));
     }
-    if (!jobs.length) return 0;
+    if (!jobs.length){ this.markSynced(); return 0; }
     S.fb.syncingTxt = jobs.length + (jobs.length === 1 ? ' جزء' : ' أجزاء');
     S.fb.parts = jobs.length;
     await Promise.all(jobs);
     S.data.meta.rev = (S.data.meta.rev || 0) + 1;
     await this.writeMetaFull();
+    this.markSynced();                                 // كل اللي عندنا بقى متطابق مع السحابة
     return jobs.length;
   },
   // التنزيل: نقرأ الـ meta الصغيرة الأول، وننزّل بس الأجزاء اللي اتغيرت
@@ -1228,14 +1790,24 @@ const Cloud = {
     if (!meta.exists){ S.fb.cloudEmpty = true; S.fb.behind = false; return -1; }
     const d = meta.data || {};
     if (!(Number(d.v) >= 3) || !d.sec) return this.doPullLegacy(silent);   // نسخة قديمة (ملف واحد) على السحابة
-    const self = this, jobs = [], changed = [];
+    const self = this, jobs = [], changed = [], merged = [];
+    // لو فيه أي جزء محلي محتاج دمج، نجيب أختام السحابة الأول عشان القرار يبقى صح
+    if (this.secKeys().some(k => Number((d.sec || {})[k] || 0) > self.locRev('sec', k) && self.secDirty(k))) await this.ensureTs(true);
     this.secKeys().forEach(k => {
       const rr = Number((d.sec || {})[k] || 0);
       if (rr <= self.locRev('sec', k)) return;
+      const dirtySec = self.secDirty(k);          // عندنا تعديلات لسه ما طلعتش في الجزء ده؟
       jobs.push(self.rtdb('GET', self.rootPath() + '/sec/' + k).then(node => {
         if (node && node.v !== undefined && node.v !== null){
-          S.data[k] = node.v;
+          if (dirtySec){                            // ندمج بدل ما نستبدل → مفيش بيانات تضيع
+            const m = self.mergeSec(k, S.data[k], node.v);
+            if (self.fp(JSON.stringify(m == null ? null : m)) !== self.fp(self.secJson(k))){
+              S.data[k] = m; merged.push(k);
+            }
+          } else S.data[k] = node.v;
+          self.markKnown('sec', k, node.v);
           self.setLocRev('sec', k, Number(node.rev || rr));
+          self.markPart('sec', k);
           changed.push(k);
         }
       }));
@@ -1245,8 +1817,13 @@ const Cloud = {
       if (rr <= self.locRev('att', mo)) return;
       jobs.push(self.rtdb('GET', self.rootPath() + '/att/' + mo).then(node => {
         if (node && node.v && typeof node.v === 'object'){
-          S.data.attendance = Object.assign({}, S.data.attendance || {}, node.v);
+          const myMonth = self.attMonthsLocal()[mo] || {};
+          const dirtyMo = self.metaMaps().last.att[mo] !== self.fp(JSON.stringify(myMonth));
+          const value = dirtyMo ? self.mergeAtt(myMonth, node.v) : node.v;      // دمج الحضور
+          S.data.attendance = Object.assign({}, S.data.attendance || {}, value);
+          self.markKnown('att', mo, value);
           self.setLocRev('att', mo, Number(node.rev || rr));
+          self.markPart('att', mo);
           changed.push('حضور ' + mo);
         }
       }));
@@ -1254,24 +1831,29 @@ const Cloud = {
     if (Number(d.logo || 0) > self.locRev('logo')){
       jobs.push(self.rtdb('GET', self.rootPath() + '/logo').then(node => {
         if (!node) return;
-        if (typeof node.v === 'string' && node.v.indexOf('data:image/') === 0){ try{ setLogo(node.v); }catch(e){} }
+        if (typeof node.v === 'string' && node.v.indexOf('data:image/') === 0){ try{ setLogo(node.v); self.markKnown('logo', '', node.v); }catch(e){} }
         else if (node.v === ''){ try{ clearLogo(); }catch(e){} }
         self.setLocRev('logo', '', Number(node.rev || 0));
       }));
     }
     await Promise.all(jobs);
     S.data.meta = S.data.meta || {};
+    // أختام السحابة: بنقراها لو فيه دمج محتاجها
+    if (merged.length) await this.ensureTs(true);
     S.data.meta.rev = Math.max(Number(S.data.meta.rev || 0), Number(meta.rev || 0));
     S.fb.remoteRev = Number(meta.rev || 0);
     this.refreshCache();
     S.fb.behind = false; S.fb.ahead = false; S.fb.cloudEmpty = false;
     S.fb.lastSync = new Date(); S.fb.errKind = '';
+    if (this.hasAnyData()) S.data.meta.hadData = true;
     this.setStatus('live');
     if (changed.length){
       attDraft = null;
       saveLocal(); render();
       if (!silent) toast('تم تحديث ' + changed.length + (changed.length === 1 ? ' جزء' : ' أجزاء') + ' من السحابة ✅', 'ok', 'السحابة');
     }
+    // لو دمجنا حاجة: نرفع الناتج عشان الجهاز التاني يشوف تعديلاتنا كمان
+    if (merged.length){ try{ await this.pushSections(false); }catch(e){} }
     return changed.length;
   },
 
@@ -1293,6 +1875,7 @@ const Cloud = {
       const rev = Number(d.data.rev || 0);
       if (rev > Number(S.data.meta.rev || 0)) self.onRemoteChange(rev);
       else { S.fb.remoteRev = rev; S.fb.behind = false; paintCloud(); }
+      try{ S.fb.pending = self.pending().count; }catch(e){}
     };
     es.addEventListener('put', onData);
     es.addEventListener('patch', onData);
@@ -1328,24 +1911,33 @@ const Cloud = {
   async connect(opts){
     opts = opts || {};
     if (opts.config) this.writeCfg(opts.config);
+    // لو كان فيه سيرفر وصل حده الشهر ده: نستعيد المعلومة، ونشوف رجع ولا لأ
+    const qHit = (S.data.meta || {}).quotaHit;
+    if (qHit && this.quotaOf() === qHit.from){
+      S.fb.quotaHit = { from: qHit.from, at: qHit.at };
+      if (this.probeWrite){ setTimeout(() => { this.maybeReturnFromQuota(false); }, 2500); }
+    } else if (qHit && !this.quotaOf()){ S.data.meta.quotaHit = null; S.fb.quotaHit = null; }
     const cfg = this.merged();
     if (!cfg.dbUrl && (!cfg.apiKey || !cfg.projectId)){ this.setStatus('off'); toast('إعدادات السحابة ناقصة', 'bad'); return false; }
     S.fb.cfg = cfg;
     this.setStatus('busy');
     // الترتيب: السيرفر اللي المستر اختاره بإيده الأول، وبعده الباقي للطوارئ
     const list = this.order(cfg);
-    let hasData = false, remoteRev = 0, err = null, used = cfg;
+    let hasData = false, remoteRev = 0, err = null, used = cfg, metaData = null;
     for (let i = 0; i < list.length; i++){
       S.fb.cfg = list[i];
       this._active = list[i];
       try{
         const meta = await this.readMeta();
         hasData = !!meta.exists; remoteRev = meta.rev || 0; err = null; used = list[i];
+        metaData = meta.exists ? (meta.data || null) : null;
         break;
       }catch(e){ err = e; }
     }
     this._active = null;
     S.fb.cfg = used; S.fb.remoteRev = remoteRev;
+    // مهم: نحدّث نسخة ملف المزامنة اللي عندنا — بيها بنعرف إن جهاز تاني عدّل حاجة قبل ما نرفع
+    if (metaData) S.fb.meta = metaData;
     const pin = this.pinned();
     S.fb.pinned = pin ? pin.projectId : '';
     S.fb.pinnedNick = pin ? (pin.nick || pin.projectId) : '';
@@ -1357,8 +1949,10 @@ const Cloud = {
     }
     if (S.fb.fellBack && this._fallbackTold !== pin.projectId){
       this._fallbackTold = pin.projectId;          // نخبره مرة واحدة بالحالة دي
-      toast('السيرفر اللي اخترته (' + (pin.nick || pin.projectId) + ') مش راد دلوقتي — شغالين على ' +
-        (used.nick || used.projectId) + ' مؤقتًا، وبياناتك بتتزامن عادي', 'warn', 'السحابة');
+      const atLimit = this.quotaOf() === pin.projectId;
+      toast((atLimit ? 'سيرفرك (' : 'السيرفر اللي اخترته (') + (pin.nick || pin.projectId) + ')' +
+        (atLimit ? ' خلصت كميته المجانية الشهر ده' : ' مش راد دلوقتي') + ' — شغالين على ' +
+        (used.nick || used.projectId) + ' وكل بياناتك بتتزامن عادي ومن غير أي نقصان', 'warn', 'السحابة');
     } else if (!S.fb.fellBack) this._fallbackTold = null;
     if (err){
       this.setStatus('error', err.message);
@@ -1369,11 +1963,20 @@ const Cloud = {
     }
     if (used && used.projectId) this.writeCfg(used);      // الإعدادات الشغالة تتحفظ تلقائيًا
     S.fb.errKind = ''; S.fb.remoteRev = remoteRev; S.fb.cloudEmpty = !hasData;
+    S.fb.ts = S.fb.ts || {}; this.ensureTs().catch(() => {});
+    // لو اتنقلنا لسيرفر تاني: كاش الأجزاء ما بقاش صالح، فالرفع الجاي يبعت كل حاجة للسيرفر الجديد
+    if (this._cacheProject && this._cacheProject !== used.projectId){
+      const c = this.cache(); c.sec = {}; c.att = {}; c.logo = null;
+    }
+    this._cacheProject = used.projectId;
     this.setStatus('live');
     this.stream();                       // تحديث لحظي + فحص احتياطي
     if (!opts.silent) toast(hasData ? 'تم الاتصال بالسحابة ✅' : 'تم الاتصال — السحابة فاضية، ارفع بياناتك', hasData ? 'ok' : 'info', 'السحابة');
     if (opts.auto) this.autoSync(hasData, remoteRev);
     this.syncUpgrade();          // توحيد الأجهزة بعد تحديث محرك المزامنة
+    // طابور الأوفلاين: أي تعديل اتسجل وانت بدون نت بيطلع لوحده أول ما نرجع متصلين
+    setTimeout(() => { this.flushPending(false); }, 1800);
+    setTimeout(() => { this.maybeSnapshot(); }, 6000);
     return true;
   },
   autoSync(hasData, remoteRev){
@@ -1386,7 +1989,10 @@ const Cloud = {
       toast('جارٍ تنزيل بياناتك من السحابة...', 'info', 'السحابة');
       this.doPull(true);
     } else if (hasData && hasLocal){
-      if (remoteRev > localRev && !dirty.main){
+      if (!hasLocal){                                 // جهاز فاضي (أو أعيد تثبيته) → ننزّل، مش نرفع
+        S.fb.behind = true; paintCloud();
+        this.doPull(true);
+      } else if (remoteRev > localRev && !dirty.main){
         // بيانات السحابة أحدث → ننزّلها أوتوماتيك من غير ما المستر يدوس حاجة
         toast('جارٍ تحديث بياناتك من السحابة...', 'info', 'السحابة');
         this.doPull(true).then(n => { if (n) toast('بياناتك محدّثة ✅', 'ok', 'السحابة'); });
@@ -1423,8 +2029,15 @@ const Cloud = {
       if (S.fb.status !== 'live' || S.fb.syncing || document.hidden) return;
       if (dirty.main) this.doPush(false);
       else if (Number(S.fb.remoteRev || 0) > Number(S.data.meta.rev || 0)) this.onRemoteChange(Number(S.fb.remoteRev));
+      else if (Date.now() - (this._pendCheck || 0) > 20000){      // طابور الأوفلاين: كل 20 ثانية
+        this._pendCheck = Date.now();
+        this.flushPending(false);
+      }
+      if (Date.now() - (this._snapCheck || 0) > 3600000){ this._snapCheck = Date.now(); this.maybeSnapshot(); }
       // كل دقيقة: لو شغالين على سيرفر طوارئ، نشوف سيرفرك المختار رجع ولا لأ
       if (Date.now() - (this._pinCheck || 0) > 60000){ this._pinCheck = Date.now(); this.checkPinBack(); }
+      // لو واقفين على السيرفر التاني بسبب حد الاستخدام: نجرّب نرجع كل شوية
+      if (S.fb.quotaHit) this.maybeReturnFromQuota(false);
     }, 6000);
   },
   // هل السيرفر اللي اختاره رجع شغال؟
@@ -1461,6 +2074,7 @@ const Cloud = {
     if (!(await this.ensure())) return false;
     S.fb.syncing = true; S.fb.syncingTxt = 'مزامنة كاملة'; paintCloud();
     try{
+      await this.ensureTs(true);
       await this.pullSections(true);
       const n = await this.pushSections(true);
       await this.writeMetaFull();
@@ -1476,6 +2090,128 @@ const Cloud = {
       toast('فشلت المزامنة الكاملة: ' + e.message, 'bad', 'السحابة');
       return false;
     }
+  },
+  /* ================= النسخ الاحتياطية على السحابة =================
+     نسخة كاملة من بياناتك بتتحفظ على فايربيز نفسها مرة كل يوم (وبضغطة منك في أي وقت)،
+     فلو أي جهاز خرب أو أي حاجة اتمسحت، ترجّع أي يوم بضغطة واحدة.
+     ================================================================= */
+  snapKey(){
+    const d = new Date(), p2 = n => String(n).padStart(2, '0');
+    return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + '-' + p2(d.getHours()) + p2(d.getMinutes());
+  },
+  async snapshotNow(manual){
+    if (!(await this.ensure())) return false;
+    if (S.fb.syncing){ toast('استنى المزامنة تخلص وبعدين اعمل نسخة', 'info', 'السحابة'); return false; }
+    try{
+      const at = new Date().toISOString();
+      let json = JSON.stringify(this.payload(true));
+      let thin = false;
+      if (json.length > 900000){                    // لو الملف ضخم: نسيب النسخة بدون حضور (أخف)
+        const p2 = this.payload(false); p2.attendance = {}; json = JSON.stringify(p2); thin = true;
+      }
+      const key = this.snapKey();
+      await this.rtdb('PUT', this.rootPath() + '/backups/' + key, {
+        at: at, rev: S.data.meta.rev || 0, thin: thin,
+        students: (S.data.students || []).length, groups: (S.data.groups || []).length, json: json });
+      S.data.meta.snapAt = at; saveLocal();
+      this.pruneBackups().catch(() => {});
+      if (manual) toast('تم عمل نسخة احتياطية على السحابة ✅' + (thin ? ' (بدون الحضور — البيانات كبيرة)' : ''), 'ok', 'السحابة');
+      paintCloud();
+      return true;
+    }catch(e){
+      if (manual) toast('فشل عمل النسخة: ' + e.message, 'bad', 'السحابة');
+      return false;
+    }
+  },
+  async listSnapshots(){
+    try{
+      const d = await this.rtdb('GET', this.rootPath() + '/backups', null, null, '?shallow=true');
+      if (!d || typeof d !== 'object') return [];
+      return Object.keys(d).map(k => { const v = d[k] || {};
+        return { key: k, at: v.at || '', students: v.students, groups: v.groups, rev: v.rev, thin: !!v.thin };
+      }).sort((a, b) => (a.key < b.key ? 1 : -1));
+    }catch(e){ return null; }
+  },
+  async pruneBackups(){
+    const list = await this.listSnapshots();
+    if (!list || list.length <= 6) return;
+    for (let i = 6; i < list.length; i++){ try{ await this.rtdb('DELETE', this.rootPath() + '/backups/' + list[i].key); }catch(e){} }
+  },
+  async maybeSnapshot(){
+    try{
+      if ((S.data.settings || {}).cloudBackup === false) return false;
+      if ((S.data.students.length + S.data.groups.length) === 0) return false;
+      const last = S.data.meta.snapAt ? Date.parse(S.data.meta.snapAt) : 0;
+      if (Date.now() - last < 20 * 3600000) return false;          // مرة كل يوم تقريبًا
+      return await this.snapshotNow(false);
+    }catch(e){ return false; }
+  },
+  async restoreSnapshot(key){
+    try{
+      const d = await this.rtdb('GET', this.rootPath() + '/backups/' + key);
+      if (!d || !d.json) return false;
+      const remote = JSON.parse(d.json);
+      this.applyRemote(remote, Number(d.rev || 0));
+      dirty.main = true;
+      await this.doPush(true);                                    // نرفع المسترجَع عشان كل الأجهزة تاخده
+      toast('تم استرجاع نسخة ' + key + ' ✅', 'ok', 'السحابة');
+      return true;
+    }catch(e){ toast('فشل الاسترجاع: ' + e.message, 'bad', 'السحابة'); return false; }
+  },
+  // شاشة حالة النظام: كل حاجة عن المزامنة في مكان واحد
+  async status(){
+    const st = S.fb.status, p = this.pending();
+    const lat = this.lat || {};
+    const latRows = FB_PROJECTS.map(pr => {
+      const v = lat[pr.projectId];
+      return pr.nick + ': ' + (v == null ? '—' : (v + ' م.ث')) + (S.fb.cfg && S.fb.cfg.projectId === pr.projectId ? ' (الشغال حاليًا)' : '');
+    });
+    const bw = this.bwText();
+    const snaps = await this.listSnapshots();
+    const size = (() => { try{ return (new Blob([JSON.stringify(S.data)]).size / 1024).toFixed(1) + ' KB'; }catch(e){ return '—'; } })();
+    const lines = [
+      ['حالة المزامنة', (st === 'live' ? '✅ ' + this.stateText() : st === 'error' ? '⚠️ ' + (S.fb.err || 'مشكلة') : '⏸️ مش متصل — البيانات محفوظة على الجهاز'), st === 'live' ? 'ok' : 'warn'],
+      ['السيرفر', (S.fb.cfg ? ((S.fb.cfg.nick || S.fb.cfg.projectId) + (S.fb.fellBack ? ' (طوارئ)' : '')) : '—') + (S.fb.stream === 'live' ? ' · تحديث لحظي ⚡' : ' · بيفحص كل شوية'), ''],
+      ['تعديلات لسه مرفوعة', p.any ? ('⚠️ ' + this.pendText() + ' — بتترفع لوحدها') : '✅ مفيش، كل حاجة مرفوعة', p.any ? 'warn' : 'ok'],
+      ['آخر رفع', S.fb.lastPush ? S.fb.lastPush.toLocaleString('ar-EG') : '—', ''],
+      ['سرعة السيرفرات', latRows.join(' · '), ''],
+      ['النسخ الاحتياطية على السحابة', snaps === null ? '⚠️ مش قادر أقراها' : (snaps.length ? (snaps.length + ' نسخة · آخر نسخة: ' + (snaps[0].key || '').replace(/-/g, '/')) : 'لسه مفيش نسخ — دوس "نسخة احتياطية الآن"'),
+        snaps && snaps.length ? 'ok' : 'warn'],
+      ['حجم البيانات', size + ' · ' + (S.data.students || []).length + ' طالب · ' + (S.data.groups || []).length + ' حصة', ''],
+      ['حد فايربيز المجاني', bw.storeKB + ' كيلو من 1,048,576 كيلو تخزين · تنزيل الشهر ده ' + bw.down + ' ميجا من 10,240 ميجا — يعني مستهلك ' + Math.max(bw.storePct, bw.downPct).toFixed(3) + '% بس', 'ok'],
+      ['المرآة (نسخة على السيرفر التاني)', S.data.settings.fbMirror === false ? '⏸️ متوقفة بإيدك من الإعدادات' :
+        (S.fb.quotaHit && S.fb.quotaHit.from === (this.mirrorCfg() || {}).projectId) ? '⏸️ السيرفر التاني وصل حده الشهر ده' :
+        (S.fb.mirrorBad ? ('⚠️ فيه مشكلة: ' + (S.fb.mirrorErr || 'مش راد')) : ('✅ كل تعديل بيتكتب على السيرفرين' + (S.fb.mirrorAt ? ' · آخر نسخة ' + S.fb.mirrorAt.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'}) : ''))),
+        S.fb.mirrorBad ? 'warn' : 'ok']
+    ];
+    if (S.fb.quotaHit) lines.splice(1, 0, ['حد الاستخدام', '⚠️ سيرفر ' + (S.fb.quotaHit.from || '') + ' خلصت كميته المجانية الشهر ده — المنصة اتحوّلت للسيرفر التاني وكل حاجة شغالة، وهنرجع لوحده أول ما يفك', 'warn']);
+    const body = `<div class="alerts">${lines.map(l => `<div class="alert-row ${l[2] || 'info'}">
+        <span class="at"><b>${esc(l[0])}</b><span>${esc(l[1])}</span></span></div>`).join('')}</div>
+      <p class="small muted" style="margin-top:12px">المزامنة تلقائية بالكامل: أي تعديل بيترفع لوحده (حتى لو النت قطع وقت التعديل)، وأي تحديث من جهاز تاني بينزل لوحده من غير ريفريش. ولو جهازين عدّلوا في نفس الوقت، النظام بيدمج تعديلاتهم بدون ما حد يضيع.</p>`;
+    Modal.open({ title: 'حالة المزامنة والسحابة', sub: 'نظرة كاملة على الاتصال والنسخ الاحتياطية', size:'md', body: body,
+      footer: `<button class="btn pri" data-act="fbFullSync">${icon('refresh')} مزامنة كاملة</button>
+        <button class="btn" data-act="fbSnapNow">${icon('save')} نسخة احتياطية الآن</button>
+        <button class="btn" data-act="fbSnaps">${icon('layers')} النسخ الاحتياطية</button>
+        <button class="btn" data-act="fbMirrorMerge">${icon('refresh')} دمج من السيرفر التاني</button>
+        <button class="btn ghost" data-act="fbServers">${icon('chart')} سرعة السيرفرات</button>
+        <button class="btn ghost" data-close>إغلاق</button>` });
+    return true;
+  },
+  // شاشة النسخ الاحتياطية: اختار أي يوم وارجعه
+  async snaps(){
+    const list = await this.listSnapshots();
+    let body;
+    if (list === null) body = '<div class="help warn">مش قادر أقرا النسخ من السحابة — راجع الاتصال.</div>';
+    else if (!list.length) body = '<div class="help info">لسه مفيش نسخ احتياطية على السحابة. أول نسخة بتتعمل لوحدها مع أول تشغيل كل يوم، أو دوس "نسخة احتياطية الآن".</div>';
+    else body = '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>التاريخ</th><th>الطلاب</th><th>الحصص</th><th>ملاحظة</th><th></th></tr></thead><tbody>' +
+      list.map(x => `<tr><td>${esc(x.key)}</td><td>${nf(x.students || 0)}</td><td>${nf(x.groups || 0)}</td>
+        <td>${x.thin ? 'بدون حضور' : 'كاملة'}</td>
+        <td><button class="btn sm pri" data-act="snapRestore" data-k="${esc(x.key)}">${icon('download')} استرجاع</button></td></tr>`).join('') +
+      '</tbody></table></div><p class="small muted" style="margin-top:10px">الاسترجاع بياخد نسخة اليوم ده ويحطها على كل أجهزتك. النسخ بتتحفظ آخر 6 نسخ عشان المساحة.</p>';
+    Modal.open({ title: 'النسخ الاحتياطية على السحابة', sub: 'رجّع بياناتك لأي يوم بضغطة', size:'lg', body: body,
+      footer: `<button class="btn pri" data-act="fbSnapNow">${icon('save')} نسخة احتياطية الآن</button>
+        <button class="btn ghost" data-close>إغلاق</button>` });
+    return true;
   },
   // الرجوع للسيرفر المختار بضغطة
   async backToPinned(){
@@ -1514,7 +2250,7 @@ const Cloud = {
 
   /* ---------- الرفع ---------- */
   payload(withAtt){
-    const p = { appVersion: 2, meta: S.data.meta, settings: S.data.settings, groups: S.data.groups,
+    const p = { appVersion: 2, meta: this.slimMeta(), settings: S.data.settings, groups: S.data.groups,
       students: S.data.students, exams: S.data.exams, grades: S.data.grades,
       feedback: S.data.feedback || {}, absNotes: S.data.absNotes || {}, msgSent: S.data.msgSent || {} };
     if (withAtt) p.attendance = S.data.attendance;
@@ -1522,10 +2258,21 @@ const Cloud = {
     if (lg && lg.length <= 300000) p._logo = lg;
     return p;
   },
+  hasAnyData(){
+    return ((S.data.students || []).length + (S.data.groups || []).length + (S.data.exams || []).length) > 0;
+  },
   async doPush(all){
     const cfg = this.merged();
     if (!cfg.dbUrl && !cfg.apiKey){ toast('إعدادات السحابة ناقصة', 'bad'); return false; }
-    if (S.fb.syncing){ this._pushAgain = true; return true; }      // مفيش رفعين في نفس الوقت
+    // 🛡️ حماية: جهاز جديد/عمره ما شاف بيانات ما يرفعش فراغ فوق بيانات موجودة على السحابة
+    // (ده كان أخطر سيناريو: إعادة تثبيت أو جهاز جديد يمسح كل شغل المستر)
+    if (!this.hasAnyData() && !(S.data.meta || {}).hadData && !S.fb.cloudEmpty){
+      toast('الجهاز ده مفيهوش بيانات، والبيانات موجودة على السحابة — بننزّلها بدل ما نرفع فراغ', 'info', 'السحابة');
+      await this.doPull(true);
+      return true;
+    }
+    if (all && !this.hasAnyData() && !(S.data.meta || {}).hadData){ dirty.main = false; S.fb.syncing = false; return true; }
+    if (S.fb.syncing){ this._pushAgain = true; this._pushAgainAll = !!all; return true; }   // مفيش رفعين في نفس الوقت
     S.fb.syncing = true; paintCloud();
     try{
       if (this.mode() === 'rtdb'){
@@ -1536,7 +2283,7 @@ const Cloud = {
         if (!n && !all){                                  // مفيش أي تغيير حقيقي → مفيش حاجة تتكتب
           dirty.main = false;
           S.fb.syncing = false; S.fb.syncingTxt = ''; this.setStatus('live');
-          if (this._pushAgain){ this._pushAgain = false; setTimeout(() => this.doPush(false), 300); }
+          if (this._pushAgain){ const a = this._pushAgainAll; this._pushAgain = false; this._pushAgainAll = false; setTimeout(() => this.doPush(!!a), 300); }
           return true;
         }
       } else {
@@ -1551,19 +2298,22 @@ const Cloud = {
       }
       dirty.main = false; S.fb.syncing = false; S.fb.syncingTxt = ''; S.fb.lastSync = new Date();
       S.fb.remoteRev = S.data.meta.rev; S.fb.behind = false; S.fb.ahead = false; S.fb.cloudEmpty = false;
+      try{ S.fb.pending = this.pending().count; }catch(e){}
       this.setStatus('live'); S.fb.errKind = '';
       if (all) toast('تم رفع كل البيانات للسحابة ✅', 'ok', 'السحابة');
       // لو وصل تحديث أحدث أثناء الرفع: ننزّله فورًا بدل ما يفضل معلّق
       if (Number(S.fb.remoteRev || 0) > Number(S.data.meta.rev || 0)) this.onRemoteChange(Number(S.fb.remoteRev));
-      if (this._pushAgain){ this._pushAgain = false; setTimeout(() => this.doPush(false), 400); }
+      if (this._pushAgain){ const a = this._pushAgainAll; this._pushAgain = false; this._pushAgainAll = false; setTimeout(() => this.doPush(!!a), 400); }
       return true;
     }catch(e){
       S.fb.syncing = false; S.fb.syncingTxt = ''; S.fb.errKind = e.kind;
+      // خلصت الكمية المجانية للسيرفر ده؟ نحوّل للسيرفر التاني عشان المشروع ما يقفش
+      if (e.kind === 'quota' && await this.switchOnQuota(e)) return true;
       this.setStatus('error', e.message);
       if (!dirty.main) dirty.main = true;                       // نعيد المحاولة بعد شوية
       toast('فشل الرفع: ' + e.message, 'bad', 'السحابة');
       if (!this._retry){ this._retry = setTimeout(() => { this._retry = null; if (dirty.main && S.fb.status !== 'off') this.doPush(false); }, 12000); }
-      if (this._pushAgain) this._pushAgain = false;
+      if (this._pushAgain){ this._pushAgain = false; this._pushAgainAll = false; }
       return false;
     }
   },
@@ -1636,6 +2386,7 @@ const Cloud = {
       });
       attDraft = null;
       bustCache();
+      if (this.hasAnyData()) S.data.meta.hadData = true;
       saveLocal(); render();
       S.fb.remoteRev = Number(rev || 0);
       S.fb.behind = false; S.fb.ahead = false;
@@ -1723,6 +2474,8 @@ const Cloud = {
           if (cr > lr) behind.push(k);
           else if (lr > cr) ahead.push(k);
         });
+        const pp = this.pending();
+        out.push(['تعديلات لسه مرفوعة', pp.any ? ('⚠️ ' + this.pendText() + ' — بتترفع لوحدها') : '✅ مفيش، كل حاجة مرفوعة', pp.any ? 'warn' : 'ok']);
         if (behind.length) out.push(['فيه أجزاء محتاجة تنزيل', '⚠️ ' + behind.join(' · ') + ' — دوس "مزامنة كاملة"', 'warn']);
         else if (ahead.length) out.push(['فيه أجزاء لسه مرفوعتش', '⚠️ ' + ahead.join(' · ') + ' — بتترفع لوحدها، أو دوس "مزامنة كاملة"', 'warn']);
         else out.push(['توحيد الأجهزة', '✅ كل الأجزاء متطابقة مع السحابة (' + this.secKeys().length + ' جزء)', 'ok']);
@@ -1740,6 +2493,7 @@ const Cloud = {
         ? `<button class="btn pri" data-act="fbPushAll">${icon('upload')} رفع الكل</button>
            <button class="btn" data-act="fbPull">${icon('download')} تنزيل</button>
            <button class="btn" data-act="fbFullSync">${icon('refresh')} مزامنة كاملة</button>
+           <button class="btn" data-act="fbStatus">${icon('cloud')} حالة المزامنة</button>
            <button class="btn ghost" data-close>إغلاق</button>`
         : `<button class="btn pri" data-act="fbHelp">${icon('alert')} الخطوات والحل</button>
            <button class="btn" data-act="fbRulesPage">${icon('link')} فتح صفحة القواعد</button>
@@ -1762,6 +2516,8 @@ function paintCloud(){
     else if (S.fb.pinBack){ cls = 'warn'; title = 'سيرفرك المختار رجع ✅'; sub = 'اضغط للرجوع ليه'; }
     else if (S.fb.fellBack){ cls = 'warn'; title = 'شغال على سيرفر الطوارئ'; sub = S.fb.pinnedNick ? ('المختار: ' + S.fb.pinnedNick + ' · اضغط للاختيار') : 'اضغط للاختيار'; }
     else if (S.fb.stream === 'live') sub = 'مزامنة لحظية ⚡' + (S.fb.pinnedNick ? ' · ' + S.fb.pinnedNick : '') + (S.fb.lastSync ? ' · ' + S.fb.lastSync.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'}) : '');
+    else if (S.fb.mirrorBad) sub = 'المرآة (السيرفر التاني) واقفة — المشروع شغال عادي';
+    else if (S.fb.pending > 0) sub = 'عندك ' + S.fb.pending + ' جزء لسه بيترفع...';
     else if (S.fb.stream === 'connecting') sub = 'بنوصّل التحديث اللحظي...';
     else sub = S.fb.lastSync ? ('آخر مزامنة ' + S.fb.lastSync.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'})) : 'المزامنة تلقائية';
   }
@@ -3276,6 +4032,10 @@ Views.settings = function(){
           <button class="btn ghost" data-act="fbConnect">${icon('refresh')} إعادة الاتصال</button>
         </div>
         <div class="btn-row" style="margin-top:9px">
+          <button class="btn sm ghost" data-act="fbStatus">${icon('cloud')} حالة المزامنة والنسخ</button>
+          <button class="btn sm ghost" data-act="fbSnapNow">${icon('save')} نسخة احتياطية الآن</button>
+          <button class="btn sm ghost" data-act="fbSnaps">${icon('layers')} استرجاع نسخة قديمة</button>
+          <button class="btn sm ghost" data-act="fbMirrorMerge">${icon('refresh')} دمج من السيرفر التاني</button>
           <button class="btn sm ghost" data-act="fbFullSync">${icon('refresh')} مزامنة كاملة (توحيد الأجهزة)</button>
           <button class="btn sm ghost" data-act="fbServers">${icon('layers')} اختيار السيرفر (انت اللي تختار)</button>
           <button class="btn sm ghost" data-act="fbPasteCfg">${icon('upload')} مشروع فايربيز تاني</button>
@@ -3288,7 +4048,9 @@ Views.settings = function(){
         <p class="small muted" style="margin-top:12px">
           ${S.fb.lastSync ? 'آخر مزامنة: ' + S.fb.lastSync.toLocaleString('ar-EG') : 'لسه محصلتش مزامنة في الجهاز ده'}
           · <b>${Cloud.stateText()}</b><br>
-          المزامنة تلقائية: أي تعديل بيترفع لوحده، وأي تحديث من جهاز تاني بينزل تلقائي كل 20 ثانية وفي كل مرة ترجع للصفحة.
+          المزامنة تلقائية بالكامل: أي تعديل بيترفع لوحده — <b>حتى لو النت قطع وقت التعديل بيتسجل ويطلع لوحده أول ما يرجع</b> — وأي تحديث من جهاز تاني بينزل تلقائي من غير ريفريش، ولو جهازين عدّلوا في نفس الوقت النظام بيدمج بدون ما حد يضيع.
+          كمان بتتعمل <b>نسخة احتياطية كاملة على السحابة مرة كل يوم</b> (وآخر 6 نسخ محفوظة) تقدر ترجّع أي يوم بضغطة.
+          وكل تعديل بيتكتب <b>على السيرفرين مع بعض (مرآة)</b>، فلو سيرفر وقع أو خلصت كميته المجانية، المنصة بتحوّل للسيرفر التاني لوحدها والمشروع ما يقفش أبدًا.
           ولوجو المنصة بيروح مع البيانات لكل الأجهزة.
         </p>
       </div>
@@ -3301,6 +4063,16 @@ Views.settings = function(){
           <input type="checkbox" id="darkToggle" ${st.theme === 'dark' ? 'checked' : ''}>
           <span class="track"></span>
           <span class="lb">الوضع الليلي<span>مريح للعين بألوان الهوية الذهبي والأسود</span></span>
+        </label>
+        <label class="switch" style="margin-bottom:14px">
+          <input type="checkbox" id="cloudMirrorToggle" ${st.fbMirror === false ? '' : 'checked'}>
+          <span class="track"></span>
+          <span class="lb">نسخة المرآة على السيرفر التاني<span>كل تعديل بيتكتب على السيرفرين — لو واحد وقع أو خلص، التاني فيه كل حاجة</span></span>
+        </label>
+        <label class="switch" style="margin-bottom:14px">
+          <input type="checkbox" id="cloudBackupToggle" ${st.cloudBackup === false ? '' : 'checked'}>
+          <span class="track"></span>
+          <span class="lb">نسخة احتياطية تلقائية على السحابة<span>مرة كل يوم — آخر 6 نسخ محفوظة وتقدر ترجّع أي يوم بضغطة</span></span>
         </label>
         <div class="sep"></div>
         <p class="small muted">حجم البيانات الحالي: <b>${size}</b> · آخر تعديل: ${S.data.meta.updatedAt ? new Date(S.data.meta.updatedAt).toLocaleString('ar-EG') : '—'}</p>
@@ -4557,6 +5329,18 @@ document.addEventListener('click', function(e){
       break;
     }
     case 'fbFullSync': { $$('.overlay').forEach(o => o.remove()); Cloud.fullSync(); break; }
+    case 'fbStatus': { $$('.overlay').forEach(o => o.remove()); Cloud.status(); break; }
+    case 'fbSnaps': { $$('.overlay').forEach(o => o.remove()); Cloud.snaps(); break; }
+    case 'fbMirrorMerge': { $$('.overlay').forEach(o => o.remove()); toast('بندمج بياناتك مع النسخة التانية...', 'info', 'السحابة'); Cloud.mirrorMerge(); break; }
+    case 'fbSnapNow': toast('بنعمل نسخة احتياطية على السحابة...', 'info', 'السحابة'); Cloud.snapshotNow(true); break;
+    case 'snapRestore': {
+      const k = el.dataset.k;
+      confirmDialog('استرجاع نسخة احتياطية', 'هيتم استرجاع بيانات نسخة ' + k + ' وحطها مكان البيانات الحالية على كل أجهزتك. متأكد؟', 'استرجاع', async () => {
+        $$('.overlay').forEach(o => o.remove());
+        toast('بنسترجاع النسخة...', 'info', 'السحابة');
+        await Cloud.restoreSnapshot(k);
+      }, true);
+      break; }
     case 'fbTest': Cloud.test(); break;
     case 'fbHelp': cloudHelpModal(S.fb.errKind || 'rules'); break;
     case 'fbCfgReset': {
@@ -4689,6 +5473,8 @@ document.addEventListener('change', function(e){
     return;
   }
   if (t.id === 'darkToggle'){ setTheme(t.checked ? 'dark' : 'light'); return; }
+  if (t.id === 'cloudMirrorToggle'){ S.data.settings.fbMirror = t.checked; commit(); toast(t.checked ? 'المرآة شغالة — كل تعديل على السيرفرين ✅' : 'المرآة اتوقفت', t.checked ? 'ok' : 'info', 'السحابة'); return; }
+  if (t.id === 'cloudBackupToggle'){ S.data.settings.cloudBackup = t.checked; commit(); toast(t.checked ? 'النسخة الاحتياطية اليومية شغالة ✅' : 'اتوقفت النسخة اليومية — تقدر تعمل نسخة بضغطة في أي وقت', t.checked ? 'ok' : 'info', 'السحابة'); return; }
   if (t.id === 'logoInput' && t.files && t.files[0]){ readLogoFile(t.files[0]); return; }
   if (t.id === 'fileInput' && t.files && t.files[0]){
     const rd = new FileReader();
@@ -4793,16 +5579,17 @@ window.addEventListener('resize', throttle(() => {
   window.addEventListener('focus', () => { if (S.fb.status === 'live') Cloud.checkRemote(); });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) return;
-    if (S.fb.status === 'live') Cloud.checkRemote();
+    if (S.fb.status === 'live'){ Cloud.checkRemote(); Cloud.flushPending(false); }
     // لو البث وقف وهو بعيد: نوصّله تاني
     if (S.fb.status === 'live' && S.fb.stream !== 'live' && navigator.onLine !== false) Cloud.stream();
   });
   window.addEventListener('beforeunload', () => { if (dirty.main) Cloud.push(true); });
   window.addEventListener('online', () => {
+    Cloud._offlineSeen = true;
     if (S.fb.status === 'error') Cloud.connect({ silent:true });
-    else if (S.fb.status === 'live' && S.fb.stream !== 'live') Cloud.stream();
+    else if (S.fb.status === 'live'){ if (S.fb.stream !== 'live') Cloud.stream(); Cloud.flushPending(false); }
   });
-  window.addEventListener('offline', () => { S.fb.stream = 'down'; paintCloud(); });
+  window.addEventListener('offline', () => { S.fb.stream = 'down'; Cloud._offlineSeen = true; paintCloud(); });
 })();
 
 window.FB_DEFAULT = FB_DEFAULT; window.FB_RULES = FB_RULES; window.FB_RULES_RTDB = FB_RULES_RTDB; window.FB_CONSOLE = FB_CONSOLE; window.FB_APILIB = FB_APILIB; window.FB_RULES_URL = FB_RULES_URL;
