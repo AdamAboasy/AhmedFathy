@@ -35,6 +35,12 @@
 /* شبكة الأنيميشن الجاهزة (sprite) بتتخفي ومش بتاخد مكان */
 svg.sprite{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
 
+/* أداء: تمرير ناعم بدون تعقيد الرسم على الأجهزة الضعيفة */
+.tbl-wrap, .modal-b, .nav{ -webkit-overflow-scrolling:touch; }
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{ animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; }
+}
+
 :root{
   --brand:#fac518;          /* اللون الذهبي من اللوجو */
   --brand-2:#ffd94a;
@@ -112,9 +118,11 @@ a{color:inherit}
 .cloud{display:flex;align-items:center;gap:8px;padding:9px 11px;border-radius:11px;background:rgba(255,255,255,.06);cursor:pointer;transition:.16s;border:0;color:inherit;text-align:start;width:100%}
 .cloud:hover{background:rgba(255,255,255,.12)}
 .cloud .dot{width:9px;height:9px;border-radius:50%;background:var(--muted-2);flex:0 0 9px}
-.cloud.live .dot{background:#22c55e;animation:pulse 1.8s infinite}
+.cloud.live .dot{background:#22c55e;position:relative}
+.cloud.live .dot::after{content:'';position:absolute;inset:0;border-radius:50%;background:#22c55e;
+  animation:pulse 2s ease-out infinite;will-change:transform,opacity}
 .cloud.busy .dot{background:var(--brand)} .cloud.err .dot{background:var(--bad)}
-@keyframes pulse{0%,100%{box-shadow:0 0 0 3px rgba(34,197,94,.18)}50%{box-shadow:0 0 0 8px rgba(34,197,94,.02)}}
+@keyframes pulse{0%{transform:scale(1);opacity:.55}70%,100%{transform:scale(2.6);opacity:0}}
 .cloud .ct{min-width:0;line-height:1.35}
 .cloud .ct b{display:block;color:#fff;font-size:12.5px;font-weight:700}
 .cloud .ct span{display:block;font-size:10.5px;color:#8b93a1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -124,9 +132,8 @@ a{color:inherit}
 .install-btn svg{width:17px;height:17px}
 
 .main{flex:1;min-width:0;margin-inline-start:var(--sb);display:flex;flex-direction:column}
-.topbar{position:sticky;top:0;z-index:40;background:var(--card);background:color-mix(in srgb,var(--card) 88%,transparent);
-  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);border-bottom:1px solid var(--line);
-  padding:10px 18px;display:flex;align-items:center;gap:11px;min-height:66px}
+.topbar{position:sticky;top:0;z-index:40;background:var(--card);
+  border-bottom:1px solid var(--line);padding:10px 18px;display:flex;align-items:center;gap:11px;min-height:66px}
 .burger{display:none;width:40px;height:40px;border-radius:11px;border:1px solid var(--line);background:var(--card);cursor:pointer;align-items:center;justify-content:center}
 .burger svg{width:20px;height:20px}
 .ptitle{min-width:0}
@@ -243,7 +250,7 @@ select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns=
 .switch .lb span{display:block;font-size:11.5px;color:var(--muted);font-weight:600}
 
 /* ---------- Modal ---------- */
-.overlay{position:fixed;inset:0;background:rgba(8,8,10,.64);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:22px 14px;overflow-y:auto;animation:fade .18s}
+.overlay{position:fixed;inset:0;background:rgba(8,8,10,.72);z-index:200;display:flex;align-items:flex-start;justify-content:center;padding:22px 14px;overflow-y:auto;animation:fade .18s}
 @keyframes fade{from{opacity:0}to{opacity:1}}
 .modal{background:var(--card);border-radius:18px;box-shadow:var(--shadow-lg);width:100%;max-width:720px;margin:auto;animation:pop .22s cubic-bezier(.2,.9,.3,1.2);border:1px solid var(--line)}
 .modal.sm{max-width:470px} .modal.lg{max-width:940px} .modal.xl{max-width:1180px}
@@ -573,7 +580,16 @@ function throttle(fn, ms){ let last = 0, tm = null; return function(){ const a =
 function clamp(n, a, b){ return Math.max(a, Math.min(b, n)); }
 function sum(arr, f){ return arr.reduce((t, x) => t + (f ? f(x) : x), 0); }
 function groupBy(arr, f){ const m = {}; arr.forEach(x => { const k = f(x); (m[k] = m[k] || []).push(x); }); return m; }
-function sortBy(arr, f, dir){ return arr.slice().sort((a, b) => { const x = f(a), y = f(b); return (x < y ? -1 : x > y ? 1 : 0) * (dir === 'desc' ? -1 : 1); }); }
+function sortBy(arr, f, dir){
+  // بنحسب مفتاح الترتيب مرة واحدة لكل عنصر (مش مع كل مقارنة) — فرق كبير مع الجداول الكبيرة
+  const k = dir === 'desc' ? -1 : 1, n = arr.length;
+  const keyed = new Array(n);
+  for (let i = 0; i < n; i++){ const x = arr[i]; keyed[i] = { k: f(x), v: x }; }
+  keyed.sort((a, b) => (a.k < b.k ? -1 : a.k > b.k ? 1 : 0) * k);
+  const out = new Array(n);
+  for (let i = 0; i < n; i++) out[i] = keyed[i].v;
+  return out;
+}
 function unique(a){ return Array.from(new Set(a)); }
 function nf(n, dec){ return (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: dec || 0, maximumFractionDigits: dec || 0 }); }
 function pct(a, b){ return b ? Math.round((a / b) * 100) : 0; }
@@ -706,6 +722,7 @@ const S = {
   query: '',
   ui: {
     stuFilter: { stage:'', groupId:'', payMode:'', type:'', status:'', sort:'name' },
+    stuLimit: 60,          // عدد صفوف الطلاب المعروضة — عرض تدريجي عشان الشاشة تفضل سريعة
     grpFilter: { stage:'', day:'' },
     att: { date: today(), groupId:'' },
     exam: { id:'' },
@@ -747,22 +764,29 @@ function migrate(d){
 }
 function loadLocal(){
   try{ const raw = localStorage.getItem(LS_KEY);
-    if (raw){ S.data = migrate(JSON.parse(raw)); return true; } }catch(e){ console.warn(e); }
+    if (raw){ S.data = migrate(JSON.parse(raw)); bustCache(); return true; } }catch(e){ console.warn(e); }
   return false;
 }
+let LS_LAST = '';      // آخر نسخة اتكتبت — عشان ما نكتبش نفس الحاجة مرتين
 const saveLocal = debounce(function(){
   const write = () => {
-    try{ S.data.meta.updatedAt = new Date().toISOString(); localStorage.setItem(LS_KEY, JSON.stringify(S.data)); }
-    catch(e){ console.warn(e); toast('تعذّر الحفظ في المتصفح', 'bad'); }
+    try{
+      S.data.meta.updatedAt = new Date().toISOString();
+      const json = JSON.stringify(S.data);
+      if (json === LS_LAST) return;                 // مفيش تغيير حقيقي
+      LS_LAST = json;
+      localStorage.setItem(LS_KEY, json);
+    }catch(e){ console.warn(e); toast('تعذّر الحفظ في المتصفح', 'bad'); }
   };
-  // الكتابة في وقت الخمول عشان الواجهة ما تتلخبطش
-  if (typeof requestIdleCallback === 'function') requestIdleCallback(write, { timeout: 400 });
+  // الكتابة في وقت الخمول عشان الواجهة ما تتلخبطش (الكتابة نفسها عملية تقيلة)
+  if (typeof requestIdleCallback === 'function') requestIdleCallback(write, { timeout: 700 });
   else setTimeout(write, 0);
-}, 250);
+}, 400);
 
 const dirty = { main:false };
 function commit(opts){
   opts = opts || {};
+  bustCache();
   S.data.meta.rev = (S.data.meta.rev || 0) + 1;
   S.data.meta.updatedAt = new Date().toISOString();
   dirty.main = true;
@@ -1534,6 +1558,7 @@ const Cloud = {
         feedback: remote.feedback || {}, absNotes: remote.absNotes || {}, msgSent: remote.msgSent || {}
       });
       attDraft = null;
+      bustCache();
       saveLocal(); render();
       S.fb.remoteRev = Number(rev || 0);
       S.fb.behind = false; S.fb.ahead = false;
@@ -1915,38 +1940,79 @@ function getAtt(date, gid){ return S.data.attendance[attKey(date, gid)] || null;
 function setAtt(date, gid, records, note){
   const k = attKey(date, gid), prev = S.data.attendance[k] || {};
   S.data.attendance[k] = { groupId: gid || '', note: note || '', records: records, rev: (prev.rev || 0) + 1, savedAt: new Date().toISOString() };
+  bustCache();
+}
+/* ==========================================================
+   فهارس الأداء — المنصة بتبني فهرس الحضور والدرجات مرة واحدة
+   وبعدها كل حساب بياخد وقت ثابت. من غير كده كل طالب كان بيعيد
+   قراءة كل سجلات الحضور من الصفر (بطء شديد مع البيانات الكبيرة).
+   ========================================================== */
+let PERF = { rev:0, attIndex:null, attStats:{}, exam:null };
+function bustCache(){ PERF.rev++; PERF.attIndex = null; PERF.attStats = {}; PERF.exam = null; }
+// فهرس الحضور: { studentId: [ {date, groupId, status}, ... ] } مرتب بالتاريخ
+function attIndex(){
+  if (PERF.attIndex) return PERF.attIndex;
+  const idx = {};
+  const att = S.data.attendance || {};
+  Object.keys(att).forEach(k => {
+    const rec = att[k]; if (!rec) return;
+    const at = k.indexOf('@');
+    const date = at > 0 ? k.slice(0, at) : k;
+    const rawG = at > 0 ? k.slice(at + 1) : '';
+    const groupId = rawG === 'none' ? '' : rawG;
+    const recs = rec.records || {};
+    Object.keys(recs).forEach(sid => {
+      (idx[sid] = idx[sid] || []).push({ date: date, groupId: groupId, status: recs[sid] });
+    });
+  });
+  Object.keys(idx).forEach(sid => idx[sid].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)));
+  PERF.attIndex = idx;
+  return idx;
 }
 function allAttRecords(){
-  const out = [];
-  Object.keys(S.data.attendance).forEach(k => {
-    const parts = k.split('@'), rec = S.data.attendance[k];
-    Object.keys(rec.records || {}).forEach(sid => out.push({ date: parts[0], groupId: parts[1] === 'none' ? '' : parts[1], studentId: sid, status: rec.records[sid] }));
-  });
+  const idx = attIndex(), out = [];
+  Object.keys(idx).forEach(sid => idx[sid].forEach(r => out.push({ date:r.date, groupId:r.groupId, studentId:sid, status:r.status })));
   return out;
 }
 function attStats(sid, from, to){
+  const key = sid + '|' + (from || '') + '|' + (to || '');
+  const hit = PERF.attStats[key];
+  if (hit) return hit;
   const st = { present:0, absent:0, late:0, excused:0, total:0 };
-  allAttRecords().forEach(r => {
-    if (r.studentId !== sid) return;
-    if (from && r.date < from) return;
-    if (to && r.date > to) return;
+  const rows = attIndex()[sid] || [];
+  for (let i = 0; i < rows.length; i++){
+    const r = rows[i];
+    if (from && r.date < from) continue;
+    if (to && r.date > to) continue;
     if (st[r.status] != null) st[r.status]++;
     st.total++;
-  });
+  }
   const counted = st.present + st.absent + st.late;
   st.rate = counted ? Math.round(((st.present + st.late) / counted) * 100) : 0;
   st.absentRate = counted ? Math.round((st.absent / counted) * 100) : 0;
+  PERF.attStats[key] = st;
   return st;
 }
 function attRate(sid, from, to){ return attStats(sid, from, to).rate; }
-function examAvg(sid){
-  const v = [];
-  S.data.exams.forEach(e => { const g = (S.data.grades[e.id] || {})[sid]; if (typeof g === 'number' && e.max) v.push((g / e.max) * 100); });
-  return v.length ? Math.round(sum(v, x => x) / v.length) : null;
+// فهرس الدرجات: مجموع النسب وعدد الامتحانات لكل طالب — مرة واحدة بدل كل مرة
+function examIndex(){
+  if (PERF.exam) return PERF.exam;
+  const sum = {}, count = {}, avg = {};
+  S.data.exams.forEach(e => {
+    const g = S.data.grades[e.id] || {};
+    Object.keys(g).forEach(sid => {
+      const v = g[sid];
+      if (typeof v !== 'number' || !e.max) return;
+      sum[sid] = (sum[sid] || 0) + (v / e.max) * 100;
+      count[sid] = (count[sid] || 0) + 1;
+    });
+  });
+  Object.keys(count).forEach(sid => { avg[sid] = Math.round(sum[sid] / count[sid]); });
+  PERF.exam = { sum: sum, count: count, avg: avg };
+  return PERF.exam;
 }
-function examCount(sid){
-  return S.data.exams.filter(e => typeof (S.data.grades[e.id] || {})[sid] === 'number').length;
-}
+function examAvg(sid){ const b = examIndex(); return b.count[sid] ? b.avg[sid] : null; }
+function examCount(sid){ return examIndex().count[sid] || 0; }
 function studentStatus(s){
   if (s.status === 'stopped') return { key:'stopped', label:'موقوف', cls:'b-gray' };
   if (s.status === 'paused') return { key:'paused', label:'متوقف مؤقتًا', cls:'b-gray' };
@@ -2561,7 +2627,8 @@ Views.students = function(){
   const sorters = { name: x => x.name || '', joinDate: x => x.joinDate || '', rate: x => attStats(x.id).rate, avg: x => -1 * (examAvg(x.id) || 0), stage: x => x.stage || '', group: x => groupName(x.groupId) };
   list = sortBy(list, sorters[f.sort] || sorters.name, (f.sort === 'rate') ? 'desc' : 'asc');
 
-  const rows = list.map(s => {
+  const shownList = list.slice(0, S.ui.stuLimit || 60);
+  const rows = shownList.map(s => {
     const a = attStats(s.id), avg = examAvg(s.id), stt = studentStatus(s), g = groupOf(s.groupId);
     return `<tr>
       <td>${stuCell(s)}</td>
@@ -2579,7 +2646,8 @@ Views.students = function(){
       </div></td></tr>`;
   }).join('');
 
-  return pageHead('الطلاب', `${list.length} طالب${q ? ' (نتيجة بحث)' : ''} · ${ar(list.filter(s => !s.groupId).length)} بدون حصة`,
+  return pageHead('الطلاب', `${list.length} طالب${q ? ' (نتيجة بحث)' : ''} · ${ar(list.filter(s => !s.groupId).length)} بدون حصة`
+      + (list.length > shownList.length ? ` · بنعرض ${ar(shownList.length)}` : ''),
     `<button class="btn" data-act="expStudents">${icon('download')} Excel</button>
      <button class="btn" data-act="pdfStudents">${icon('pdf')} PDF</button>
      <button class="btn pri" data-act="addStudent">${icon('plus')} طالب جديد</button>`) + `
@@ -2616,7 +2684,9 @@ Views.students = function(){
   </div>
   ${list.length ? `<div class="tbl-wrap"><table class="tbl">
     <thead><tr><th>الطالب</th><th>المرحلة</th><th>الحصة</th><th>نظام الدفع</th><th>الحضور</th><th>الدرجات</th><th>الحالة</th><th></th></tr></thead>
-    <tbody>${rows}</tbody></table></div>`
+    <tbody>${rows}</tbody></table></div>` + (list.length > shownList.length
+      ? `<div class="flex" style="margin-top:12px;justify-content:center"><button class="btn" data-act="moreStudents">${icon('plus')} عرض المزيد (باقي ${ar(list.length - shownList.length)} طالب)</button></div>`
+      : '')
   : `<div class="card-b">${emptyState('لا يوجد طلاب مطابقون',
       (q || f.stage || f.groupId || f.payMode || f.type || f.status) ? 'جرّب تغيير الفلاتر أو البحث' : 'ابدأ بإضافة أول طالب',
       `<button class="btn pri" data-act="addStudent">${icon('plus')} إضافة طالب</button>`)}</div>`}
@@ -4161,8 +4231,9 @@ document.addEventListener('click', function(e){
   switch (act){
     /* --- تنقل وفلاتر --- */
     case 'go': go(id, { groupId: el.dataset.group }); break;
-    case 'clearFilters': S.ui.stuFilter = { stage:'', groupId:'', payMode:'', type:'', status:'', sort:'name' }; S.query = ''; $('#globalSearch').value = ''; render(); break;
-    case 'filterStage': Modal.closeAll(); S.ui.stuFilter = Object.assign({}, S.ui.stuFilter, { stage: id }); S.view = 'students'; render(); break;
+    case 'moreStudents': S.ui.stuLimit = (S.ui.stuLimit || 60) + 60; render(); break;
+    case 'clearFilters': S.ui.stuFilter = { stage:'', groupId:'', payMode:'', type:'', status:'', sort:'name' }; S.ui.stuLimit = 60; S.query = ''; $('#globalSearch').value = ''; render(); break;
+    case 'filterStage': Modal.closeAll(); S.ui.stuFilter = Object.assign({}, S.ui.stuFilter, { stage: id }); S.ui.stuLimit = 60; S.view = 'students'; render(); break;
     case 'grpDay': S.ui.grpFilter.day = id; render(); break;
     case 'grpClear': S.ui.grpFilter = { stage:'', day:'' }; render(); break;
 
@@ -4468,7 +4539,7 @@ document.addEventListener('click', function(e){
     case 'wipe': confirmDialog('حذف كل البيانات', 'سيتم حذف كل الطلاب والحصص والامتحانات وسجل الحضور نهائيًا.', 'حذف الكل', () => {
       localStorage.removeItem(LS_KEY);
       S.data = defaultData(); S.ui.att.groupId = ''; attDraft = null;
-      commit(); toast('تم حذف كل البيانات', 'ok');
+      bustCache(); commit(); toast('تم حذف كل البيانات', 'ok');
     }, true); break;
   }
 });
@@ -4502,7 +4573,7 @@ function openGroupInfo(id){
 /* ---------------- Other listeners ---------------- */
 document.addEventListener('change', function(e){
   const t = e.target;
-  if (t.matches('[data-filter]')){ S.ui.stuFilter[t.dataset.filter] = t.value; render(); return; }
+  if (t.matches('[data-filter]')){ S.ui.stuFilter[t.dataset.filter] = t.value; S.ui.stuLimit = 60; render(); return; }
   if (t.matches('[data-att]')){
     S.ui.att[t.dataset.att === 'date' ? 'date' : 'groupId'] = t.value; attDraft = null; render(); return; }
   if (t.matches('[data-rep]')){ S.ui.rep[t.dataset.rep] = t.value; render(); return; }
@@ -4535,7 +4606,7 @@ document.addEventListener('change', function(e){
         const d = JSON.parse(rd.result);
         if (!d || (!d.students && !d.groups)) throw new Error('ملف غير صالح');
         const lg = d._logo; delete d._logo;
-        S.data = migrate(d); attDraft = null; commit();
+        S.data = migrate(d); attDraft = null; bustCache(); commit();
         if (typeof lg === 'string' && lg.indexOf('data:image/') === 0) setLogo(lg);
         toast('تم استيراد البيانات: ' + S.data.students.length + ' طالب', 'ok');
       }catch(err){ toast('فشل الاستيراد: ' + err.message, 'bad'); }
@@ -4547,10 +4618,11 @@ document.addEventListener('input', debounce(function(e){
   const t = e.target;
   if (t.id === 'globalSearch'){
     S.query = t.value;
+    S.ui.stuLimit = 60;
     if (S.query && S.view !== 'students') S.view = 'students';
     render(); return;
   }
-  if (t.id === 'stuSearch'){ S.query = t.value; render(); return; }
+  if (t.id === 'stuSearch'){ S.query = t.value; S.ui.stuLimit = 60; render(); return; }
   if (t.id === 'attNote' && attDraft){ attDraft.note = t.value; return; }
 }, 250));
 
