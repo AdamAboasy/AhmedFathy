@@ -427,9 +427,9 @@ select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns=
   .rep-foot{position:fixed;bottom:0;left:0;right:0}
 }
 </style>
-<script>/* اللوجو: صورة المنصة logo.png ثم logo.jpg ثم شعار بديل — الصورة تُعرض كما هي بدون أي تعديل */
+<script>/* اللوجو: صورة المنصة كما هي بدون أي تعديل (logo.jpg ثم logo.png ثم شعار بديل) */
 window.AF_LOGO_KEY='mostar_logo';
-window.AF_LOGO_FILES=['logo.png','logo.jpg'];
+window.AF_LOGO_FILES=['logo.jpg','logo.png'];
 window.AF_LOGO_FALLBACK='data:image/svg+xml;charset=utf-8,'+encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#ffd94a'/><stop offset='1' stop-color='#fac518'/></linearGradient></defs><circle cx='60' cy='60' r='60' fill='#0b0b0d'/><circle cx='60' cy='60' r='52' fill='url(#g)'/><text x='60' y='70' font-family='Tahoma,Arial' font-size='34' font-weight='bold' text-anchor='middle' fill='#1b1b1b'>AF</text></svg>");
 window.AF_logoSrc=function(){ var v=''; try{ v=localStorage.getItem(window.AF_LOGO_KEY)||''; }catch(e){} return v || window.AF_LOGO_FILES[0]; };
 window.AF_logoChain=function(){ var v=''; try{ v=localStorage.getItem(window.AF_LOGO_KEY)||''; }catch(e){} return (v?[v]:[]).concat(window.AF_LOGO_FILES).concat([window.AF_LOGO_FALLBACK]); };
@@ -493,7 +493,7 @@ window.AF_logoNext=function(img){
   <aside class="sidebar" id="sidebar">
     <div class="brand">
       <div class="logo-wrap" title="اضغط لتغيير اللوجو">
-        <img class="logo" data-logo src="logo.png" alt="أحمد فتحي" id="brandLogo" onerror="AF_logoNext(this)">
+        <img class="logo" data-logo src="logo.jpg" alt="أحمد فتحي" id="brandLogo" onerror="AF_logoNext(this)">
         <button class="logo-edit" data-act="logoPick" aria-label="تغيير اللوجو" title="تغيير اللوجو">
           <svg><use href="#i-edit"/></svg>
         </button>
@@ -514,6 +514,7 @@ window.AF_logoNext=function(img){
       <a data-view="exams"><svg><use href="#i-award"/></svg><span>الامتحانات والدرجات</span></a>
       <div class="nlabel">المتابعة</div>
       <a data-view="reports"><svg><use href="#i-pdf"/></svg><span>التقارير و PDF</span></a>
+      <a data-view="help"><svg><use href="#i-book"/></svg><span>دليل الاستخدام</span></a>
       <a data-view="settings"><svg><use href="#i-gear"/></svg><span>الإعدادات</span></a>
     </nav>
     <div class="side-foot">
@@ -550,6 +551,7 @@ window.AF_logoNext=function(img){
 <div id="modalRoot"></div>
 <div class="toasts" id="toasts"></div>
 <div id="printArea"></div>
+<input type="file" id="impFile" accept=".csv,.txt,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
 <input type="file" id="fileInput" accept=".json,application/json" class="hide">
 <input type="file" id="logoInput" accept="image/png,image/jpeg,image/jpg,image/webp,image/*" class="hide">
 
@@ -591,6 +593,13 @@ function sortBy(arr, f, dir){
   return out;
 }
 function unique(a){ return Array.from(new Set(a)); }
+// أرقام عربية للكلام (واحد، اتنين...) — بنستخدمها في الرسائل الودّية
+function addAr(n){
+  const v = Number(n) || 0;
+  const small = ['صفر','واحد','اتنين','تلاتة','أربعة','خمسة','ستة','سبعة','تمانية','تسعة','عشرة'];
+  if (v <= 10) return small[v];
+  return nf(v);
+}
 function nf(n, dec){ return (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: dec || 0, maximumFractionDigits: dec || 0 }); }
 function pct(a, b){ return b ? Math.round((a / b) * 100) : 0; }
 function ar(n){ return nf(n, 0); }
@@ -641,15 +650,17 @@ function waLink(phone, text){
 }
 
 /* ---------------- Toast ---------------- */
-function toast(msg, type, title){
+function toast(msg, type, title, withUndo){
   const box = $('#toasts'); if (!box) return;
   const t = document.createElement('div');
   const icons = { ok:'check', bad:'alert', warn:'alert', info:'bell' };
   t.className = 'toast ' + (type || 'info');
   t.innerHTML = `<span class="ti">${icon(icons[type] || 'bell')}</span>
-    <span class="tt"><b>${esc(title || ({ok:'تم بنجاح',bad:'خطأ',warn:'تنبيه',info:'معلومة'})[type] || 'معلومة')}</b><span>${esc(msg)}</span></span>`;
+    <span class="tt"><b>${esc(title || ({ok:'تم بنجاح',bad:'خطأ',warn:'تنبيه',info:'معلومة'})[type] || 'معلومة')}</b><span>${esc(msg)}</span></span>` +
+    (withUndo ? `<button class="btn sm pri" data-act="undoLast" style="margin-inline-start:8px">${icon('refresh')} رجّع</button>` : '');
   box.appendChild(t);
-  setTimeout(() => { t.style.transition = '.3s'; t.style.opacity = '0'; t.style.transform = 'translateY(10px)'; setTimeout(() => t.remove(), 320); }, type === 'bad' ? 6000 : 3600);
+  const life = withUndo ? 10000 : (type === 'bad' ? 6000 : 3600);
+  setTimeout(() => { t.style.transition = '.3s'; t.style.opacity = '0'; t.style.transform = 'translateY(10px)'; setTimeout(() => t.remove(), 320); }, life);
 }
 
 /* ---------------- Modal ---------------- */
@@ -735,6 +746,64 @@ const S = {
 
 /* ---------------- Storage ---------------- */
 const LS_KEY = 'mostar_platform_v2';
+const APP_V = 'v2.6';
+const ERR_KEY = 'mostar_errlog';
+const SAFE_KEY = 'mostar_safe';      // نسخة محلية خفية — لو المتصفح مسح بياناته نرجّعها في ثانية
+let SAFE_AT = 0, SAFE_SIG = '';
+
+/* ---------------- التشخيص الذاتي: بنسجّل أي مشكلة عشان تتصلّح من غير تخمين ----------------
+   كل حاجة بتتسجّل لوحدها في الجهاز (آخر 30 مشكلة)، وزر «انسخ تشخيص» بيطلع تقرير جاهز
+   يتبعت واتساب، فيه كل اللي محتاجه عشان أعرف المشكلة من غير ما أسأل. */
+function logErr(kind, msg, extra){
+  try{
+    const list = JSON.parse(localStorage.getItem(ERR_KEY) || '[]');
+    const last = list[0];
+    const line = String(msg || '').slice(0, 300);
+    if (last && last.msg === line && Date.now() - new Date(last.at).getTime() < 15000) return;   // مش هنكرر نفس الخطأ
+    list.unshift({ at:new Date().toISOString(), kind:String(kind || ''), msg:line, extra: extra ? String(extra).slice(0, 220) : '' });
+    localStorage.setItem(ERR_KEY, JSON.stringify(list.slice(0, 30)));
+    if (typeof S !== 'undefined' && S.fb) S.fb.errCount = list.length;
+  }catch(e){}
+}
+function errList(){ try{ return JSON.parse(localStorage.getItem(ERR_KEY) || '[]'); }catch(e){ return []; } }
+function clearErrs(){ try{ localStorage.removeItem(ERR_KEY); if (S.fb) S.fb.errCount = 0; }catch(e){} }
+function devKind(){
+  const u = navigator.userAgent || '';
+  if (/iPhone|iPad|iPod/i.test(u)) return 'آيفون/آيباد (Safari)';
+  if (/Android/i.test(u)) return 'أندرويد' + (/Chrome/i.test(u) ? ' — كروم' : '');
+  if (/Windows/i.test(u)) return 'كمبيوتر ويندوز';
+  if (/Mac OS/i.test(u)) return 'ماك';
+  if (/Linux/i.test(u)) return 'لينكس';
+  return 'جهاز مش معروف';
+}
+function diagText(){
+  const c = (S.fb.cfg || (typeof Cloud !== 'undefined' ? Cloud.merged() : {}) || {});
+  const p = (typeof Cloud !== 'undefined') ? Cloud.pending() : { count:0 };
+  let size = '—'; try{ size = (new Blob([JSON.stringify(S.data)]).size / 1024).toFixed(1) + ' كيلو'; }catch(e){}
+  const bw = (typeof Cloud !== 'undefined' && Cloud.bwText) ? Cloud.bwText() : {};
+  const tools = (typeof Cloud !== 'undefined') ? Cloud : {};
+  const errs = errList().slice(0, 12).map(e => '  · [' + (e.at || '').replace('T',' ').slice(0,16) + '] ' + e.kind + ': ' + e.msg + (e.extra ? ' | ' + e.extra : '')).join('\n') || '  · مفيش أخطاء مسجّلة ✅';
+  return [
+    '📋 تقرير تشخيص — منصة المستر',
+    'الإصدار: ' + APP_V + ' · نسخة الملف المخزّنة: ' + (S.data.meta && S.data.meta.syncv || '—'),
+    'التاريخ: ' + new Date().toLocaleString('ar-EG'),
+    'الجهاز: ' + devKind(),
+    'المتصفح: ' + String(navigator.userAgent || '').slice(0, 110),
+    'الشبكة: ' + (navigator.onLine ? 'متصل' : 'مفيش نت') + ' · الشاشة ' + window.innerWidth + '×' + window.innerHeight,
+    '——— السحابة ———',
+    'السيرفر: ' + (c.nick || c.projectId || '—') + ' (' + (c.projectId || '—') + ')',
+    'الحالة: ' + (S.fb.status || 'off') + (S.fb.err ? ' — ' + S.fb.err : '') + ' · بث مباشر: ' + (S.fb.stream || '—'),
+    'التأمين: ' + (S.data.settings.auth === false ? 'مقفول بإيد المستر' : ('auth=' + (S.fb.auth || (tools.tok && tools.tok() ? 'on' : '—')) + (S.fb.authErr ? ' — ' + S.fb.authErr : ''))),
+    'التعديلات المعلّقة: ' + (p.count || 0) + ' · آخر رفع: ' + (S.fb.lastPush ? S.fb.lastPush.toLocaleString('ar-EG') : '—'),
+    'المرآة: ' + (S.data.settings.fbMirror === false ? 'متوقفة' : (S.fb.mirrorBad ? 'مشكلة: ' + (S.fb.mirrorErr || '—') : 'شغالة')) + (S.fb.mirrorAt ? ' · آخر نسخة ' + S.fb.mirrorAt.toLocaleString('ar-EG') : ''),
+    'الاستهلاك: تخزين ' + (bw.storeKB || '—') + ' كيلو · تنزيل الشهر ' + (bw.down || 0) + ' ميجا',
+    '——— البيانات ———',
+    'الحجم: ' + size + ' · طلاب: ' + ((S.data.students || []).length) + ' · حصص: ' + ((S.data.groups || []).length) + ' · امتحانات: ' + ((S.data.exams || []).length),
+    '——— آخر الأخطاء ———',
+    errs
+  ].join('\n');
+}
+
 const FB_KEY = 'mostar_platform_fb';
 const FB_PREF_KEY = 'mostar_platform_fb_pref';   // السيرفر اللي المستر اختاره بإيده (أو 'auto')
 
@@ -767,6 +836,20 @@ function loadLocal(){
     if (raw){ S.data = migrate(JSON.parse(raw)); bustCache(); return true; } }catch(e){ console.warn(e); }
   return false;
 }
+// لو بيانات المتصفح ضاعت (مسح بيانات / مشكلة) بنرجّع آخر نسخة أمان خفية لوحدنا
+function loadSafeCopy(){
+  try{
+    const raw = localStorage.getItem(SAFE_KEY);
+    if (!raw) return false;
+    const pack = JSON.parse(raw);
+    if (!pack || !pack.data) return false;
+    const d = migrate(pack.data);
+    if (!d || !((d.students || []).length || (d.groups || []).length || (d.attendance && Object.keys(d.attendance).length))) return false;
+    S.data = d; bustCache();
+    S.fb.restoredLocal = pack.at || true;
+    return true;
+  }catch(e){ return false; }
+}
 let LS_LAST = '';      // آخر نسخة اتكتبت — عشان ما نكتبش نفس الحاجة مرتين
 const saveLocal = debounce(function(){
   const write = () => {
@@ -776,6 +859,18 @@ const saveLocal = debounce(function(){
       if (json === LS_LAST) return;                 // مفيش تغيير حقيقي
       LS_LAST = json;
       localStorage.setItem(LS_KEY, json);
+      // نسخة أمان خفية كمان (مش بتتقرا في الشغل العادي — بتستخدم لو المتصفح مسح البيانات)
+      // بتتحدّث أول ما يحصل تغيير حقيقي (طالب/حضور/درجة/نسخة)، ومرة كل 5 دقايق حتى لو مفيش تغيير كبير
+      try{
+        const sig = [ (S.data.students || []).length, (S.data.groups || []).length,
+          (S.data.exams || []).length, Object.keys(S.data.attendance || {}).length,
+          Object.keys(S.data.grades || {}).length, (S.data.meta && S.data.meta.rev) || 0 ].join(':');
+        const due = (sig !== SAFE_SIG && Date.now() - SAFE_AT > 3000) || Date.now() - SAFE_AT > 5 * 60 * 1000;
+        if (due && json.length < 2000000){
+          SAFE_AT = Date.now(); SAFE_SIG = sig;
+          localStorage.setItem(SAFE_KEY, JSON.stringify({ at: new Date().toISOString(), size: json.length, data: S.data }));
+        }
+      }catch(e){ SAFE_AT = Date.now(); }             // لو المساحة اتملت: نكمّل شغل عادي
     }catch(e){ console.warn(e); toast('تعذّر الحفظ في المتصفح', 'bad'); }
   };
   // الكتابة في وقت الخمول عشان الواجهة ما تتلخبطش (الكتابة نفسها عملية تقيلة)
@@ -810,7 +905,19 @@ const FB_PROJECTS = [
 const FB_DEFAULT = FB_PROJECTS[0];
 const FB_GEN = 3;
 const FB_SYNC_V = 4;   // إصدار محرك المزامنة — بيتغير لما نصلّح طريقة الترقيم، وكل جهاز بيعمل مزامنة كاملة مرة واحدة عشان الكل يتوحّد   // رقم جيل الإعدادات المضمّنة — بيتغير لما نغيّر المشروع، فأي إعدادات قديمة محفوظة على الأجهزة بتتجاهل تلقائيًا
+// القواعد المحكمة: بيانات المنصة بس، ومش بتفتح غير للأجهزة اللي سجّلت دخول صامت
 const FB_RULES_RTDB = `{
+  "rules": {
+    "platforms": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    }
+  }
+}`;
+// نفس القواعد لو الدخول الصامت لسه مش مفعّل (مفتوحة — مؤقتة لحد ما تفعّله)
+const FB_RULES_RTDB_OPEN = `{
   "rules": {
     "platforms": {
       ".read": true,
@@ -833,6 +940,12 @@ service cloud.firestore {
 const FB_CONSOLE = 'https://console.firebase.google.com/project/ahmedfathy-def0f/database';
 const FB_APILIB  = 'https://console.cloud.google.com/apis/library/firestore.googleapis.com?project=ahmedfathy-def0f';
 const FB_RULES_URL = 'https://console.firebase.google.com/project/ahmedfathy-def0f/database/ahmedfathy-def0f-default-rtdb/rules';
+const authConsoleUrl = id => 'https://console.firebase.google.com/project/' + (id || 'ahmedfathy-def0f') + '/authentication/providers';
+const rulesConsoleUrl = c => {
+  const id = (c && c.projectId) || 'ahmedfathy-def0f';
+  const db = String((c && c.dbUrl) || '').replace(/^https:\/\//, '').replace(/\.firebasedatabase\.app$/, '');
+  return 'https://console.firebase.google.com/project/' + id + '/database/' + (db || (id + '-default-rtdb')) + '/rules';
+};
 const FB_DATA_URL  = 'https://console.firebase.google.com/project/ahmedfathy-def0f/database/ahmedfathy-def0f-default-rtdb/data';
 
 const Cloud = {
@@ -920,7 +1033,7 @@ const Cloud = {
     if (!m.dbUrl && (!c.projectId || c.projectId === FB_DEFAULT.projectId)) m.dbUrl = FB_DEFAULT.dbUrl;
     return m;
   },
-  setStatus(s, msg){ S.fb.status = s; S.fb.err = msg || ''; paintCloud(); },
+  setStatus(s, msg){ S.fb.status = s; S.fb.err = msg || ''; if (s === 'error' && msg) logErr('cloud', msg, (S.fb.cfg && S.fb.cfg.projectId) || ''); paintCloud(); },
 
   /* ---------- قراءة إعدادات ملزوقة (firebaseConfig / JSON / رابط قاعدة بيانات) ---------- */
   parseCfg(text){
@@ -952,15 +1065,120 @@ const Cloud = {
   root(){ return this.rootPath(); },
   base(){ return 'https://firestore.googleapis.com/v1/projects/' + encodeURIComponent(this.cfgNow().projectId) + '/databases/(default)/documents/'; },
 
+  /* ---------- الدخول الصامت: تأمين البيانات من غير أي شاشة دخول ----------
+     المنصة بتسجّل الجهاز لوحدها في فايربيز (Anonymous Auth) وبتستخدم الشهادة دي في كل طلب،
+     فالقواعد تقدر تقول «مفيش وصول غير من المنصة»، والمستر ما بيكتب ولا بيسجّل أي حاجة. */
+  keyFor(pid){ try{ const k = JSON.parse(localStorage.getItem('mostar_key_' + pid) || 'null'); return k || ''; }catch(e){ return ''; } },
+  saveKeyFor(pid, k){ try{ k ? localStorage.setItem('mostar_key_' + pid, JSON.stringify(k)) : localStorage.removeItem('mostar_key_' + pid); }catch(e){} },
+  authKeyOf(cfg){ const c = cfg || this.cfgNow(); if (c && c.apiKey) return c.apiKey; return this.keyFor(c.projectId); },
+  saveAuthKey(k, pid){ this.saveKeyFor(pid || this.cfgNow().projectId, k); },
+  loadTokFor(pid){ try{ return JSON.parse(localStorage.getItem('mostar_tok_' + pid) || 'null'); }catch(e){ return null; } },
+  saveTokFor(pid, t){ try{ localStorage.setItem('mostar_tok_' + pid, JSON.stringify(t)); }catch(e){} return t; },
+  clearTokFor(pid){ try{ localStorage.removeItem('mostar_tok_' + pid); }catch(e){} },
+  loadTok(){ return this.loadTokFor(this.cfgNow().projectId); },
+  saveTok(t){ return this.saveTokFor(this.cfgNow().projectId, t); },
+  clearTok(){ this.clearTokFor(this.cfgNow().projectId); },
+  tokFor(pid){ const t = this.loadTokFor(pid); return (t && t.id && Number(t.exp || 0) > Date.now() + 90000) ? t.id : ''; },
+  tok(){ return this.tokFor(this.cfgNow().projectId); },
+  authState(){ return S.fb.auth || (this.tok() ? 'on' : (this.authKeyOf() ? 'ready' : 'no-key')); },
+  // لو الدخول الصامت شغال: بنجيب شهادة جديدة لو القديمة قربت تخلص (لكل مشروع شهادته)
+  async ensureTok(){ return this.ensureTokFor(this.cfgNow().projectId); },
+  async ensureTokFor(pid){
+    if (this.mode() !== 'rtdb') return '';
+    const t = this.tokFor(pid); if (t){ if (pid === this.cfgNow().projectId) S.fb.auth = 'on'; return t; }
+    if (pid === this.cfgNow().projectId && S.fb.auth === 'off') return '';   // المستر قافله من الإعدادات
+    const key = this.keyFor(pid); if (!key){ if (pid === this.cfgNow().projectId) S.fb.auth = 'no-key'; return ''; }
+    // مانزنش على خدمة الدخول كل شوية — إلا لو عندنا مفتاح تجديد (يعني إحنا مسجّلين فعلًا وعايزين نجدد)
+    const _old = this.loadTokFor(pid);
+    if (this._authAt && Date.now() - this._authAt < 60000 && !(_old && _old.refresh)) return '';
+    this._authAt = Date.now();
+    try{ const tok = await this.signIn(key, pid); if (pid === this.cfgNow().projectId){ S.fb.auth = 'on'; S.fb.authErr = null; } return tok; }
+    catch(e){ if (pid === this.cfgNow().projectId){ S.fb.auth = 'fail'; S.fb.authErr = e.message; } return ''; }
+  },
+  async signIn(key, pid){
+    pid = pid || this.cfgNow().projectId;
+    key = key || this.keyFor(pid);
+    if (!key) throw Object.assign(new Error('مفتاح المشروع مش موجود — خطوة واحدة في الإعدادات'), { auth:true });
+    const old = this.loadTokFor(pid);
+    const read = async (u, b) => {
+      const r = await fetch(u, { method:'POST', cache:'no-store', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(b) });
+      let j = null; try{ j = await r.json(); }catch(e){ j = null; }
+      if (!j) throw Object.assign(new Error('مفيش رد من خدمة الدخول — راجع النت'), { auth:true, net:true });
+      return j;
+    };
+    // 1) تجديد سريع لو عندنا شهادة قديمة
+    if (old && old.refresh){
+      let j = null;
+      try{ j = await read('https://securetoken.googleapis.com/v1/token?key=' + encodeURIComponent(key),
+              { grant_type:'refresh_token', refresh_token: old.refresh }); }catch(e){ if (e.net) throw e; }
+      if (j && j.id_token) return this.saveTokFor(pid, { id: j.id_token, refresh: j.refresh_token || old.refresh, exp: Date.now() + Number(j.expires_in || 3600) * 1000 }).id;
+      if (j && j.error && /TOKEN_EXPIRED|INVALID_REFRESH_TOKEN|USER_NOT_FOUND|INVALID_GRANT/i.test(String(j.error.message || j.error))) this.clearTokFor(pid);
+      else if (j && j.error) throw Object.assign(new Error(this.authMsg(j.error)), { auth:true, code:(j.error && j.error.message) || '' });
+    }
+    // 2) تسجيل صامت جديد (من غير أي شاشة — الجهاز بيسجّل نفسه)
+    let j = null;
+    try{ j = await read('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=' + encodeURIComponent(key), { returnSecureToken:true }); }
+    catch(e){ if (e.net) throw e; }
+    if (j && j.idToken) return this.saveTokFor(pid, { id: j.idToken, refresh: j.refreshToken, exp: Date.now() + Number(j.expiresIn || 3600) * 1000 }).id;
+    throw Object.assign(new Error(this.authMsg(j && j.error)), { auth:true, code:(j && j.error && j.error.message) || '' });
+  },
+  // رسائل عربية واضحة لأخطاء الدخول الصامت + الخطوة اللي المستر يعملها
+  authMsg(err){
+    const m = String((err && err.message) || err || '');
+    if (/CONFIGURATION_NOT_FOUND|ADMIN_ONLY_OPERATION|OPERATION_NOT_ALLOWED|identitytoolkit.*disabled/i.test(m))
+      return 'الدخول الصامت مش مفعّل في فايربيز — الإعدادات ← «أمّن البيانات» وفيه الخطوة بضغطة';
+    if (/API key not valid|API_KEY_INVALID|invalid api key/i.test(m))
+      return 'مفتاح المشروع غلط — الصق كود الإعدادات من فايربيز تاني (زر «أمّن البيانات»)';
+    if (/TOO_MANY_ATTEMPTS|QUOTA/i.test(m)) return 'محاولات كتير — نستنى شوية ونجرب تاني';
+    if (/already exists|EMAIL_EXISTS/i.test(m)) { this.clearTok(); return 'شهادة قديمة — بنعمل واحدة جديدة'; }
+    return 'الدخول الصامت ما اشتغلش' + (m ? ' (' + m.slice(0, 80) + ')' : '');
+  },
+  // فحص حقيقي للتأمين: (1) دخول صامت (2) قراءة من غير شهادة → لازم تترفض (3) بالشهادة → لازم تنجح
+  async authTest(){
+    const out = { tok:false, locked:false, ok:false, msg:'', hint:'' };
+    const base = this.dbUrl();
+    if (!base){ out.msg = 'السحابة مش متصلة'; return out; }
+    let t = '';
+    try{ t = this.tok() || await this.signIn(); out.tok = !!t; S.fb.auth = 'on'; S.fb.authErr = null; }
+    catch(e){ S.fb.auth = 'fail'; S.fb.authErr = e.message; out.msg = e.message; out.hint = 'auth'; return out; }
+    const u = base + '/' + this.rootPath() + '/meta.json';
+    try{ const r = await fetch(u, { cache:'no-store' }); out.locked = !r.ok; }catch(e){ out.locked = true; }
+    try{ const r2 = await fetch(u + '?auth=' + encodeURIComponent(t), { cache:'no-store' }); out.ok = !!r2.ok; }catch(e){ out.ok = false; }
+    if (out.ok && out.locked) out.msg = 'بياناتك مؤمّنة ✅ — مفيش حد يقدر يوصل لها غير أجهزتك، والمنصة بتوصل عادي';
+    else if (out.ok && !out.locked) { out.msg = 'الدخول الصامت شغال ✅ بس القواعد لسه مفتوحة'; out.hint = 'rules'; }
+    else { out.msg = 'القواعد بترفض الشهادة دي — انسخ القواعد الجاهزة والصقها في Rules'; out.hint = 'rules'; }
+    paintCloud();
+    return out;
+  },
+  // نجيب مفتاح المشروع لوحده من غير ما المستر يكتب حاجة (لو الاستضافة متظبطة في فايربيز)
+  async findAuthKey(pid){
+    const id = pid || this.cfgNow().projectId;
+    if (!id) return '';
+    const urls = ['https://' + id + '.firebaseapp.com/__/firebase/init.json', 'https://' + id + '.web.app/__/firebase/init.json'];
+    for (let i = 0; i < urls.length; i++){
+      try{
+        const r = await fetch(urls[i], { cache:'no-store' });
+        if (!r || !r.ok) continue;
+        const j = await r.json();
+        if (j && j.apiKey){ this.saveAuthKey(j.apiKey, id); return j.apiKey; }
+      }catch(e){}
+    }
+    return '';
+  },
+
   /* ---------- نقل Realtime Database ---------- */
   async rtdb(method, path, body, retry, query){
     const base = this.dbUrl();
     if (!base) throw Object.assign(new Error('رابط قاعدة البيانات ناقص'), { kind:'cfg' });
+    // الدخول الصامت: كل طلب بياخد شهادة الجهاز (لو التأمين مفعّل) — من غير أي شاشة دخول
+    let tok = '';
+    try{ tok = await this.ensureTok(); }catch(e){}
     let res;
     const ctl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
     const to = ctl ? setTimeout(() => { try{ ctl.abort(); }catch(err){} }, this.timeout || 15000) : null;
     try{
-      res = await fetch(base + '/' + path + '.json' + (query || ''), { method: method, cache:'no-store',
+      const fullUrl = base + '/' + path + '.json' + (query || '') + (tok ? ((query || '').indexOf('?') === 0 ? '&' : '?') + 'auth=' + encodeURIComponent(tok) : '');
+      res = await fetch(fullUrl, { method: method, cache:'no-store',
         signal: ctl ? ctl.signal : undefined,
         headers: body ? { 'Content-Type':'application/json' } : undefined,
         body: body ? JSON.stringify(body) : undefined });
@@ -983,6 +1201,10 @@ const Cloud = {
     if (!res.ok || (j && j.error)){
       const raw = (j && (j.error || j.message)) || ('HTTP ' + res.status);
       const diag = this.diagnose(raw, res.status);
+      // السيرفر رفض الطلب لأن القواعد محكمة وإحنا مش مسجّلين → نسجّل دخول صامت ونجرّب تاني
+      if (diag.kind === 'rules' && !retry && !tok && this.authKeyOf()){
+        try{ const t2 = await this.signIn(); if (t2){ S.fb.auth = 'on'; return this.rtdb(method, path, body, true, query); } }catch(e){ S.fb.auth = 'fail'; S.fb.authErr = e.message; }
+      }
       throw Object.assign(new Error(diag.msg), { kind: diag.kind, raw: raw, http: res.status });
     }
     // ✅ نجح: نمرّر نفس الكتابة للسيرفر التاني (مرآة) — عشان لو سيرفر وقع أو خلص، التاني فيه كل حاجة
@@ -1003,7 +1225,7 @@ const Cloud = {
     this.writeCfg(other, true);          // نفضل على السيرفر التاني لحد بداية الشهر الجديد
     S.fb.fellBack = true; S.fb.pinned = cur;
     const ok = await this.connect({ silent:true });
-    if (ok){ this.markSynced(); dirty.main = true; await this.doPush(false); }
+    if (ok){ this.markSynced(); dirty.main = true; await this.doPush(false); if (!this._bakAt || Date.now() - this._bakAt > 6 * 3600 * 1000){ this._bakAt = Date.now(); this.checkBackupAge(); } }
     paintCloud();
     return ok;
   },
@@ -1151,10 +1373,19 @@ const Cloud = {
       while (self._mq[key]){
         const job = self._mq[key]; self._mq[key] = null;
         try{
-          const res = await fetch(base + '/' + hisPath + '.json', { method: job.method, cache:'no-store',
+          // شهادة السيرفر التاني (لو تأمينه مفعّل) — كل مشروع ليه شهادته
+          let mtok = '';
+          try{ mtok = await self.ensureTokFor(m.projectId); }catch(e){}
+          const res = await fetch(base + '/' + hisPath + '.json' + (mtok ? '?auth=' + encodeURIComponent(mtok) : ''), { method: job.method, cache:'no-store',
             headers: job.body ? { 'Content-Type':'application/json' } : undefined,
             body: job.body ? JSON.stringify(job.body) : undefined });
+          if (res.status === 401 || res.status === 403){
+            S.fb.mirrorAuth = 'need-key';
+            if (S.fb.status === 'live') toast('السيرفر التاني (المرآة) قافل القواعد ومحتاج مفتاحه — الإعدادات ← «أمّن البيانات» ← الصق إعدادات السيرفر التاني', 'warn', 'السحابة');
+            throw new Error('HTTP ' + res.status);
+          }
           if (!res.ok) throw new Error('HTTP ' + res.status);
+          if (S.fb.mirrorAuth){ S.fb.mirrorAuth = ''; }
           S.fb.mirrorAt = new Date(); S.fb.mirrorErr = '';
           if (S.fb.mirrorBad){ S.fb.mirrorBad = false; paintCloud(); }
         }catch(e){
@@ -1215,8 +1446,11 @@ const Cloud = {
     // حدود الخطة المجانية: فايربيز بيوقف الكتابة لحد ما الشهر يخلص (بترجع 402/429)
     if (http === 402 || http === 429 || /exceeded|quota|billing|limit reached|too many requests/i.test(m))
       return { kind:'quota', msg:'وصلنا لحد الاستخدام المجاني للسيرفر ده — بنحوّل تلقائيًا للسيرفر التاني عشان كل حاجة تكمل' };
-    if (/Permission denied|permission_denied|Missing or insufficient permissions|PERMISSION_DENIED/i.test(m) || http === 403)
-      return { kind:'rules', msg:'قواعد الحماية بتمنع الوصول — افتح تبويب Rules والصق القواعد الجاهزة (زر "قواعد الحماية")' };
+    if (/Permission denied|permission_denied|Missing or insufficient permissions|PERMISSION_DENIED/i.test(m) || http === 403){
+      if (S.fb.auth === 'fail' || S.fb.auth === 'no-key')
+        return { kind:'rules', msg:'القواعد محكمة بس الدخول الصامت مش شغال — الإعدادات ← «أمّن البيانات» وفيه الخطوات بضغطة' };
+      return { kind:'rules', msg:'قواعد الحماية بتمنع الوصول — الإعدادات ← «أمّن البيانات»، أو الصق القواعد الجاهزة (زر "قواعد الحماية")' };
+    }
     if (/database \(default\) does not exist|datastore\/setup/i.test(m))
       return { kind:'nodb', msg:'قاعدة بيانات Firestore لسه مش متعملة — افتح Firebase Console ← Firestore ← Create database' };
     if (/SERVICE_DISABLED|has not been used in project/i.test(m))
@@ -2099,7 +2333,7 @@ const Cloud = {
     const d = new Date(), p2 = n => String(n).padStart(2, '0');
     return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()) + '-' + p2(d.getHours()) + p2(d.getMinutes());
   },
-  async snapshotNow(manual){
+  async snapshotNow(manual, note){
     if (!(await this.ensure())) return false;
     if (S.fb.syncing){ toast('استنى المزامنة تخلص وبعدين اعمل نسخة', 'info', 'السحابة'); return false; }
     try{
@@ -2111,13 +2345,13 @@ const Cloud = {
       }
       const key = this.snapKey();
       await this.rtdb('PUT', this.rootPath() + '/backups/' + key, {
-        at: at, rev: S.data.meta.rev || 0, thin: thin,
+        at: at, rev: S.data.meta.rev || 0, thin: thin, note: String(note || ''),
         students: (S.data.students || []).length, groups: (S.data.groups || []).length, json: json });
       S.data.meta.snapAt = at; saveLocal();
       this.pruneBackups().catch(() => {});
       if (manual) toast('تم عمل نسخة احتياطية على السحابة ✅' + (thin ? ' (بدون الحضور — البيانات كبيرة)' : ''), 'ok', 'السحابة');
       paintCloud();
-      return true;
+      return key;
     }catch(e){
       if (manual) toast('فشل عمل النسخة: ' + e.message, 'bad', 'السحابة');
       return false;
@@ -2128,7 +2362,7 @@ const Cloud = {
       const d = await this.rtdb('GET', this.rootPath() + '/backups', null, null, '?shallow=true');
       if (!d || typeof d !== 'object') return [];
       return Object.keys(d).map(k => { const v = d[k] || {};
-        return { key: k, at: v.at || '', students: v.students, groups: v.groups, rev: v.rev, thin: !!v.thin };
+        return { key: k, at: v.at || '', students: v.students, groups: v.groups, rev: v.rev, thin: !!v.thin, note: v.note || '' };
       }).sort((a, b) => (a.key < b.key ? 1 : -1));
     }catch(e){ return null; }
   },
@@ -2159,6 +2393,23 @@ const Cloud = {
     }catch(e){ toast('فشل الاسترجاع: ' + e.message, 'bad', 'السحابة'); return false; }
   },
   // شاشة حالة النظام: كل حاجة عن المزامنة في مكان واحد
+  // تنبيه لو مفيش نسخة احتياطية حديثة (الصف الثالث للأمان)
+  async checkBackupAge(){
+    try{
+      if (S.fb.status !== 'live') return;
+      const list = await this.listSnapshots();
+      if (list === null) return;
+      const newest = list[0] && list[0].key;
+      const days = newest ? (Date.now() - new Date(String(newest).slice(0, 10) + 'T12:00:00').getTime()) / 86400000 : 999;
+      S.fb.bakOld = days > 7;
+      if (S.fb.bakOld && !S.fb.bakWarned){
+        S.fb.bakWarned = Date.now();
+        toast(newest ? 'آخر نسخة احتياطية من ' + Math.floor(days) + ' يوم — اضغط هنا لعمل نسخة دلوقتي' : 'مفيش نسخة احتياطية على السحابة — اعمل واحدة بضغطة',
+          'warn', 'النسخ الاحتياطي');
+      }
+      paintCloud();
+    }catch(e){}
+  },
   async status(){
     const st = S.fb.status, p = this.pending();
     const lat = this.lat || {};
@@ -2178,7 +2429,11 @@ const Cloud = {
       ['النسخ الاحتياطية على السحابة', snaps === null ? '⚠️ مش قادر أقراها' : (snaps.length ? (snaps.length + ' نسخة · آخر نسخة: ' + (snaps[0].key || '').replace(/-/g, '/')) : 'لسه مفيش نسخ — دوس "نسخة احتياطية الآن"'),
         snaps && snaps.length ? 'ok' : 'warn'],
       ['حجم البيانات', size + ' · ' + (S.data.students || []).length + ' طالب · ' + (S.data.groups || []).length + ' حصة', ''],
+      ['رابط ثابت للمنصة', 'فايربيز Hosting: ' + esc(Deploy.url()) + ' (مجاني — تكفي 360 ميجا نقل في اليوم)', 'info'],
+      ['نسخة أمان محلية', S.fb.restoredLocal ? ('✅ اترجعت لوحدها بعد ما المتصفح مسح الداتا (' + String(S.fb.restoredLocal).slice(0, 10) + ')') : '✅ موجودة على الجهاز · بتتحدّث لوحدها', S.fb.restoredLocal ? 'warn' : 'ok'],
+      ['نسخة احتياطية حديثة', S.fb.bakOld === true ? '⚠️ آخر نسخة أقدم من أسبوع — دوس «نسخة احتياطية الآن»' : '✅ آخر نسخة حديثة', S.fb.bakOld === true ? 'warn' : 'ok'],
       ['حد فايربيز المجاني', bw.storeKB + ' كيلو من 1,048,576 كيلو تخزين · تنزيل الشهر ده ' + bw.down + ' ميجا من 10,240 ميجا — يعني مستهلك ' + Math.max(bw.storePct, bw.downPct).toFixed(3) + '% بس', 'ok'],
+      ['تأمين البيانات (بدون تسجيل دخول)', S.data.settings.auth === false ? '⏸️ مقفول بإيدك — البيانات مفتوحة لأي حد يعرف الرابط' : (S.fb.auth === 'on' ? '✅ الدخول الصامت شغال — كل طلب بياخد شهادة الجهاز' : (S.fb.auth === 'fail' ? ('⚠️ ' + (S.fb.authErr || 'محتاج خطوة')) : 'خطوة واحدة من الإعدادات ← «أمّن البيانات»')), S.fb.auth === 'on' ? 'ok' : 'warn'],
       ['المرآة (نسخة على السيرفر التاني)', S.data.settings.fbMirror === false ? '⏸️ متوقفة بإيدك من الإعدادات' :
         (S.fb.quotaHit && S.fb.quotaHit.from === (this.mirrorCfg() || {}).projectId) ? '⏸️ السيرفر التاني وصل حده الشهر ده' :
         (S.fb.mirrorBad ? ('⚠️ فيه مشكلة: ' + (S.fb.mirrorErr || 'مش راد')) : ('✅ كل تعديل بيتكتب على السيرفرين' + (S.fb.mirrorAt ? ' · آخر نسخة ' + S.fb.mirrorAt.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'}) : ''))),
@@ -2187,7 +2442,16 @@ const Cloud = {
     if (S.fb.quotaHit) lines.splice(1, 0, ['حد الاستخدام', '⚠️ سيرفر ' + (S.fb.quotaHit.from || '') + ' خلصت كميته المجانية الشهر ده — المنصة اتحوّلت للسيرفر التاني وكل حاجة شغالة، وهنرجع لوحده أول ما يفك', 'warn']);
     const body = `<div class="alerts">${lines.map(l => `<div class="alert-row ${l[2] || 'info'}">
         <span class="at"><b>${esc(l[0])}</b><span>${esc(l[1])}</span></span></div>`).join('')}</div>
-      <p class="small muted" style="margin-top:12px">المزامنة تلقائية بالكامل: أي تعديل بيترفع لوحده (حتى لو النت قطع وقت التعديل)، وأي تحديث من جهاز تاني بينزل لوحده من غير ريفريش. ولو جهازين عدّلوا في نفس الوقت، النظام بيدمج تعديلاتهم بدون ما حد يضيع.</p>`;
+      <p class="small muted" style="margin-top:12px">المزامنة تلقائية بالكامل: أي تعديل بيترفع لوحده (حتى لو النت قطع وقت التعديل)، وأي تحديث من جهاز تاني بينزل لوحده من غير ريفريش. ولو جهازين عدّلوا في نفس الوقت، النظام بيدمج تعديلاتهم بدون ما حد يضيع.</p>
+      <div class="sep"></div>
+      <div class="flex wrap" style="gap:9px;align-items:center">
+        <b>${icon('file')} آخر المشاكل اللي حصلت</b>
+        <span class="badge ${errList().length ? 'b-warn' : 'b-ok'}">${errList().length ? (errList().length + ' مشكلة مسجّلة') : 'مفيش أي مشكلة ✅'}</span>
+        <span class="sp"></span>
+        <button class="btn sm pri" data-act="diagCopy">${icon('copy')} انسخ تشخيص كامل</button>
+        <button class="btn sm ghost" data-act="diagClear">${icon('refresh')} امسح السجل</button>
+      </div>
+      ${errList().length ? `<div class="help" style="margin-top:9px;line-height:1.9;direction:ltr;text-align:left;font-size:12px">${errList().slice(0,5).map(e => esc((e.at||'').replace('T',' ').slice(5,16) + ' · ' + e.kind + ': ' + e.msg)).join('<br>')}</div>` : ''}`;
     Modal.open({ title: 'حالة المزامنة والسحابة', sub: 'نظرة كاملة على الاتصال والنسخ الاحتياطية', size:'md', body: body,
       footer: `<button class="btn pri" data-act="fbFullSync">${icon('refresh')} مزامنة كاملة</button>
         <button class="btn" data-act="fbSnapNow">${icon('save')} نسخة احتياطية الآن</button>
@@ -2204,7 +2468,7 @@ const Cloud = {
     if (list === null) body = '<div class="help warn">مش قادر أقرا النسخ من السحابة — راجع الاتصال.</div>';
     else if (!list.length) body = '<div class="help info">لسه مفيش نسخ احتياطية على السحابة. أول نسخة بتتعمل لوحدها مع أول تشغيل كل يوم، أو دوس "نسخة احتياطية الآن".</div>';
     else body = '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>التاريخ</th><th>الطلاب</th><th>الحصص</th><th>ملاحظة</th><th></th></tr></thead><tbody>' +
-      list.map(x => `<tr><td>${esc(x.key)}</td><td>${nf(x.students || 0)}</td><td>${nf(x.groups || 0)}</td>
+      list.map(x => `<tr><td>${esc(x.key)}${x.note ? '<br><span class="badge b-brand">' + esc(x.note) + '</span>' : ''}</td><td>${nf(x.students || 0)}</td><td>${nf(x.groups || 0)}</td>
         <td>${x.thin ? 'بدون حضور' : 'كاملة'}</td>
         <td><button class="btn sm pri" data-act="snapRestore" data-k="${esc(x.key)}">${icon('download')} استرجاع</button></td></tr>`).join('') +
       '</tbody></table></div><p class="small muted" style="margin-top:10px">الاسترجاع بياخد نسخة اليوم ده ويحطها على كل أجهزتك. النسخ بتتحفظ آخر 6 نسخ عشان المساحة.</p>';
@@ -2591,6 +2855,711 @@ function copyText(txt, okMsg){
 const LOGO_KEY = AF_LOGO_KEY;
 const LOGO_ICON_KEY = 'mostar_logo_icon';
 function logoIcon(){ try{ return localStorage.getItem(LOGO_ICON_KEY) || ''; }catch(e){ return ''; } }
+/* ============================================================
+   حقيبة النشر على فايربيز (Hosting) — المنصة بيت لها رابط ثابت مجاني
+   • بنعمل ملف ZIP جوه المتصفح من غير أي مكتبة (فك وضغط، ZIP قياسي)
+   • بيتنزل فيه: المنصة + الأيقونات + إعدادات النشر + خطوات مكتوبة
+   ============================================================ */
+const Zip = {
+  crcTable: null,
+  crc32(b){
+    if (!this.crcTable){
+      const t = this.crcTable = new Array(256);
+      for (let n = 0; n < 256; n++){ let c = n; for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); t[n] = c >>> 0; }
+    }
+    let c = 0xFFFFFFFF;
+    for (let i = 0; i < b.length; i++) c = this.crcTable[(c ^ b[i]) & 0xFF] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  },
+  // files: [{ name:'index.html', data: Uint8Array | string }]
+  make(files){
+    const enc = new TextEncoder();
+    const chunks = [], central = [];
+    let offset = 0, count = 0;
+    const u16 = (v) => [v & 255, (v >> 8) & 255];
+    const u32 = (v) => [v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >>> 24) & 255];
+    const push = arr => chunks.push(new Uint8Array(arr));
+    (files || []).forEach(f => {
+      const name = enc.encode(f.name);
+      const raw = (typeof f.data === 'string') ? enc.encode(f.data) : f.data;
+      const crc = this.crc32(raw);
+      // (1) محلي
+      push([].concat([0x50,0x4B,0x03,0x04], u16(20), u16(0x0800), u16(0), u16(0), u16(0),
+        u32(crc), u32(raw.length), u32(raw.length), u16(name.length), u16(0)));
+      chunks.push(name); chunks.push(raw);
+      // (2) الفهرس
+      central.push([].concat([0x50,0x4B,0x01,0x02], u16(20), u16(20), u16(0x0800), u16(0), u16(0), u16(0),
+        u32(crc), u32(raw.length), u32(raw.length), u16(name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset)));
+      central.push(name);
+      offset += 30 + name.length + raw.length;
+      count++;
+    });
+    const cdStart = offset;
+    let cdSize = 0;
+    central.forEach(c => { cdSize += c.length; chunks.push(new Uint8Array(c)); });
+    push([].concat([0x50,0x4B,0x05,0x06], u16(0), u16(0), u16(count), u16(count), u32(cdSize), u32(cdStart), u16(0)));
+    return new Blob(chunks, { type: 'application/zip' });
+  }
+};
+
+/* ملفات المنصة اللي محتاجة تتنشر (بنقراها من النسخة الشغالة نفسها) */
+const DEPLOY_FILES = ['index.html','manifest.webmanifest','sw.js','logo.jpg','icons/icon-192.png','icons/icon-512.png','icons/maskable-512.png','icons/apple-touch-icon.png','icons/favicon-64.png'];
+const DEPLOY_CFG = {
+  'firebase.json': JSON.stringify({
+    hosting: {
+      "public": ".",
+      "ignore": ["firebase.json", ".firebaserc", "HOW-TO-DEPLOY.txt", "**/.*", "**/node_modules/**"],
+      "cleanUrls": true,
+      "headers": [
+        { "source": "/sw.js", "headers": [{ "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }] },
+        { "source": "/index.html", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
+        { "source": "**/*.@(png|jpg|svg|webmanifest)", "headers": [{ "key": "Cache-Control", "value": "max-age=604800" }] }
+      ]
+    }
+  }, null, 2),
+  'HOW-TO-DEPLOY.txt': 'خطوات نشر المنصة على فايربيز (مرة واحدة — الرابط يفضل ثابت بعدها)\n' +
+    '=========================================================\n\n' +
+    '1) من صفحة Cloud Shell (المتصفح بس — مفيش أي تثبيت):\n' +
+    '   اضغط على أيقونة الأوامر (>_) فوق في كونسول فايربيز\n\n' +
+    '2) ارفع ملف الـZIP من زر Upload file\n\n' +
+    '3) نفّذ السطرين دول واحد واحد:\n\n' +
+    '   unzip mostar-deploy.zip -d mostar && cd mostar\n' +
+    '   firebase deploy --only hosting --project ahmedfathy-def0f\n\n' +
+    '4) بعد ما يقول Deploy complete هتلاقي رابطك:\n' +
+    '   https://ahmedfathy-def0f.web.app\n' +
+    '   https://ahmedfathy-def0f.firebaseapp.com\n\n' +
+    'ملاحظة: البيانات على نفس مشروع فايربيز، فالأجهزة بتفتح الرابط ده وتلاقي كل حاجة زي ما هي.\n' +
+    'التكلفة: صفر — خطة فايربيز المجانية (Spark) من غير أي كارت.\n'
+};
+
+const Deploy = {
+  async grab(file){
+    try{
+      const r = await fetch(file, { cache: 'no-store' });
+      if (!r || !r.ok) return null;
+      const buf = await r.arrayBuffer();
+      return { name: file, data: new Uint8Array(buf) };
+    }catch(e){ return null; }
+  },
+  async payload(){
+    const files = [];
+    for (const f of DEPLOY_FILES){
+      const got = await this.grab(f);
+      if (got) files.push(got);
+      else if (f === 'index.html') return null;      // لو مفيش نسخة، مايفدش ننشر
+    }
+    if (!files.length) return null;
+    Object.keys(DEPLOY_CFG).forEach(k => files.push({ name: k, data: DEPLOY_CFG[k] }));
+    return files;
+  },
+  async makeZip(){
+    toast('بنجهّز ملف النشر...', 'info', 'النشر على فايربيز');
+    const files = await this.payload();
+    if (!files){ toast('مش قادر أقرا ملفات المنصة — افتح المنصة من رابط (مش ملف على الجهاز) وجرّب تاني', 'bad', 'النشر'); return false; }
+    const blob = Zip.make(files);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'mostar-deploy.zip';
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 600);
+    toast('اتنزّل mostar-deploy.zip (' + files.length + ' ملف) — ارفعه في Cloud Shell ونفّذ سطرين وخلاص', 'ok', 'النشر على فايربيز');
+    return true;
+  },
+  // نسخة مستقلة: ملف HTML واحد يشتغل من أي مكان (حتى من غير نت)
+  async standalone(){
+    const got = await this.grab('index.html');
+    let html = got ? new TextDecoder().decode(got.data) : '';
+    if (!html || html.length < 20000){
+      try{ const r = await fetch(location.href, { cache:'no-store' }); html = await r.text(); }catch(e){}
+    }
+    if (!html || html.length < 20000){ toast('مش قادر أجهّز النسخة المستقلة من هنا — افتح المنصة من رابط وجرّب تاني', 'bad'); return ''; }
+    return html;
+  },
+  async saveStandalone(){
+    const html = await this.standalone();
+    if (!html) return false;
+    download('منصة-المستر-نسخة-مستقلة.html', html, 'text/html;charset=utf-8');
+    toast('اتنزلت نسخة مستقلة — دوس عليها مرتين وبتفتح على أي جهاز، وبتزامن على فايربيز لوحدها', 'ok', 'نسخة مستقلة');
+    return true;
+  },
+  url(){ return 'https://' + ((S.fb.cfg && S.fb.cfg.projectId) || FB_DEFAULT.projectId) + '.web.app'; },
+  shellUrl(){ return 'https://console.firebase.google.com/project/' + ((S.fb.cfg && S.fb.cfg.projectId) || FB_DEFAULT.projectId) + '/overview'; }
+};
+
+function openDeploy(){
+  const pid = (S.fb.cfg && S.fb.cfg.projectId) || FB_DEFAULT.projectId;
+  const url = Deploy.url();
+  const body = `
+    <div class="help brand" style="margin-bottom:13px;line-height:1.95">
+      <b>ليه الحكاية دي؟</b> عشان يكون للمنصة <b>رابط ثابت</b> تفتحه من أي جهاز في أي وقت — من غير ما تعتمد على أي جهاز شغال عندك،
+      وبرضه <b>مجاني بالكامل</b> (خطة فايربيز المجانية: 10 جيجا تخزين و360 ميجا نقل في اليوم، من غير أي كارت).
+      البيانات نفسها على نفس مشروع فايربيز، فمفيش أي حاجة هتتغير أو تتنقل.
+    </div>
+
+    <div class="field"><label>الخطوة 1 — حمّل ملف النشر</label>
+      <div class="small muted" style="margin-bottom:8px;line-height:1.9">ملف واحد جواه المنصة كلها (الصفحة + الأيقونات + إعدادات النشر + الخطوات مكتوبة جواه).</div>
+      <button class="btn pri" data-act="deployZip">${icon('download')} حمّل ملف النشر (ZIP)</button></div>
+
+    <div class="field" style="margin-top:14px"><label>الخطوة 2 — افتح Cloud Shell من كونسول فايربيز</label>
+      <div class="small muted" style="margin-bottom:8px;line-height:1.9">
+        Cloud Shell ده طرفية أوامر <b>جوه المتصفح</b> — مفيش أي تثبيت على جهازك. هتلاقي أيقونة <b>(&gt;_)</b> فوق على يمين كونسول فايربيز.
+        بعد ما تفتحها اضغط <b>Upload file</b> وارفع ملف الـZIP اللي نزّلته.
+      </div>
+      <div class="btn-row"><button class="btn" data-act="deployShell">${icon('link')} افتح كونسول فايربيز</button></div></div>
+
+    <div class="field" style="margin-top:14px"><label>الخطوة 3 — نفّذ السطرين دول (واحد بعد التاني)</label>
+      <div class="small muted" style="margin-bottom:8px">دوس على السطر ليتنسخ، وبعدها الصقه في Cloud Shell واضغط Enter.</div>
+      ${[['فك الملف والدخول عليه','unzip mostar-deploy.zip -d mostar && cd mostar'],
+         ['انشر على فايربيز','firebase deploy --only hosting --project ' + pid]]
+        .map(c => `<div class="flex" style="gap:8px;align-items:center;margin-bottom:8px">
+          <code class="code" style="flex:1;direction:ltr;text-align:left;font-size:12px;padding:9px 11px;background:var(--bg2);border-radius:9px;overflow:auto">${esc(c[1])}</code>
+          <button class="btn sm" data-act="deployCopy" data-cmd="${esc(c[1])}">${icon('copy')} انسخ</button>
+        </div>`).join('')}
+      <div class="help info" style="margin-top:9px;line-height:1.9">لو طلب منك تسجيل دخول جوجل، سجّل بحسابك العادي (نفس حساب فايربيز) — ده مرة واحدة بس.</div></div>
+
+    <div class="field" style="margin-top:14px"><label>الخطوة 4 — رابطك الثابت ✅</label>
+      <div class="flex wrap" style="gap:8px;align-items:center">
+        <code class="code" style="direction:ltr;font-size:13px;padding:8px 11px;background:var(--bg2);border-radius:9px">${esc(url)}</code>
+        <button class="btn sm" data-act="deployCopy" data-cmd="${esc(url)}">${icon('copy')} انسخ</button>
+        <button class="btn sm ghost" data-act="deployTry">${icon('link')} جرّب افتحه</button>
+      </div>
+      <div class="small muted" style="margin-top:7px;line-height:1.9">
+        الرابط ده بيفتح المنصة على أي جهاز (موبايل/كمبيوتر) بكل بياناتك، وجاهز إنك تثبّته كتطبيق من المتصفح.
+        ولو حبيت تربطه باسم نطاق خاص، الاتنين مجانيين من نفس الصفحة.
+      </div></div>
+
+    <div class="sep"></div>
+    <div class="flex wrap" style="gap:9px;align-items:center">
+      <b>${icon('save')} كمان: نسخة مستقلة على أي جهاز</b>
+      <span class="sp"></span>
+      <button class="btn sm" data-act="standaloneSave">${icon('download')} حمّل نسخة مستقلة (ملف واحد)</button>
+    </div>
+    <div class="small muted" style="margin-top:7px;line-height:1.9">
+      ملف واحد بيشتغل على أي جهاز بمجرد الضغط عليه مرتين — شغال أوفلاين وبيرجع يتزامن مع فايربيز أول ما النت يفتح.
+      مناسبة لو عايزها على فلاشة أو جهاز مكتب من غير إنترنت.
+    </div>`;
+  Modal.open({ title:'رابط ثابت للمنصة على فايربيز', sub:'مرة واحدة — وخلاص', size:'lg', body: body,
+    footer: `<button class="btn pri" data-act="deployZip">${icon('download')} حمّل ملف النشر</button>
+      <button class="btn" data-act="deployShell">${icon('link')} Cloud Shell</button>
+      <button class="btn ghost" data-close>إغلاق</button>` });
+}
+
+/* ============================================================
+   استيراد الطلاب من Excel / CSV — من غير أي مكتبة خارجية
+   • CSV / TXT: بيدعم الفاصلة والفاصلة المنقوطة والتاب، والعربي (UTF-8 و Windows-1256)
+   • XLSX: بيتفك لوحده (ZIP + فك ضغط المتصفح) وبيقرا أول ورقة
+   ============================================================ */
+const Import = {
+  // فك تشفير الملف: لو مش UTF-8 سليم نجرّب العربي (Windows-1256) اللي إكسل بيحفظ بيه
+  decode(buf){
+    const bytes = new Uint8Array(buf);
+    try{ return new TextDecoder('utf-8', { fatal:true }).decode(bytes); }
+    catch(e){
+      try{ return new TextDecoder('windows-1256').decode(bytes); }catch(e2){ return new TextDecoder('utf-8').decode(bytes); }
+    }
+  },
+  delim(text){
+    const head = String(text).split(/\r?\n/).slice(0, 4).join('\n');
+    const cands = [',', ';', '\t', '|'];
+    let best = ',', bestN = -1;
+    cands.forEach(d => { const n = head.split(d).length; if (n > bestN){ bestN = n; best = d; } });
+    return best;
+  },
+  // CSV مع دعم علامات التنصيص والأسطر اللي جوه خانة
+  parseCSV(text, d){
+    const src = String(text).replace(/^\uFEFF/, '');
+    const sep = d || this.delim(src);
+    const rows = []; let row = [], cell = '', q = false;
+    for (let i = 0; i < src.length; i++){
+      const c = src[i];
+      if (q){
+        if (c === '"'){ if (src[i+1] === '"'){ cell += '"'; i++; } else q = false; }
+        else cell += c;
+        continue;
+      }
+      if (c === '"'){ q = true; continue; }
+      if (c === sep){ row.push(cell); cell = ''; continue; }
+      if (c === '\n'){ row.push(cell); rows.push(row); row = []; cell = ''; continue; }
+      if (c === '\r') continue;
+      cell += c;
+    }
+    row.push(cell); rows.push(row);
+    return rows.filter(r => r.some(x => String(x).trim() !== ''));
+  },
+  // فك ضغط ZIP (المستخدم في XLSX) — بنستخدم فك الضغط المدمج في المتصفح
+  async unzip(buf){
+    const b = new Uint8Array(buf);
+    const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+    let eocd = -1;
+    for (let i = b.length - 22; i >= 0 && i > b.length - 66000; i--){ if (dv.getUint32(i, true) === 0x06054b50){ eocd = i; break; } }
+    if (eocd < 0) throw new Error('الملف مش ملف Excel صالح');
+    const count = dv.getUint16(eocd + 10, true);
+    let off = dv.getUint32(eocd + 16, true);
+    const out = {};
+    for (let n = 0; n < count; n++){
+      if (dv.getUint32(off, true) !== 0x02014b50) break;
+      const method = dv.getUint16(off + 10, true);
+      const csize = dv.getUint32(off + 20, true);
+      const nameLen = dv.getUint16(off + 28, true), extraLen = dv.getUint16(off + 30, true), cmtLen = dv.getUint16(off + 32, true);
+      const lho = dv.getUint32(off + 42, true);
+      const name = new TextDecoder('utf-8').decode(b.subarray(off + 46, off + 46 + nameLen));
+      const lNameLen = dv.getUint16(lho + 26, true), lExtraLen = dv.getUint16(lho + 28, true);
+      const start = lho + 30 + lNameLen + lExtraLen;
+      const raw = b.subarray(start, start + csize);
+      if (method === 0) out[name] = raw.slice();
+      else if (method === 8) out[name] = await this.inflate(raw);
+      off += 46 + nameLen + extraLen + cmtLen;
+    }
+    return out;
+  },
+  async inflate(bytes){
+    if (typeof DecompressionStream === 'undefined') throw new Error('المتصفح ده قديم شوية — احفظ الملف من إكسل بصيغة CSV وارفعها وهتشتغل');
+    const ds = new DecompressionStream('deflate-raw');
+    const w = ds.writable.getWriter();
+    w.write(bytes); w.close();
+    const reader = ds.readable.getReader();
+    const chunks = []; let total = 0;
+    for(;;){ const r = await reader.read(); if (r.done) break; chunks.push(r.value); total += r.value.length; }
+    const out = new Uint8Array(total); let p = 0;
+    chunks.forEach(c => { out.set(c, p); p += c.length; });
+    return out;
+  },
+  xmlText(s){
+    return String(s).replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'")
+      .replace(/&#(\d+);/g, (m, d) => String.fromCharCode(Number(d))).replace(/&amp;/g, '&');
+  },
+  colOf(ref){
+    const m = String(ref || '').match(/^([A-Z]+)/i);
+    if (!m) return 0;
+    let n = 0; const L = m[1].toUpperCase();
+    for (let i = 0; i < L.length; i++) n = n * 26 + (L.charCodeAt(i) - 64);
+    return n - 1;
+  },
+  parseSheetXml(xml, shared){
+    const grid = [];
+    const rows = String(xml).match(/<row[\s\S]*?<\/row>/g) || [];
+    rows.forEach((rowXml) => {
+      const rIdx = Number((rowXml.match(/<row[^>]*\sr="(\d+)"/) || [])[1] || (grid.length + 1)) - 1;
+      const line = [];
+      const cells = rowXml.match(/<c[\s>][\s\S]*?(?:<\/c>|\/>)/g) || [];
+      cells.forEach(c => {
+        const ref = (c.match(/\sr="([A-Z]+\d+)"/) || [])[1] || '';
+        const t = (c.match(/\st="([^"]+)"/) || [])[1] || '';
+        let v = '';
+        if (t === 'inlineStr'){ v = this.xmlText((c.match(/<t[^>]*>([\s\S]*?)<\/t>/) || [])[1] || ''); }
+        else if (t === 's'){ const i = Number((c.match(/<v>([\s\S]*?)<\/v>/) || [])[1]); v = shared[i] || ''; }
+        else { v = this.xmlText((c.match(/<v>([\s\S]*?)<\/v>/) || [])[1] || ''); }
+        line[this.colOf(ref)] = v;
+      });
+      for (let i = 0; i < line.length; i++) if (line[i] === undefined) line[i] = '';
+      grid[rIdx] = line;
+    });
+    const out = [];
+    grid.forEach(r => { if (r && r.some(x => String(x).trim() !== '')) out.push(r); });
+    return out;
+  },
+  async parseXlsx(buf){
+    const files = await this.unzip(buf);
+    const dec = k => this.decode(files[k]);
+    const shared = [];
+    let ssKey = Object.keys(files).filter(k => /sharedStrings\.xml$/i.test(k))[0];
+    if (ssKey){
+      const ss = dec(ssKey);
+      (ss.match(/<si[\s>][\s\S]*?<\/si>/g) || []).forEach(si => {
+        const parts = si.match(/<t[^>]*>([\s\S]*?)<\/t>/g) || [];
+        shared.push(parts.map(x => this.xmlText(x.replace(/<[^>]+>/g, ''))).join(''));
+      });
+    }
+    let sheetKey = Object.keys(files).filter(k => /worksheets\/sheet\d*\.xml$/i.test(k)).sort()[0];
+    if (!sheetKey) throw new Error('مالقيتش ورقة بيانات جوه الملف');
+    return this.parseSheetXml(dec(sheetKey), shared);
+  },
+  async fromFile(file){
+    const name = String((file && file.name) || '').toLowerCase();
+    const buf = await file.arrayBuffer();
+    if (/\.xlsx?$/.test(name) || /spreadsheet/.test(file.type || '')) return await this.parseXlsx(buf);
+    return this.parseCSV(this.decode(buf));
+  }
+};
+
+/* التعرف التلقائي على الأعمدة بالعربي والإنجليزي */
+const IMP_FIELDS = [
+  { k:'name',        label:'الاسم',            need:true,  aliases:['الاسم','اسم','اسم الطالب','الطالب','الاسم كامل','الاسم بالكامل','name','student','الاسم رباعي'] },
+  { k:'code',        label:'الكود',            aliases:['الكود','كود','كود الطالب','code','id','رقم الطالب','الرقم'] },
+  { k:'stage',       label:'المرحلة',          aliases:['المرحلة','الصف','المرحلة الدراسية','الصف الدراسي','stage','grade','class'] },
+  { k:'studySystem', label:'نظام الدراسة',      aliases:['نظام الدراسة','النظام','نظام','study','system'] },
+  { k:'type',        label:'نوع الطالب',        aliases:['نوع الطالب','النوع','نوع','type'] },
+  { k:'level',       label:'المستوى',          aliases:['المستوى','مستوى','التقييم','level'] },
+  { k:'phone',       label:'هاتف الطالب',       aliases:['هاتف','الهاتف','هاتف الطالب','موبايل','الموبايل','تليفون','phone','mobile','tel'] },
+  { k:'parentPhone', label:'هاتف ولي الأمر',    aliases:['ولي الأمر','هاتف ولي الأمر','رقم ولي الأمر','هاتف الاب','رقم الاب','الأب','رقم الواتس','واتساب','parent','whatsapp'] },
+  { k:'group',       label:'اسم الحصة/المجموعة', aliases:['الحصة','المجموعة','الجروب','اسم الحصة','الحصة/المجموعة','group','class name'] }
+];
+function impNorm(x){
+  return String(x == null ? '' : x).trim().toLowerCase()
+    .replace(/تاني/g, 'ثاني').replace(/تالت/g, 'ثالث').replace(/تالث/g, 'ثالث')   // العامي = الفصحى
+    .replace(/[أإآٱ]/g, 'ا').replace(/[ىي]/g, 'ي').replace(/[ةه]/g, 'ه')
+    .replace(/[\u064B-\u0652]/g, '').replace(/[\s_\-\/\.\(\):]+/g, '');
+}
+function impGuess(headers){
+  const out = {}; const used = {};
+  (headers || []).forEach((h, i) => {
+    const n = impNorm(h); if (!n) return;
+    for (const f of IMP_FIELDS){
+      if (out[f.k] != null) continue;
+      if (f.aliases.some(a => { const an = impNorm(a); return an === n || (an.length > 2 && n.indexOf(an) === 0); })){
+        out[f.k] = i; used[i] = 1; break;
+      }
+    }
+  });
+  return out;
+}
+
+/* خطوة 1: نختار الملف أو نلصق الجدول */
+/* ============================================================
+   السنة الدراسية: قفل السنة وترحيل الطلاب للمرحلة اللي بعدها
+   • مفيش بيانات بتتمسح: درجات وحضور السنة القديمة بتفضل زي ما هي
+   • بياخد نسخة احتياطية على السحابة قبل القفل + ملف أرشيف على الجهاز
+   ============================================================ */
+function currentYearLabel(){
+  const st = S.data.settings || {};
+  if (st.year) return st.year;
+  const d = new Date(), y = d.getFullYear();
+  const start = (d.getMonth() >= 8) ? y : y - 1;     // السنة الدراسية بتبدأ في سبتمبر
+  return start + '/' + (start + 1);
+}
+function nextYearLabel(y){
+  const m = String(y || '').match(/(\d{4})\s*\/\s*(\d{2,4})/);
+  const start = m ? Number(m[1]) + 1 : new Date().getFullYear();
+  return start + '/' + String(start + 1).slice(2);
+}
+function stageNext(stage){
+  const list = (S.data.settings.stages || []).slice();
+  const i = list.findIndex(x => impNorm(x) === impNorm(stage));
+  if (i < 0) return stage;                       // مرحلة مش في الإعدادات → تفضل زي ما هي
+  return (i < list.length - 1) ? list[i + 1] : list[i];
+}
+// خيارات المرحلة الجديدة: بنضمن إن المرحلة الحالية نفسها موجودة كخيار (عشان محدش يتنقل بالغلط)
+function stageOptions(stage){
+  const all = (S.data.settings.stages || []).slice();
+  if (stage && !all.some(a => impNorm(a) === impNorm(stage))) all.unshift(stage);
+  return all;
+}
+function openYearClose(){
+  const cur = currentYearLabel();
+  const used = {};
+  (S.data.students || []).forEach(s => { if (s.stage) used[s.stage] = (used[s.stage] || 0) + 1; });
+  const stages = Object.keys(used).sort((a, b) => (S.data.settings.stages || []).indexOf(a) - (S.data.settings.stages || []).indexOf(b));
+  const all = S.data.settings.stages || [];
+  const body = `
+    <div class="help brand" style="margin-bottom:13px;line-height:1.9">
+      <b>السنة الحالية: ${esc(cur)}</b> · ${nf((S.data.students || []).length)} طالب · ${nf((S.data.groups || []).length)} حصة<br>
+      القفل معناه: نفتح سنة جديدة وننقل الطلاب لمراحلهم الجديدة. <b>مفيش أي بيانات بتتمسح</b> — حضور ودرجات السنة اللي فاتت بيفضلوا موجودين وتقدر تطبعهم في أي وقت.
+    </div>
+    <div class="field"><label>السنة الجديدة</label>
+      <input class="inp" id="ycLabel" value="${esc(nextYearLabel(cur))}" placeholder="2026/2027"></div>
+    <div class="field" style="margin-top:12px"><label>مراحل الطلاب الجديدة</label>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>المرحلة الحالية</th><th>عدد الطلاب</th><th>تبقى</th></tr></thead><tbody>
+        ${stages.length ? stages.map(st => `<tr>
+          <td><b>${esc(st)}</b></td><td>${nf(used[st])}</td>
+          <td><select class="inp sm" data-ycmap="${esc(st)}">
+            ${stageOptions(st).map(a => `<option value="${esc(a)}" ${impNorm(a) === impNorm(stageNext(st)) ? 'selected' : ''}>${esc(a)}</option>`).join('')}
+          </select></td></tr>`).join('') : '<tr><td colspan="3" class="muted small">مفيش طلاب مسجّلين</td></tr>'}
+      </tbody></table></div>
+      <span class="small muted">المرحلة الاخيرة بتفضل زي ما هي (زي التالت الثانوي) — وتقدر تغيّر أي حاجة بإيدك.</span></div>
+    <div class="field" style="margin-top:12px"><label>الطلاب الموقوفين</label>
+      <select class="inp" id="ycStopped">
+        <option value="skip">سيبهم زي ما هم (بدون ترحيل)</option>
+        <option value="move">رحّلهم برضه زي باقي الطلاب</option>
+      </select>
+      <span class="small muted">الطالب اللي حالته «متوقف» مش بيتنقل لو اخترت الخيار الأول</span></div>
+    <div class="sep"></div>
+    <label class="switch" style="margin-bottom:10px"><input type="checkbox" id="ycSnap" checked>
+      <span class="track"></span><span class="lb">نسخة احتياطية كاملة على السحابة قبل القفل<span>تقدر ترجّعها في أي وقت — حتى بعد سنين</span></span></label>
+    <label class="switch"><input type="checkbox" id="ycFile" checked>
+      <span class="track"></span><span class="lb">نزّل ملف أرشيف السنة على الجهاز<span>ملف واحد فيه كل حاجة — خليه على فلاشة أو جوجل درايف</span></span></label>`;
+  Modal.open({ title:'قفل السنة الدراسية وفتح سنة جديدة', sub:'خطوة واحدة في آخر السنة بدل ما تعيد الإدخال من الأول', size:'lg', body: body,
+    footer: `<button class="btn pri" data-act="ycDo">${icon('check')} اقفل السنة وابدأ الجديدة</button><button class="btn ghost" data-close>إلغاء</button>` });
+}
+async function runYearClose(){
+  const label = (($('#ycLabel') && $('#ycLabel').value) || '').trim() || nextYearLabel(currentYearLabel());
+  const map = {};
+  $$('[data-ycmap]').forEach(sel => { map[sel.dataset.ycmap] = sel.value; });
+  const moveStopped = $('#ycStopped') && $('#ycStopped').value === 'move';
+  const wantSnap = !$('#ycSnap') || $('#ycSnap').checked;
+  const wantFile = !$('#ycFile') || $('#ycFile').checked;
+  const counts = { students: (S.data.students || []).length, groups: (S.data.groups || []).length, exams: (S.data.exams || []).length, days: Object.keys(S.data.attendance || {}).length };
+  Modal.closeAll();
+  Undo.snap('قفل السنة الدراسية ' + currentYearLabel());
+  let snapKey = '';
+  if (wantSnap){ toast('بنعمل نسخة احتياطية على السحابة قبل القفل...', 'info', 'السحابة'); snapKey = await Cloud.snapshotNow(false, 'قفل السنة — ' + currentYearLabel()); if (!snapKey) snapKey = ''; }
+  if (wantFile){ try{ download('mostar-archive-' + String(label).replace(/\W+/g, '-') + '.json', JSON.stringify(Object.assign({ _archive: { label: label, from: currentYearLabel(), at: new Date().toISOString() } }, S.data), null, 1), 'application/json'); }catch(e){} }
+  let moved = 0, stayed = 0;
+  (S.data.students || []).forEach(st => {
+    if (String(st.status) === 'stopped' && !moveStopped){ stayed++; return; }
+    const to = map[st.stage] || st.stage;
+    if (to && to !== st.stage) st.stage = to;
+    st.year = label; st._t = Date.now();
+    moved++;
+  });
+  S.data.years = S.data.years || [];
+  S.data.years.unshift({ label: label, from: currentYearLabel(), at: new Date().toISOString(), counts: counts, snap: snapKey, moved: moved });
+  S.data.years = S.data.years.slice(0, 20);
+  S.data.settings.year = label;
+  commit();
+  toast('السنة الجديدة ' + label + ' بدأت ✅ ' + (moved ? ('اتنقل ' + nf(moved) + ' طالب') : '') + (stayed ? (' · ' + nf(stayed) + ' متوقف فاضل زي ما هو') : '') + (snapKey ? ' · وفي نسخة احتياطية على السحابة' : ''), 'ok', 'قفل السنة');
+  render();
+  setTimeout(() => openArchive(), 400);
+}
+function openArchive(){
+  const list = S.data.years || [];
+  const body = list.length ? `<div class="help info" style="margin-bottom:12px;line-height:1.9">
+      دي السنوات اللي قفلتها. بيانات كل سنة موجودة كاملة (الحضور والدرجات) وبتقدر تطبع تقرير أي سنة من التقارير باختيار التاريخ.
+    </div>` + list.map(y => `<div class="card" style="margin-bottom:10px"><div class="card-h">
+        <b>${icon('calendar')} سنة ${esc(y.label)}</b><span class="badge b-ok">${nf(y.moved || 0)} طالب اتنقلوا</span><span class="sp"></span>
+        <span class="small muted">اتقفلت: ${esc(String(y.at || '').slice(0, 10))}</span></div>
+      <div class="card-b"><p class="small" style="margin:0 0 9px">كان فيها <b>${nf((y.counts || {}).students || 0)}</b> طالب · <b>${nf((y.counts || {}).groups || 0)}</b> حصة · <b>${nf((y.counts || {}).exams || 0)}</b> امتحان · <b>${nf((y.counts || {}).days || 0)}</b> يوم حضور${y.snap ? ' · نسخة سحابية: <b class="code">' + esc(y.snap) + '</b>' : ''}</p>
+        <div class="btn-row">
+          ${y.snap ? `<button class="btn sm" data-act="snapRestoreAsk" data-k="${esc(y.snap)}">${icon('download')} ارجع لبيانات السنة دي</button>` : ''}
+          <button class="btn sm ghost" data-act="fbSnaps">${icon('layers')} كل النسخ الاحتياطية</button>
+        </div></div></div>`).join('')
+    : `<div class="help warn" style="line-height:1.9">لسه مقفلتش أي سنة. لما تحب تبدأ سنة جديدة، اضغط <b>«قفل السنة الدراسية»</b> — والمنصة هتنقل الطلاب لمراحلهم الجديدة وتاخد نسخة احتياطية كاملة، من غير ما تمسح أي حاجة قديمة.</div>`;
+  Modal.open({ title:'أرشيف السنوات الدراسية', sub:'كل سنة بحضورها ودرجاتها', size:'lg', body: body,
+    footer: `<button class="btn pri" data-act="ycOpen">${icon('plus')} قفل السنة وابدأ الجديدة</button><button class="btn ghost" data-close>إغلاق</button>` });
+}
+function openImport(){
+  Modal.open({ title:'استيراد طلاب من Excel أو CSV', sub:'ارفع الشيت أو انسخ الجدول والصقه — والمنصة هتظبط الأعمدة لوحدها', size:'lg',
+    body: `<div class="help brand" style="margin-bottom:13px;line-height:1.9">
+        <b>من إكسل:</b> افتح الشيت → اختار كل الأعمدة → Copy → ارجع هنا والصق في الخانة اللي تحت.
+        أو لو عندك ملف: اضغط «اختار ملف» وارفع <b>CSV</b> أو <b>xlsx</b> مباشرة.
+        أول صف لازم يكون أسماء الأعمدة (الاسم، ولي الأمر، المرحلة…).
+      </div>
+      <div class="btn-row">
+        <button class="btn pri" data-act="impPick">${icon('upload')} اختار ملف (CSV / Excel)</button>
+        <span class="small muted">الملف بيفضل على جهازك — مفيش حاجة بتترفع لأي مكان غير بياناتك</span>
+      </div>
+      <div class="field" style="margin-top:14px"><label>أو الصق الجدول هنا</label>
+        <textarea class="inp code" id="impPaste" rows="8" style="font-size:12px;line-height:1.7" placeholder="الاسم, ولي الأمر, المرحلة
+أحمد محمود, 01012345678, الأول الثانوي
+سارة خالد, 01198765432, الأول الثانوي"></textarea></div>
+      <p class="small muted" style="margin-top:9px">لو الأرقام العربية أو حروف مقطّعة ظهرت غريبة، ابعت الملف نفسه وأنا هظبطه — بس في 99% من الحالات بيشتغل عادي.</p>`,
+    footer: `<button class="btn pri" data-act="impGo">${icon('check')} كمل</button><button class="btn ghost" data-close>إلغاء</button>` });
+}
+
+/* خطوة 2: ربط الأعمدة + معاينة + خيارات */
+function openImportMap(grid){
+  grid = (grid || []).filter(r => r && r.some(x => String(x).trim() !== ''));
+  if (grid.length < 2){ toast('الجدول فاضي أو فيه سطر واحد بس — لازم صف أعمدة + صفوف بيانات', 'bad'); return; }
+  const headers = grid[0].map((h, i) => String(h || '').trim() || ('عمود ' + (i + 1)));
+  const rows = grid.slice(1);
+  const guess = impGuess(headers);
+  S.ui.imp = { headers: headers, rows: rows, guess: guess };
+  const opts = f => IMP_FIELDS.map(x => `<option value="${f.k}" ${guess[f.k] === f.k ? '' : ''}></option>`).join('') && '';
+  const body = `
+    <div class="help info" style="margin-bottom:12px;line-height:1.9">عندنا <b>${nf(rows.length)}</b> سجل في الملف. راجع ربط الأعمدة (اللي المنصة ظبطته لوحدها) وتقدر تعدّله من تحت.</div>
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>عمود الملف</th><th>يروح على</th><th>مثال من أول سطر</th></tr></thead><tbody>
+      ${headers.map((h, i) => {
+        const sel = Object.keys(guess).filter(k => guess[k] === i)[0] || '';
+        return `<tr><td><b>${esc(h)}</b></td>
+          <td><select class="inp sm" data-impcol="${i}">
+            <option value="" ${sel ? '' : 'selected'}>— تجاهل —</option>
+            ${IMP_FIELDS.map(f => `<option value="${f.k}" ${sel === f.k ? 'selected' : ''}>${esc(f.label)}${f.need ? ' *' : ''}</option>`).join('')}
+          </select></td>
+          <td class="small muted">${esc(String((rows[0] || [])[i] || ''))}</td></tr>`;
+      }).join('')}
+    </tbody></table></div>
+    <div class="sep"></div>
+    <div class="grid g-2" style="gap:12px">
+      <div class="field"><label>لو الاسم موجود قبل كده</label>
+        <select class="inp" id="impDup">
+          <option value="skip">اتخطّاه (الأضمن)</option>
+          <option value="update">حدّث بياناته بالجديد</option>
+          <option value="add">أضِفه كطالب جديد بالرغم من كده</option>
+        </select>
+        <span class="small muted">المنصة بتقارن <b>الاسم</b> — فلو عندك اتنين بنفس الاسم بالظبط اختار «أضِفه كطالب جديد»</span></div>
+      <div class="field"><label>الحصص والمراحل الجديدة</label>
+        <label class="switch" style="margin-top:6px"><input type="checkbox" id="impNewGroups" checked>
+          <span class="track"></span><span class="lb">اعمل الحصص اللي مش موجودة<span>وتضاف للمنصة باسمها — وتظبط مواعيدها بعدين</span></span></label>
+        <label class="switch" style="margin-top:6px"><input type="checkbox" id="impNewMeta" checked>
+          <span class="track"></span><span class="lb">ضيف المراحل/الأنظمة الجديدة<span>لو الشيت فيه مرحلة مش مضافة في الإعدادات</span></span></label></div>
+    </div>
+    <div class="sep"></div>
+    <b class="small">معاينة أول 5 طلاب:</b>
+    <div class="tbl-wrap" style="margin-top:8px"><table class="tbl"><thead><tr>${IMP_FIELDS.filter(f => Object.keys(guess).some(k => k === f.k && guess[k] >= 0)).map(f => `<th>${esc(f.label)}</th>`).join('')}</tr></thead><tbody>
+      ${rows.slice(0, 5).map(r => `<tr>${IMP_FIELDS.filter(f => Object.keys(guess).some(k => k === f.k && guess[k] >= 0)).map(f => `<td>${esc(String(r[guess[f.k]] || ''))}</td>`).join('')}</tr>`).join('')}
+    </tbody></table></div>
+    <p class="small muted" style="margin-top:9px">تقدر ترجّع الاستيراد كله بضغطة واحدة من زر «رجّع» بعد الحفظ.</p>`;
+  Modal.open({ title:'ربط أعمدة الملف', sub:'خطوة أخيرة قبل الحفظ', size:'lg', body: body,
+    footer: `<button class="btn pri" data-act="impDo">${icon('check')} استورد ${nf(rows.length)} طالب</button>
+      <button class="btn ghost" data-act="impBack">رجوع</button><button class="btn ghost" data-close>إلغاء</button>` });
+}
+
+/* خطوة 3: التنفيذ */
+function runImport(){
+  const imp = S.ui.imp || {};
+  const rows = imp.rows || [];
+  const map = {};
+  $$('[data-impcol]').forEach(sel => { if (sel.value) map[sel.value] = Number(sel.dataset.impcol); });
+  if (map.name == null){ toast('حدّد عمود «الاسم» الأول', 'bad'); return; }
+  const dupMode = ($('#impDup') && $('#impDup').value) || 'skip';
+  const mkGroups = !$('#impNewGroups') || $('#impNewGroups').checked;
+  const mkMeta = !$('#impNewMeta') || $('#impNewMeta').checked;
+  Undo.snap('استيراد ' + nf(rows.length) + ' سجل من ملف');
+  const st = S.data.settings;
+  const addMeta = (listKey, val) => {
+    const v = String(val || '').trim(); if (!v) return '';
+    const arr = st[listKey] = st[listKey] || [];
+    if (!arr.some(x => impNorm(x) === impNorm(v))){ if (mkMeta) arr.push(v); }
+    const found = arr.filter(x => impNorm(x) === impNorm(v))[0];
+    return found || (mkMeta ? v : '');
+  };
+  let added = 0, updated = 0, skipped = 0, groupsMade = 0, noName = 0, twins = 0;
+  rows.forEach(r => {
+    const get = k => (map[k] == null ? '' : String(r[map[k]] == null ? '' : r[map[k]]).trim());
+    const name = get('name');
+    if (!name){ noName++; return; }
+    const parentPhone = get('parentPhone').replace(/[^0-9+]/g, '');
+    const phone = get('phone').replace(/[^0-9+]/g, '');
+    const groupName = get('group');
+    let groupId = '';
+    if (groupName){
+      const g = (S.data.groups || []).filter(x => impNorm(x.name) === impNorm(groupName))[0];
+      if (g) groupId = g.id;
+      else if (mkGroups){
+        groupId = uid('g');
+        S.data.groups.push({ id: groupId, name: groupName, day: '', from: '', to: '', stage: addMeta('stages', get('stage')), payMode: st.defaultPayMode || 'session' });
+        groupsMade++;
+      }
+    }
+    // التكرار بيتحدد بالاسم لوحده (ده اللي بيحصل فعلًا لما تعيد استيراد قايمة محدّثة)
+    const exist = (S.data.students || []).filter(x => impNorm(x.name) === impNorm(name))[0];
+    if (exist) twins++;
+    if (exist){
+      if (dupMode === 'skip'){ skipped++; return; }
+      if (dupMode === 'update'){
+        if (get('stage')) exist.stage = addMeta('stages', get('stage'));
+        if (get('studySystem')) exist.studySystem = addMeta('studySystems', get('studySystem'));
+        if (get('type')) exist.type = addMeta('studentTypes', get('type'));
+        if (get('level')) exist.level = addMeta('levels', get('level'));
+        if (phone) exist.phone = phone;
+        if (parentPhone) exist.parentPhone = parentPhone;
+        if (groupId) exist.groupId = groupId;
+        exist._t = Date.now();
+        updated++; return;
+      }
+    }
+    const rec = { id: uid('s'), name: name, status: 'active', created: today() };
+    if (get('code')) rec.code = get('code');
+    rec.stage = addMeta('stages', get('stage')) || (S.data.settings.stages || [])[0] || '';
+    if (get('studySystem')) rec.studySystem = addMeta('studySystems', get('studySystem'));
+    if (get('type')) rec.type = addMeta('studentTypes', get('type'));
+    if (get('level')) rec.level = addMeta('levels', get('level'));
+    if (phone) rec.phone = phone;
+    if (parentPhone) rec.parentPhone = parentPhone;
+    if (groupId) rec.groupId = groupId;
+    rec._t = Date.now();
+    S.data.students.push(rec);
+    added++;
+  });
+  commit();
+  Modal.closeAll();
+  const bits = [];
+  if (added) bits.push(addAr(added) + ' طالب جديد');
+  if (updated) bits.push('تحديث ' + addAr(updated) + ' موجود');
+  if (skipped) bits.push('تخطّي ' + addAr(skipped) + ' مكرر');
+  if (groupsMade) bits.push(addAr(groupsMade) + ' حصة جديدة (ظبط مواعيدها من شاشة الحصص)');
+  if (noName) bits.push(addAr(noName) + ' سطر من غير اسم');
+  if (twins && dupMode !== 'add') bits.push('فيه ' + addAr(twins) + ' اسم متطابق — لو دول طلاب مختلفين اختار «أضِفه كطالب جديد» واستورد تاني');
+  toast(bits.length ? bits.join(' · ') : 'مفيش حاجة اتضافت', bits.length ? 'ok' : 'warn', 'نتيجة الاستيراد');
+  if (groupsMade) S.ui.impNote = 'فيه ' + addAr(groupsMade) + ' حصة اتعملت من الملف ومحتاجة تظبط مواعيدها';
+  render();
+}
+
+function openUndoLog(){
+  const logs = Undo.logs();
+  const can = Undo.can();
+  const body = `<div class="help info" style="margin-bottom:12px;line-height:1.9">
+      كل عملية بتتسجّل هنا. زر <b>«رجّع»</b> بيرجّع آخر عملية بالظبط (لو لسه في الذاكرة). والحذف نفسه ليه <b>سلة محذوفات</b> بتفضل 30 يوم.
+    </div>
+    ${can ? `<button class="btn pri" data-act="undoLast" style="margin-bottom:12px">${icon('refresh')} رجّع آخر عملية: ${esc((Undo.top() || {}).label || '')}</button>` : '<p class="muted small">مفيش عملية قابلة للتراجع دلوقتي (التراجع شغال في نفس الجلسة).</p>'}
+    <div class="tbl-wrap"><table class="tbl"><thead><tr><th>العملية</th><th>الوقت</th></tr></thead><tbody>
+      ${logs.length ? logs.map(l => `<tr><td>${esc(l.label)}</td><td class="small muted">${new Date(l.at).toLocaleString('ar-EG')}</td></tr>`).join('') : '<tr><td colspan="2" class="muted small">لسه مفيش عمليات</td></tr>'}
+    </tbody></table></div>`;
+  Modal.open({ title:'آخر العمليات (تراجع)', sub:'آخر 20 عملية في المنصة', size:'md', body: body,
+    footer: `<button class="btn" data-act="trashOpen">${icon('trash')} سلة المحذوفات (${nf(Trash.count())})</button><button class="btn ghost" data-close>إغلاق</button>` });
+}
+function openTrash(){
+  const list = Trash.all();
+  const kindIcon = { student:'user', group:'layers', exam:'award' };
+  const body = list.length ? `<div class="help info" style="margin-bottom:12px;line-height:1.9">
+      أي حاجة تحذفها بتفضل هنا <b>30 يوم</b> وترجّعها بضغطة — <b>بدرجاتها وحضورها كاملين</b>. وبعد 30 يوم بتتشال لوحدها.
+    </div><div class="tbl-wrap"><table class="tbl"><thead><tr><th>النوع</th><th>الاسم</th><th>اتحذف امتى</th><th>تفاصيل</th><th></th></tr></thead><tbody>` +
+      list.map(x => `<tr>
+        <td><span class="badge b-gray">${icon(kindIcon[x.kind] || 'file')} ${{student:'طالب',group:'حصة',exam:'امتحان'}[x.kind] || x.kind}</span></td>
+        <td><b>${esc(String(x.label || '').replace(/^(طالب|حصة|امتحان): /, ''))}</b></td>
+        <td class="small">${new Date(x.at).toLocaleString('ar-EG')}</td>
+        <td class="small muted">${esc(x.note || '')}</td>
+        <td><button class="btn sm pri" data-act="trashRestore" data-id="${esc(x.id)}">${icon('refresh')} رجّع</button></td></tr>`).join('') +
+      '</tbody></table></div>' : `<div class="help" style="line-height:1.9">
+      السلة فاضية ✅<br>أي طالب أو حصة أو امتحان تحذفه بيروح هنا 30 يوم، وترجّعه بضغطة بكل درجاته وحضوره — يعني مستحيل تضيع حاجة بالغلط.
+    </div>`;
+  Modal.open({ title: 'سلة المحذوفات', sub: list.length ? (list.length + ' سجل — ترجّعهم في أي وقت') : 'فاضية دلوقتي', size:'lg', body: body,
+    footer: (list.length ? `<button class="btn bad" data-act="trashEmpty">${icon('trash')} تفريغ السلة نهائيًا</button>` : '') +
+      `<button class="btn ghost" data-close>إغلاق</button>` });
+}
+
+function openAuthWizard(){
+  const cfg = S.fb.cfg || Cloud.merged();
+  const pid = cfg.projectId || FB_DEFAULT.projectId;
+  const on = S.fb.auth === 'on';
+  const hasKey = !!Cloud.authKeyOf();
+  Modal.open({ title:'تأمين بيانات المنصة', sub:'3 خطوات مرة واحدة — وخلاص مفيش حد يشوف بياناتك غير أجهزتك', size:'lg',
+    body: `<div class="help brand" style="margin-bottom:13px;line-height:1.9">
+        <b>ليه الخطوات دي؟</b> دلوقتي قواعد فايربيز «مفتوحة» — يعني أي حد يعرف رابط مشروعك يقدر يشوف (وممكن يعدّل) بيانات الطلاب.
+        اللي هنعمله: المنصة <b>تسجّل نفسها لوحدها</b> في فايربيز (من غير أي كلمة سر ولا شاشة دخول)، وبعدين نقفل القواعد على المسجّلين بس.
+        <b>إنت مش هتكتب أي حاجة في المنصة — بتنسخ من فايربيز والصق هنا وخلاص.</b>
+      </div>
+
+      <div class="field"><label>1) فعّل الدخول الصامت في فايربيز ${hasKey ? '<span class="badge b-ok">تم ✅</span>' : '<span class="badge b-warn">مطلوب</span>'}</label>
+        <div class="small muted" style="margin-bottom:8px;line-height:1.9">من كونسول فايربيز ← Authentication ← Sign-in method ← فعّل <b>Anonymous</b> ← Save (دقيقة واحدة).</div>
+        <button class="btn sm" data-act="authConsolePage">${icon('link')} افتح صفحة التفعيل</button></div>
+
+      <div class="field" style="margin-top:14px"><label>2) الصق كود الإعدادات هنا ${on ? '<span class="badge b-ok">تم ✅</span>' : '<span class="badge b-warn">مطلوب</span>'}</label>
+        <div class="small muted" style="margin-bottom:8px;line-height:1.9">من كونسول فايربيز ← ⚙️ Project settings ← Your apps ← تطبيق الويب ← انسخ <code>firebaseConfig</code> كله والصقه (أو الصق المفتاح لوحده).</div>
+        <textarea class="inp code" id="authPaste" rows="6" style="direction:ltr;text-align:left;font-size:12px;line-height:1.6" placeholder='const firebaseConfig = {
+  apiKey: "AIza...",
+  projectId: "${esc(pid)}"
+};'></textarea>
+        <div class="btn-row" style="margin-top:9px">
+          <button class="btn pri" data-act="authSave">${icon('check')} احفظ وشغّل الدخول الصامت</button>
+          <button class="btn ghost" data-act="authAuto">${icon('search')} دوّر عليه لوحده</button>
+        </div></div>
+
+      <div class="field" style="margin-top:14px"><label>2ب) السيرفر التاني (المرآة) — اختياري بس مهم ${Cloud.keyFor((FB_PROJECTS[1]||{}).projectId) ? '<span class="badge b-ok">تم ✅</span>' : '<span class="badge b-gray">لو قفلت قواعده محتاج مفتاحه</span>'}</label>
+        <div class="small muted" style="margin-bottom:8px;line-height:1.9">لو هتقفل قواعد السيرفر التاني كمان، الصق كود إعداده هو كمان (من نفس المكان في فايربيز بس للمشروع التاني). ولو لسه مقفلتوش، سيبه فاضي.</div>
+        <textarea class="inp code" id="authPaste2" rows="4" style="direction:ltr;text-align:left;font-size:12px;line-height:1.6" placeholder='const firebaseConfig = {
+  apiKey: "AIza...",
+  projectId: "${esc((FB_PROJECTS[1]||{}).projectId || '')}"
+};'></textarea>
+        <div class="btn-row" style="margin-top:9px">
+          <button class="btn" data-act="authSaveMirror">${icon('check')} احفظ مفتاح السيرفر التاني</button>
+          <button class="btn ghost" data-act="authAuto">${icon('search')} دوّر عليه لوحده</button>
+        </div></div>
+
+      <div class="field" style="margin-top:14px"><label>3) انسخ القواعد المحكمة والصقها في Rules ${on ? '' : '<span class="badge b-gray">بعد الخطوة اللي فوق</span>'}</label>
+        <div class="small muted" style="margin-bottom:8px;line-height:1.9">القواعد دي بتقفل كل حاجة وتفتحها بس للمنصة. <b>متنساش تضغط Publish</b> بعد اللصق.</div>
+        <pre class="code" style="direction:ltr;text-align:left;font-size:11.5px;line-height:1.6;white-space:pre-wrap;margin:0 0 9px">${esc(FB_RULES_RTDB)}</pre>
+        <div class="btn-row">
+          <button class="btn pri" data-act="authCopyRules">${icon('copy')} انسخ القواعد</button>
+          <button class="btn" data-act="authRulesPage">${icon('link')} افتح صفحة Rules</button>
+          <button class="btn ghost" data-act="authTest">${icon('eye')} اتأكد إنها مؤمّنة</button>
+        </div></div>
+
+      <div class="help" style="margin-top:14px;line-height:1.9">
+        <b>ملاحظة مطمّنة:</b> لو حصل أي حاجة وإنت مش قادر توصل للبيانات، افتح «الإعدادات ← وقّف التأمين» والمنصة ترجع تشتغل زي الأول في ثانية —
+        بياناتك على فايربيز مش هتتأثر، والشكل مش هيتغير خالص: بتفتح المنصة وتلاقي شغلك زي ما هو.
+      </div>`,
+    footer: `<button class="btn ghost" data-act="authSignOut">مسح شهادة الجهاز وإعادة المحاولة</button><button class="btn" data-close>إغلاق</button>` });
+}
+
 function setLogoIcon(v){ try{ v ? localStorage.setItem(LOGO_ICON_KEY, v) : localStorage.removeItem(LOGO_ICON_KEY); }catch(e){} }
 function logoRef(){ try { return localStorage.getItem(LOGO_KEY) || ''; } catch(e){ return ''; } }
 function logoKB(){ const v = logoRef(); return v ? Math.max(1, Math.round(v.length * 0.75 / 1024)) : 0; }
@@ -3109,7 +4078,7 @@ function exportCSV(name, headers, rows){
 function reportHeader(title, sub){
   const st = S.data.settings;
   return `<div class="rep-head">
-    <img data-logo src="logo.png" alt="اللوجو" onerror="AF_logoNext(this)">
+    <img data-logo src="logo.jpg" alt="اللوجو" onerror="AF_logoNext(this)">
     <div class="rm">
       <b>${esc(st.platformName || 'منصة المستر')}</b>
       <span>${esc(st.teacherName || 'أحمد فتحي')}${st.phone ? ' · ' + esc(st.phone) : ''}</span>
@@ -3192,10 +4161,78 @@ const TITLES = {
   groups:    ['المجموعات والحصص','مواعيد الحصص الأسبوعية وتوزيع الطلاب'],
   attendance:['الحضور والغياب','تسجيل حضور كل حصة وتقارير الانتظام'],
   exams:     ['الامتحانات والدرجات','إنشاء امتحان لمرحلة ومجموعة وتسجيل الدرجات'],
+  help:      ['دليل الاستخدام','كل حاجة تشرح نفسها خطوة بخطوة'],
   reports:   ['التقارير و PDF','تقارير المتابعة جاهزة للطباعة والحفظ PDF'],
   settings:  ['الإعدادات','بيانات المنصة والمراحل والربط والتثبيت']
 };
 const Views = {};
+
+/* ================= دليل الاستخدام ================= */
+const GUIDE = [
+  { t:'البداية في 5 دقايق', ic:'star', items:[
+    { q:'أول حاجة أعملها إيه؟', a:'ظبط اسمك ومعلوماتك من <b>الإعدادات</b>، وبعدها اعمل <b>الحصص</b> (يوم + وقت + نظام الدفع)، وبعدها ضيف <b>الطلاب</b> — أو استوردهم من ملف إكسل بضغطة واحدة.', act:'groups', actL:'افتح الحصص' },
+    { q:'البرنامج محتاج تسجيل دخول؟', a:'لأ خالص. بتفتح المنصة وتلاقي شغلك على طول — مفيش اسم مستخدم ولا كلمة سر. والبيانات محفوظة على جهازك وعلى السحابة.', act:'dashboard', actL:'لوحة التحكم' },
+    { q:'ينفع أجرّب من غير بياناتي؟', a:'أيوه — الإعدادات ← «بيانات تجريبية» بيحمّل طلاب وحصص للتجربة، وتقدر تمسحهم بعد كده بـ«حذف كل البيانات».' }
+  ]},
+  { t:'الطلاب', ic:'users', items:[
+    { q:'إزاي أضيف طالب بسرعة؟', a:'شاشة الطلاب ← <b>إضافة طالب</b>. الاسم بس هو المطلوب، والباقي اختياري وتقدر تكمله بعدين.', act:'students', actL:'افتح الطلاب' },
+    { q:'عندي 100 طالب في شيت إكسل — أعمل إيه؟', a:'شاشة الطلاب ← <b>استيراد من Excel</b>: ارفع الملف (CSV أو xlsx) أو انسخ من إكسل والصق — المنصة تعرف الأعمدة لوحدها وتعرض لك معاينة قبل الحفظ. لو الاسم مكرر تقدر تختار تتخطاه أو تحدّث بياناته.', act:'impOpen', actL:'استيراد من Excel' },
+    { q:'مسحت طالب بالغلط!', a:'اطمن — زر <b>«رجّع»</b> بيظهر في التنبيه لمدة 10 ثواني، وبعدها الطالب بيروح <b>سلة المحذوفات</b> 30 يوم وترجّعه <b>بدرجاته وحضوره كاملين</b>.', act:'trashOpen', actL:'سلة المحذوفات' },
+    { q:'إزاي أعرف تاريخ الطالب كله؟', a:'اضغط على اسم الطالب ← <b>الملف الشخصي</b>: كل الحضور والدرجات ونسبة الانتظام، وفيه أزرار للطباعة وتقرير الواتساب.', act:'students', actL:'افتح الطلاب' }
+  ]},
+  { t:'الحصص والحضور', ic:'check-square', items:[
+    { q:'إزاي أسجّل حضور حصة؟', a:'شاشة <b>الحضور</b> ← اختار الحصة والتاريخ ← اضغط على اسم الطالب وحدد (حاضر / متأخر / غايب / بعذر) ← <b>حفظ</b>. الحفظ بيتم على الجهاز والسحابة في نفس اللحظة.', act:'attendance', actL:'افتح الحضور' },
+    { q:'النظام بيمنع تعارض الحصص؟', a:'أيوه — لو حاولت تعمل حصتين في نفس اليوم والوقت، المنصة تنبهك وتمنع التعارض.', act:'groups', actL:'افتح الحصص' },
+    { q:'حصة تعويضية؟', a:'سجّل الحضور بتاريخ الحصة التعويضية واختار نفس المجموعة — النظام بيعتبرها يوم حضور عادي وبتتحسب في تقارير الطالب.' },
+    { q:'بتسجّل الحضور ومعايا بيانات قديمة؟', a:'كل يوم حضور ليه تاريخ مستقل، فأي تعديل على يوم قديم مابيأثرش على اليوم الحالي، وبيتوحّد على كل الأجهزة لوحده.' }
+  ]},
+  { t:'الامتحانات والتقارير والواتساب', ic:'award', items:[
+    { q:'إزاي أعمل امتحان وأسجّل الدرجات؟', a:'شاشة <b>الامتحانات</b> ← امتحان جديد (اختار المرحلة والمجموعة والدرجة القصوى) ← سجّل الدرجات ← حفظ.', act:'exams', actL:'افتح الامتحانات' },
+    { q:'أطبع كشف أو تقرير؟', a:'شاشة <b>التقارير</b> فيها 5 تقارير جاهزة (متابعة طالب، كشف حضور، كشف طلاب، نتائج، تقرير عام) — وكلها تتطبع PDF بضغطة أو تتصدّر Excel.', act:'reports', actL:'افتح التقارير' },
+    { q:'أبعت لأب الطالب تقرير؟', a:'من الملف الشخصي أو من شاشة الحضور اضغط زر <b>واتساب</b> — الرسالة بتتكتب لوحدها بكل الأرقام (الحضور والدرجات والملاحظات) وانت بس تدوس إرسال.' },
+    { q:'أبعت لكل أولياء الأمور مرة واحدة؟', a:'في شاشة الحضور: <b>إرسال لحصة كاملة</b> — بيفتحلك كل الرسائل بالترتيب، أو من التنبيهات (الغياب المتكرر) بنفس الطريقة.' }
+  ]},
+  { t:'المزامنة بين الأجهزة', ic:'cloud', items:[
+    { q:'إزاي أظبط المنصة على جهاز جديد؟', a:'افتح رابط المنصة على الجهاز الجديد — <b>مفيش أي حاجة تكتبها</b>. البيانات بتنزل لوحدها، وأي تعديل من أي جهاز بيظهر على التاني في ثواني.', act:'settings', actL:'الإعدادات' },
+    { q:'النت قطع وأنا بأسجّل؟', a:'كمّل عادي — كل تعديل بيتسجل بختم وقت وبيرفع <b>لوحده</b> أول ما النت يرجع، حتى لو قفلت المنصة.' },
+    { q:'إيه الحكاية في «أمّن البيانات»؟', a:'خطوة اختيارية بتخلي بيانات الطلاب محدش يشوفها غيرك — المنصة بتسجّل نفسها لوحدها في فايربيز (مفيش كلمة سر تكتبها) والقواعد بتتقفل. الخطوات كلها جوه الإعدادات في 3 خطوات.', act:'authWizard', actL:'أمّن البيانات' },
+    { q:'عايز رابط ثابت أفتح منه المنصة من أي جهاز؟', a:'المنصة تنشر على <b>فايربيز</b> نفسه (مجانًا بالكامل) — بيبقى لك رابط ثابت تفتحه من أي موبايل أو كمبيوتر في أي وقت، وكل حاجة تفضل متزامنة. الخطوات جاهزة في زر واحد.', act:'deployOpen', actL:'رابط ثابت للمنصة' },
+    { q:'عايز نسخة تشتغل من غير إنترنت خالص؟', a:'فيه زر بينزّلك <b>نسخة مستقلة</b> (ملف واحد) — دوس عليها مرتين وبتفتح على أي جهاز، شغالة أوفلاين وبترجع تتزامن مع فايربيز أول ما النت يفتح.', act:'deployOpen', actL:'حمّل نسخة مستقلة' },
+    { q:'عايز أعرف كل حاجة عن السحابة دلوقتي؟', a:'الإعدادات ← <b>حالة المزامنة والنسخ</b>: السيرفر المتصل، سرعته، أي تعديل لسه مرفوع، آخر نسخة احتياطية، وحجم الاستهلاك من الخطة المجانية.', act:'fbStatus', actL:'حالة المزامنة' }
+  ]},
+  { t:'النسخ الاحتياطي وبداية سنة جديدة', ic:'save', items:[
+    { q:'بياناتي في أمان؟', a:'أيوه — عندك 3 طبقات: نسخة على جهازك، نسخة على السحابة (سيرفرين بالمرآة)، ونسخة احتياطية كاملة بتتعمل <b>كل يوم لوحدها</b> (آخر 6 نسخ محفوظة) وتقدر ترجّع أي يوم بضغطة.', act:'fbSnaps', actL:'النسخ الاحتياطية' },
+    { q:'لو المتصفح مسح بياناته؟', a:'المنصة بتحتفظ بنسخة أمان خفية على الجهاز نفسه و<b>بترجّعها لوحدها</b> أول ما تفتح، وبتبلّغك إن ده حصل.' },
+    { q:'السنة خلصت — أعيد إدخال الطلاب؟', a:'لأ. الإعدادات ← <b>قفل السنة الدراسية</b>: بتقولوا المرحلة الجديدة لكل مرحلة، والمنصة بتنقل الطلاب وتاخد نسخة احتياطية كاملة وملف أرشيف على جهازك — <b>وبدون ما تمسح أي حاجة قديمة</b>.', act:'ycOpen', actL:'قفل السنة' },
+    { q:'عايز أشوف أو أطبع سنة قديمة؟', a:'الإعدادات ← <b>أرشيف السنوات</b> — كل سنة بحضورها ودرجاتها وتقدر ترجع لبياناتها أو تطبع تقارير بنطاق تاريخ السنة دي.', act:'ycArchive', actL:'أرشيف السنوات' }
+  ]},
+  { t:'لو حصلت مشكلة', ic:'alert', items:[
+    { q:'حاجة مش شغالة ومش عارف السبب', a:'الإعدادات ← <b>حالة المزامنة</b> ← زر <b>«انسخ تشخيص كامل»</b> — بيطلع تقرير جاهز فيه كل حاجة (الجهاز، السيرفر، الأخطاء) وتبعته واتساب وأنا أعرف المشكلة على طول.', act:'fbStatus', actL:'افتح شاشة الحالة' },
+    { q:'عملت غلط ومحتاج أرجع', a:'زر <b>«رجّع»</b> في التنبيه بيرجّع آخر عملية، والإعدادات فيها <b>«آخر العمليات»</b> بسجل آخر 20 عملية.', act:'undoOpen', actL:'آخر العمليات' },
+    { q:'عايز أخفف أو أرتّب البيانات', a:'تقدر تصدّر نسخة JSON من الإعدادات وتستوردها في أي وقت أو على أي جهاز تاني.' }
+  ]}
+];
+
+Views.help = function(){
+  const total = GUIDE.reduce((n, g) => n + g.items.length, 0);
+  return pageHead('دليل الاستخدام', 'كل حاجة تشرح نفسها — من غير ما تسأل حد') +
+    `<div class="help brand" style="margin-bottom:14px;line-height:1.9">
+      <b>${icon('book')} ${nf(total)} إجابة سريعة</b> — اختار القسم، وهتلاقي الخطوات بالظبط. وأي حاجة ليها زر جوه الدليل بيفتحهالك على طول.
+    </div>
+    <div class="chips" style="margin-bottom:14px">
+      ${GUIDE.map((g, i) => `<button class="chip ${i === 0 ? 'on' : ''}" data-act="guideGo" data-id="${i}">${icon(g.ic)} ${esc(g.t)}</button>`).join('')}
+    </div>
+    <div id="guideBody">
+      ${GUIDE.map((g, i) => `<div class="card ${i === 0 ? '' : 'hide'}" data-guide="${i}">
+        <div class="card-h"><h3>${icon(g.ic)} ${esc(g.t)}</h3></div>
+        <div class="card-b">
+          ${g.items.map(it => `<div class="help" style="margin-bottom:11px;line-height:1.95">
+            <b>${esc(it.q)}</b><br>${it.a}
+            ${it.act ? `<div class="btn-row" style="margin-top:8px"><button class="btn sm ${it.act === 'impOpen' || it.act === 'authWizard' ? 'pri' : ''}" data-act="${it.act}">${icon('link')} ${esc(it.actL || 'افتح')}</button></div>` : ''}
+          </div>`).join('')}
+        </div></div>`).join('')}
+    </div>`;
+};
 
 /* ================= Charts ================= */
 const Charts = {
@@ -3287,6 +4324,7 @@ Views.dashboard = function(){
         `<div class="btn-row" style="justify-content:center">
           <button class="btn pri" data-act="addGroup">${icon('plus')} إنشاء مجموعة/حصة</button>
           <button class="btn" data-act="addStudent">${icon('user')} إضافة طالب</button>
+          <button class="btn ghost" data-act="impOpen">${icon('upload')} استيراد من Excel</button>
           <button class="btn" data-act="seed">${icon('star')} بيانات تجريبية</button>
         </div>`)}</div></div>`;
   }
@@ -3493,7 +4531,9 @@ Views.students = function(){
 
   return pageHead('الطلاب', `${list.length} طالب${q ? ' (نتيجة بحث)' : ''} · ${ar(list.filter(s => !s.groupId).length)} بدون حصة`
       + (list.length > shownList.length ? ` · بنعرض ${ar(shownList.length)}` : ''),
-    `<button class="btn" data-act="expStudents">${icon('download')} Excel</button>
+    `<button class="btn ghost" data-act="impOpen">${icon('upload')} استيراد من Excel</button>
+     <button class="btn ghost" data-act="trashOpen">${icon('trash')} سلة المحذوفات${Trash.count() ? ' (' + nf(Trash.count()) + ')' : ''}</button>
+     <button class="btn" data-act="expStudents">${icon('download')} Excel</button>
      <button class="btn" data-act="pdfStudents">${icon('pdf')} PDF</button>
      <button class="btn pri" data-act="addStudent">${icon('plus')} طالب جديد</button>`) + `
   <div class="card"><div class="card-b">
@@ -4043,6 +5083,24 @@ Views.settings = function(){
           <button class="btn sm ghost" data-act="fbRules">${icon('file')} قواعد الحماية (انسخها)</button>
           <button class="btn sm ghost" data-act="fbConsole">${icon('link')} فتح كونسول فايربيز</button>
           <button class="btn sm ghost" data-act="swUpdate">${icon('download')} تحديث نسخة التطبيق</button>
+          <button class="btn sm pri" data-act="deployOpen">${icon('cloud')} رابط ثابت للمنصة (فايربيز)</button>
+        </div>
+
+        <div class="sep"></div>
+        <div class="flex wrap" style="gap:10px;align-items:center">
+          <b>${icon('check-square')} تأمين البيانات <span class="small muted">(من غير أي تسجيل دخول)</span></b>
+          <span class="sp"></span>
+          <span class="badge ${st.auth === false ? 'b-gray' : (S.fb.auth === 'on' ? 'b-ok' : (S.fb.auth === 'fail' ? 'b-bad' : 'b-warn'))}">
+            ${st.auth === false ? '⏸️ مقفول بإيدك' : S.fb.auth === 'on' ? 'الدخول الصامت شغال ✅' : S.fb.auth === 'fail' ? 'محتاج خطوة' : 'خطوة واحدة ويتظبط'}
+          </span>
+          <button class="btn sm pri" data-act="authWizard">${icon('check-square')} أمّن البيانات</button>
+          ${S.fb.mirrorAuth === 'need-key' ? '<span class="badge b-warn">المرآة محتاجة مفتاح السيرفر التاني</span>' : ''}
+          <button class="btn sm ghost" data-act="authTest">${icon('eye')} اتأكد إنها مؤمّنة</button>
+          <label class="switch" style="margin:0">
+            <input type="checkbox" id="authToggle" ${st.auth === false ? '' : 'checked'}>
+            <span class="track"></span>
+            <span class="lb">مفعّل<span>المنصة بتسجّل الجهاز لوحدها — مش هتكتب أي حاجة</span></span>
+          </label>
         </div>
 
         <p class="small muted" style="margin-top:12px">
@@ -4075,6 +5133,20 @@ Views.settings = function(){
           <span class="lb">نسخة احتياطية تلقائية على السحابة<span>مرة كل يوم — آخر 6 نسخ محفوظة وتقدر ترجّع أي يوم بضغطة</span></span>
         </label>
         <div class="sep"></div>
+        <div class="flex wrap" style="gap:9px;align-items:center">
+          <b>${icon('calendar')} السنة الدراسية: ${esc(currentYearLabel())}</b>
+          <span class="sp"></span>
+          <button class="btn sm" data-act="ycArchive">${icon('layers')} أرشيف السنوات${(S.data.years || []).length ? ' (' + nf((S.data.years || []).length) + ')' : ''}</button>
+          <button class="btn sm pri" data-act="ycOpen">${icon('plus')} قفل السنة وابدأ الجديدة</button>
+        </div>
+        <div class="flex wrap" style="gap:9px;align-items:center;margin-top:10px">
+          <b>${icon('upload')} إدخال جماعي</b>
+          <span class="sp"></span>
+          <button class="btn sm" data-act="impOpen">${icon('upload')} استيراد طلاب من Excel/CSV</button>
+          <button class="btn sm ghost" data-act="undoOpen">${icon('refresh')} آخر العمليات (تراجع)</button>
+          <button class="btn sm ghost" data-act="trashOpen">${icon('trash')} سلة المحذوفات (${nf(Trash.count())})</button>
+        </div>
+        <div class="sep"></div>
         <p class="small muted">حجم البيانات الحالي: <b>${size}</b> · آخر تعديل: ${S.data.meta.updatedAt ? new Date(S.data.meta.updatedAt).toLocaleString('ar-EG') : '—'}</p>
         <div class="btn-row" style="margin-top:10px">
           <button class="btn pri" data-act="expJSON">${icon('download')} نسخة احتياطية (JSON)</button>
@@ -4087,7 +5159,7 @@ Views.settings = function(){
         </div>
         <div class="sep"></div>
         <div class="flex" style="gap:14px;align-items:flex-start">
-          <img data-logo src="logo.png" alt="لوجو المنصة" onerror="AF_logoNext(this)" style="width:76px;height:76px;border-radius:50%;object-fit:cover;border:2px solid var(--brand);background:#0b0b0d;flex:0 0 76px">
+          <img data-logo src="logo.jpg" alt="لوجو المنصة" onerror="AF_logoNext(this)" style="width:76px;height:76px;border-radius:50%;object-fit:cover;border:2px solid var(--brand);background:#0b0b0d;flex:0 0 76px">
           <div style="min-width:0">
             <b class="small">لوجو المنصة</b>
             <p class="small muted" style="margin:3px 0 9px">
@@ -4139,6 +5211,136 @@ function confirmDialog(title, msg, okLabel, cb, danger){
   ov.querySelector('#cfOk').onclick = () => { Modal.close(id); cb(); };
   return id;
 }
+/* ============================================================
+   التراجع + سلة المحذوفات — الشبكة الأمان بتاعة المستر
+   • أي عملية بيتاخد لها لقطة، وزر «رجّع» بيظهر جوه التنبيه 10 ثواني
+   • أي حذف بيروح «سلة المحذوفات» 30 يوم، وبيترجع بكل حاجته (درجات + حضور)
+   ============================================================ */
+const Undo = {
+  KEY: 'mostar_undo_log',
+  stack: [], CAP: 15, LIMIT: 5 * 1024 * 1024, bytes: 0,
+  snap(label){
+    try{
+      const json = JSON.stringify(S.data);
+      this.stack.push({ label: label, at: new Date(), data: json });
+      this.bytes += json.length;
+      while (this.stack.length > this.CAP || (this.bytes > this.LIMIT && this.stack.length > 2)){
+        this.bytes -= (this.stack.shift().data || '').length;
+      }
+      this.log(label);
+    }catch(e){}
+  },
+  log(label){
+    try{
+      const list = JSON.parse(localStorage.getItem(this.KEY) || '[]');
+      list.unshift({ label: String(label || ''), at: new Date().toISOString() });
+      localStorage.setItem(this.KEY, JSON.stringify(list.slice(0, 20)));
+    }catch(e){}
+  },
+  logs(){ try{ return JSON.parse(localStorage.getItem(this.KEY) || '[]'); }catch(e){ return []; } },
+  can(){ return this.stack.length > 0; },
+  top(){ return this.stack.length ? this.stack[this.stack.length - 1] : null; },
+  run(){
+    const e = this.stack.pop();
+    if (!e){ toast('مفيش عملية ترجعها', 'info'); return false; }
+    try{
+      this.bytes -= (e.data || '').length;
+      const d = migrate(JSON.parse(e.data));
+      S.data = d; bustCache(); commit({ silent:false });
+      toast('تم الرجوع: ' + e.label, 'ok', 'رجّعنا');
+      return true;
+    }catch(err){ toast('مش قادر أرجع العملية دي', 'bad'); return false; }
+  }
+};
+// بنسجّل العملية قبل ما تحصل (ممكن تترجع 10 ثواني من التنبيه أو من الإعدادات)
+function undoable(label, fn, opts){
+  opts = opts || {};
+  Undo.snap(label);
+  const r = fn();
+  if (!opts.silent) toast(label + ' — تقدر ترجّعها', opts.type || 'ok', opts.title, true);
+  return r;
+}
+
+const Trash = {
+  KEY: 'mostar_trash', DAYS: 30,
+  all(){
+    try{
+      const list = JSON.parse(localStorage.getItem(this.KEY) || '[]');
+      const fresh = list.filter(x => x && x.at && (Date.now() - new Date(x.at).getTime()) < this.DAYS * 86400000);
+      if (fresh.length !== list.length) this.save(fresh);
+      return fresh;
+    }catch(e){ return []; }
+  },
+  save(list){ try{ localStorage.setItem(this.KEY, JSON.stringify((list || []).slice(0, 60))); }catch(e){} },
+  add(entry){
+    try{
+      const list = this.all();
+      list.unshift(Object.assign({ id: uid('t'), at: new Date().toISOString() }, entry));
+      this.save(list);
+      S.ui.trashCount = list.length;
+      return list[0];
+    }catch(e){ return null; }
+  },
+  get(id){ return this.all().filter(x => x.id === id)[0] || null; },
+  remove(id){ this.save(this.all().filter(x => x.id !== id)); },
+  count(){ return this.all().length; },
+  // بناخد نسخة كاملة من السجل وحاجته قبل الحذف
+  async capture(kind, rec){
+    const e = { kind: kind, at: new Date().toISOString(), rec: JSON.parse(JSON.stringify(rec || {})), grades: {}, att: {}, links: [] };
+    if (kind === 'student'){
+      const sid = rec.id;
+      Object.keys(S.data.grades || {}).forEach(eid => { if (sid in (S.data.grades[eid] || {})) e.grades[eid] = S.data.grades[eid][sid]; });
+      Object.keys(S.data.attendance || {}).forEach(k => { const r = (S.data.attendance[k] || {}).records || {}; if (sid in r) e.att[k] = r[sid]; });
+      e.label = 'طالب: ' + (rec.name || '');
+      const cm = S.fb.lastPush ? ', آخر نسخة على السحابة ' + S.fb.lastPush.toLocaleTimeString('ar-EG', { hour:'2-digit', minute:'2-digit' }) : '';
+      e.note = ((rec.groupId ? 'كان في حصة ' + ((groupOf(rec.groupId) || {}).name || '') + ' · ' : '') + 'درجات: ' + Object.keys(e.grades).length + ' · أيام حضور: ' + Object.keys(e.att).length + cm);
+    } else if (kind === 'group'){
+      e.label = 'حصة: ' + (rec.name || '');
+      e.links = (S.data.students || []).filter(x => x.groupId === rec.id).map(x => ({ id: x.id, name: x.name }));
+      e.note = 'كان فيها ' + e.links.length + ' طالب';
+    } else {
+      e.label = 'امتحان: ' + (rec.name || '');
+      e.grades = Object.assign({}, (S.data.grades || {})[rec.id] || {});
+      e.note = 'درجات مسجّلة: ' + Object.keys(e.grades).length;
+    }
+    return e;
+  },
+  // نرجّع السجل ودرجاته وحضوره (بدون ما نلمس أي حاجة أحدث)
+  restore(id){
+    const e = this.get(id);
+    if (!e){ toast('السجل مش موجود في السلة', 'bad'); return false; }
+    Undo.snap('استرجاع ' + e.label);
+    const rec = JSON.parse(JSON.stringify(e.rec || {}));
+    if (e.kind === 'student'){
+      if (!(S.data.students || []).some(x => x.id === rec.id)){ rec._t = Date.now(); S.data.students.push(rec); }
+      else toast('الطالب موجود أصلًا بهذا الاسم', 'warn');
+      Object.keys(e.grades || {}).forEach(eid => {
+        S.data.grades[eid] = S.data.grades[eid] || {};
+        if (!(rec.id in S.data.grades[eid])) S.data.grades[eid][rec.id] = e.grades[eid];
+      });
+      Object.keys(e.att || {}).forEach(k => {
+        if (!S.data.attendance[k]){
+          const parts = String(k).split('@');
+          S.data.attendance[k] = { groupId: parts[1] || '', date: parts[0] || '', records: {} };
+        }
+        S.data.attendance[k].records = S.data.attendance[k].records || {};
+        if (!(rec.id in S.data.attendance[k].records)) S.data.attendance[k].records[rec.id] = e.att[k];
+      });
+    } else if (e.kind === 'group'){
+      if (!(S.data.groups || []).some(x => x.id === rec.id)){ rec._t = Date.now(); S.data.groups.push(rec); }
+      (e.links || []).forEach(l => { const st = student(l.id); if (st && !st.groupId) st.groupId = rec.id; });
+    } else if (e.kind === 'exam'){
+      if (!(S.data.exams || []).some(x => x.id === rec.id)){ rec._t = Date.now(); S.data.exams.push(rec); }
+      S.data.grades[rec.id] = S.data.grades[rec.id] || {};
+      Object.keys(e.grades || {}).forEach(sid => { if (!(sid in S.data.grades[rec.id])) S.data.grades[rec.id][sid] = e.grades[sid]; });
+    }
+    this.remove(id);
+    commit();
+    toast('رجّعنا ' + e.label + ' بكل بياناته ✅', 'ok', 'سلة المحذوفات');
+    return true;
+  }
+};
+
 function nextCode(){
   const nums = S.data.students.map(s => Number(String(s.code || '').replace(/\D/g, '')) || 0);
   return 'S' + String((nums.length ? Math.max.apply(null, nums) : 0) + 1).padStart(3, '0');
@@ -4841,7 +6043,7 @@ function render(){
   if (rid){ const el = document.getElementById(rid);
     if (el){ try{ el.focus(); if (rs != null && el.setSelectionRange) el.setSelectionRange(rs, re); }catch(e){} } }
 }
-const VIEW_LIST = ['dashboard','alerts','students','groups','attendance','exams','reports','settings'];
+const VIEW_LIST = ['dashboard','alerts','students','groups','attendance','exams','reports','help','settings'];
 function go(view, extra){
   if (!VIEW_LIST.includes(view)) view = 'dashboard';
   S.view = view;
@@ -5105,12 +6307,15 @@ document.addEventListener('click', function(e){
     case 'profile': Modal.closeAll(); setTimeout(() => openProfile(id), 120); break;
     case 'delStudent': {
       const s = student(id); if (!s) break;
-      confirmDialog('حذف الطالب', `متأكد من حذف «${s.name}»؟ سيتم حذف درجاته وسجل حضوره بالكامل.`, 'حذف نهائيًا', () => {
+      confirmDialog('حذف الطالب', `متأكد من حذف «${s.name}»؟\nهيروح «سلة المحذوفات» 30 يوم، وتقدر ترجّعه بدرجاته وحضوره في أي وقت.`, 'حذف', async () => {
+        const entry = await Trash.capture('student', s);
+        Trash.add(entry);
         S.data.students = S.data.students.filter(x => x.id !== id);
         Object.keys(S.data.attendance).forEach(k => { delete S.data.attendance[k].records[id];
           if (!Object.keys(S.data.attendance[k].records).length) delete S.data.attendance[k]; });
         Object.keys(S.data.grades).forEach(eid => { delete S.data.grades[eid][id]; });
-        commit(); toast('تم حذف الطالب', 'ok');
+        commit();
+        toast('تم حذف «' + s.name + '» — في سلة المحذوفات لو حبيت ترجّعه', 'ok', 'تم الحذف', true);
       }, true); break;
     }
     case 'assign': Modal.closeAll(); setTimeout(() => assignStudent(id), 130); break;
@@ -5128,10 +6333,12 @@ document.addEventListener('click', function(e){
     case 'delGroup': {
       const g = groupOf(id); if (!g) break;
       const n = studentsOfGroup(id).length;
-      confirmDialog('حذف الحصة', n ? `الحصة «${g.name}» بها ${n} طالب — هيتحوّلوا إلى «بدون حصة». متابعة؟` : `حذف الحصة «${g.name}»؟`, 'حذف', () => {
+      confirmDialog('حذف الحصة', n ? `الحصة «${g.name}» بها ${n} طالب — هيتحوّلوا إلى «بدون حصة»، وتقدر ترجّع الحصة وطلابها من سلة المحذوفات. متابعة؟` : `حذف الحصة «${g.name}»؟\nهتروح سلة المحذوفات 30 يوم.`, 'حذف', async () => {
+        Trash.add(await Trash.capture('group', g));
         S.data.students.forEach(s => { if (s.groupId === id) s.groupId = ''; });
         S.data.groups = S.data.groups.filter(x => x.id !== id);
-        commit(); toast('تم حذف الحصة', 'ok');
+        commit();
+        toast('تم حذف الحصة — في سلة المحذوفات لو حبيت ترجّعها بطلابها', 'ok', 'تم الحذف', true);
       }, true); break;
     }
     case 'manageGroup': Modal.closeAll(); setTimeout(() => manageGroupStudents(id), 130); break;
@@ -5190,9 +6397,11 @@ document.addEventListener('click', function(e){
     case 'selExam': S.ui.exam.id = id; render(); break;
     case 'delExam': {
       const ex = examOf(id); if (!ex) break;
-      confirmDialog('حذف الامتحان', `حذف «${ex.name}» وكل درجاته؟`, 'حذف', () => {
+      confirmDialog('حذف الامتحان', `حذف «${ex.name}» وكل درجاته؟\nهيروح سلة المحذوفات 30 يوم وتقدر ترجّعه بدرجاته.`, 'حذف', async () => {
+        Trash.add(await Trash.capture('exam', ex));
         S.data.exams = S.data.exams.filter(x => x.id !== id); delete S.data.grades[id];
-        S.ui.exam.id = ''; commit(); toast('تم حذف الامتحان', 'ok');
+        S.ui.exam.id = ''; commit();
+        toast('تم حذف الامتحان — في سلة المحذوفات لو حبيت ترجّعه', 'ok', 'تم الحذف', true);
       }, true); break;
     }
     case 'clearGrade': {
@@ -5328,6 +6537,40 @@ document.addEventListener('click', function(e){
       Cloud.connect({ config: next, silent: false });
       break;
     }
+    case 'undoLast': { $$('.toast [data-act="undoLast"]').forEach(b => { const t = b.closest('.toast'); if (t) t.remove(); }); Undo.run(); render(); break; }
+    case 'guideGo': {
+      const i = el.dataset.id;
+      $$('[data-act="guideGo"]').forEach(b => b.classList.toggle('on', b === el));
+      $$('[data-guide]').forEach(d => d.classList.toggle('hide', d.dataset.guide !== i));
+      break;
+    }
+    case 'deployOpen': openDeploy(); break;
+    case 'deployZip': Deploy.makeZip(); break;
+    case 'deployShell': try{ window.open(Deploy.shellUrl(), '_blank', 'noopener'); toast('فوق على اليمين هتلاقي أيقونة (>_) — دي Cloud Shell', 'info', 'النشر على فايربيز'); }catch(e){ toast(Deploy.shellUrl(), 'info'); } break;
+    case 'deployCopy': copyText(el.dataset.cmd || '', 'اتنسخ ✅ الصقه في Cloud Shell واضغط Enter'); break;
+    case 'deployTry': try{ window.open(Deploy.url(), '_blank', 'noopener'); toast('لو لسه ما نشرتش هتلاقيها صفحة فاضية — نفّذ الخطوات الأول', 'info', 'النشر على فايربيز'); }catch(e){} break;
+    case 'standaloneSave': Deploy.saveStandalone(); break;
+    case 'ycOpen': openYearClose(); break;
+    case 'ycDo': runYearClose(); break;
+    case 'ycArchive': openArchive(); break;
+    case 'undoOpen': openUndoLog(); break;
+    case 'snapRestoreAsk': { const k = el.dataset.k; confirmDialog('استرجاع نسخة', 'هيتم استرجاع بيانات نسخة «' + k + '» وتحل مكان البيانات الحالية على كل الأجهزة. متابعة؟', 'استرجاع', () => Cloud.restoreSnapshot(k)); break; }
+    case 'impOpen': openImport(); break;
+    case 'impPick': { const f = $('#impFile'); if (f) f.click(); break; }
+    case 'impBack': openImport(); break;
+    case 'impGo': {
+      const txt = ($('#impPaste') && $('#impPaste').value) || '';
+      if (!txt.trim()){ toast('الصق الجدول أو اختار ملف الأول', 'bad'); return; }
+      Modal.closeAll();
+      openImportMap(Import.parseCSV(txt));
+      break;
+    }
+    case 'impDo': runImport(); break;
+    case 'trashOpen': openTrash(); break;
+    case 'trashRestore': { Trash.restore(el.dataset.id); Modal.closeAll(); setTimeout(() => openTrash(), 120); render(); break; }
+    case 'trashEmpty': confirmDialog('تفريغ سلة المحذوفات', 'كل السجلات اللي في السلة هتتمسح نهائيًا ومش هتقدر ترجّعها.', 'تفريغ نهائي', () => { Trash.save([]); Modal.closeAll(); toast('اتفضّت السلة', 'ok'); render(); }, true); break;
+    case 'diagCopy': copyText(diagText(), 'تم نسخ تقرير التشخيص ✅ ابعته واتساب وأنا هعرف المشكلة بالظبط'); break;
+    case 'diagClear': clearErrs(); toast('اتمسح سجل الأخطاء', 'ok'); render(); break;
     case 'fbFullSync': { $$('.overlay').forEach(o => o.remove()); Cloud.fullSync(); break; }
     case 'fbStatus': { $$('.overlay').forEach(o => o.remove()); Cloud.status(); break; }
     case 'fbSnaps': { $$('.overlay').forEach(o => o.remove()); Cloud.snaps(); break; }
@@ -5387,7 +6630,54 @@ document.addEventListener('click', function(e){
     case 'fbPushAll': Cloud.pushNow(); break;
     case 'fbDisconnect': Cloud.disconnect(); render(); break;
     case 'fbConsole': try{ window.open(FB_CONSOLE, '_blank', 'noopener'); }catch(e){ toast(FB_CONSOLE, 'info'); } break;
-    case 'fbRules': copyText(Cloud.mode() === 'rtdb' ? FB_RULES_RTDB : FB_RULES, 'تم نسخ قواعد الحماية ✅ الصقها في تبويب Rules واضغط Publish'); break;
+    case 'fbRules': copyText(Cloud.mode() === 'rtdb' ? (S.data.settings.auth === false ? FB_RULES_RTDB_OPEN : FB_RULES_RTDB) : FB_RULES, 'تم نسخ قواعد الحماية ✅ الصقها في تبويب Rules واضغط Publish'); break;
+    case 'authWizard': openAuthWizard(); break;
+    case 'authCopyRules': copyText(Cloud.mode() === 'rtdb' ? FB_RULES_RTDB : FB_RULES, 'تم نسخ القواعد المحكمة ✅ الصقها في تبويب Rules واضغط Publish ثم اضغط «اتأكد إنها مؤمّنة»'); break;
+    case 'authRulesPage': try{ window.open(rulesConsoleUrl(S.fb.cfg || Cloud.merged()), '_blank', 'noopener'); toast('الصق القواعد واضغط Publish', 'info', 'السحابة'); }catch(e){ toast('افتح كونسول فايربيز ← Realtime Database ← Rules', 'info'); } break;
+    case 'authConsolePage': try{ window.open(authConsoleUrl((S.fb.cfg || Cloud.merged()).projectId), '_blank', 'noopener'); toast('اضغط على Anonymous ← فعّله ← Save', 'info', 'السحابة'); }catch(e){ toast('افتح كونسول فايربيز ← Authentication', 'info'); } break;
+    case 'authSave': {
+      const txt = ($('#authPaste') && $('#authPaste').value) || '';
+      const key = Cloud.parseCfg(txt).apiKey || (txt.match(/AIza[0-9A-Za-z_\-]{30,}/) || [])[0];
+      if (!key){ toast('الصق كود الإعدادات (أو المفتاح اللي بيبدأ بـ AIza) — أو سيبها وأنا هجربه لوحده', 'bad'); break; }
+      Cloud.saveAuthKey(key);
+      Modal.close();
+      Cloud.signIn(key).then(() => { S.fb.auth = 'on'; toast('الدخول الصامت شغال من دلوقتي ✅', 'ok', 'السحابة'); return Cloud.authTest(); })
+        .then(r => { if (r) toast(r.msg, r.hint ? 'warn' : 'ok', 'السحابة'); paintCloud(); render(); })
+        .catch(e => { S.fb.auth = 'fail'; S.fb.authErr = e.message; toast(e.message, 'bad', 'السحابة'); render(); });
+      break;
+    }
+    case 'authSaveMirror': {
+      const txt2 = ($('#authPaste2') && $('#authPaste2').value) || '';
+      const key2 = Cloud.parseCfg(txt2).apiKey || (txt2.match(/AIza[0-9A-Za-z_\-]{30,}/) || [])[0];
+      const other = FB_PROJECTS.filter(p => p.projectId !== (S.fb.cfg || Cloud.merged()).projectId)[0];
+      if (!key2){ toast('الصق كود إعدادات السيرفر التاني (أو المفتاح بتاعه)', 'bad'); break; }
+      Cloud.saveAuthKey(key2, other.projectId);
+      Cloud.signIn(key2, other.projectId)
+        .then(() => toast('السيرفر التاني كمان بقى مؤمّن ✅', 'ok', 'السحابة'))
+        .catch(e => toast('مفتاح السيرفر التاني: ' + e.message, 'warn', 'السحابة'))
+        .then(() => render());
+      break;
+    }
+    case 'authAuto': {
+      toast('بندوّر على مفتاح المشروع...', 'info', 'السحابة');
+      Promise.all(FB_PROJECTS.map(p => Cloud.findAuthKey(p.projectId))).then(ks => {
+        const k = ks.filter(Boolean)[0];
+        if (ks.filter(Boolean).length > 1) Cloud.signIn(ks[1], FB_PROJECTS[1].projectId).catch(() => {});
+        if (!k){ toast('مالقيتوش لوحده — الصق كود الإعدادات من فايربيز مرة واحدة وهيتحفظ للأبد', 'warn', 'السحابة'); return; }
+        Cloud.saveAuthKey(k);
+        return Cloud.signIn(k).then(() => { S.fb.auth = 'on'; toast('لقيته لوحده والدخول الصامت شغال ✅', 'ok', 'السحابة'); }).catch(e => toast(e.message, 'bad', 'السحابة'));
+      }).then(() => { paintCloud(); render(); });
+      break;
+    }
+    case 'authTest': {
+      toast('بنتأكد إن البيانات مؤمّنة...', 'info', 'السحابة');
+      Cloud.authTest().then(r => {
+        toast(r.msg, r.ok ? 'ok' : (r.hint ? 'warn' : 'bad'), 'السحابة');
+        if (r.hint === 'auth') openAuthWizard(); else if (r.hint === 'rules') toast('الإعدادات ← «أمّن البيانات» ← انسخ القواعد والصقها في Rules', 'info', 'الخطوة الجاية');
+      }).then(() => render());
+      break;
+    }
+    case 'authSignOut': Cloud.clearTok(); S.fb.auth = Cloud.authKeyOf() ? 'ready' : 'no-key'; toast('اتمسحت شهادة الجهاز — هيتعمل واحدة جديدة لوحده لو التأمين مفعّل', 'info', 'السحابة'); render(); break;
     case 'fbRulesPage': try{ window.open(FB_RULES_URL, '_blank', 'noopener'); toast('الصق القواعد واضغط Publish ثم "تحقق الآن"', 'info', 'السحابة'); }catch(e){ toast(FB_RULES_URL, 'info'); } break;
     case 'fbApiEnable': try{ window.open(FB_APILIB, '_blank', 'noopener'); }catch(e){} break;
     case 'fbRecheck': {
@@ -5473,8 +6763,27 @@ document.addEventListener('change', function(e){
     return;
   }
   if (t.id === 'darkToggle'){ setTheme(t.checked ? 'dark' : 'light'); return; }
+  if (t.id === 'authToggle'){
+    S.data.settings.auth = t.checked;
+    if (!t.checked){ Cloud.clearTok(); S.fb.auth = 'off'; }
+    else { S.fb.auth = Cloud.authKeyOf() ? 'ready' : 'no-key'; if (t.checked && S.fb.auth === 'ready') Cloud.signIn().then(() => { S.fb.auth = 'on'; paintCloud(); }).catch(e => { S.fb.auth = 'fail'; S.fb.authErr = e.message; }); }
+    commit();
+    toast(t.checked ? 'التأمين مفعّل — المنصة بتسجّل الجهاز لوحدها ✅' : 'التأمين اتوقف — البيانات بقت مفتوحة لأي حد يعرف الرابط', t.checked ? 'ok' : 'warn', 'السحابة');
+    return;
+  }
   if (t.id === 'cloudMirrorToggle'){ S.data.settings.fbMirror = t.checked; commit(); toast(t.checked ? 'المرآة شغالة — كل تعديل على السيرفرين ✅' : 'المرآة اتوقفت', t.checked ? 'ok' : 'info', 'السحابة'); return; }
   if (t.id === 'cloudBackupToggle'){ S.data.settings.cloudBackup = t.checked; commit(); toast(t.checked ? 'النسخة الاحتياطية اليومية شغالة ✅' : 'اتوقفت النسخة اليومية — تقدر تعمل نسخة بضغطة في أي وقت', t.checked ? 'ok' : 'info', 'السحابة'); return; }
+  if (t.id === 'impFile' && t.files && t.files[0]){
+    const f = t.files[0];
+    toast('بنقرا الملف...', 'info', 'الاستيراد');
+    Import.fromFile(f).then(grid => {
+      try{ t.value = ''; }catch(e){}
+      if (!grid || grid.length < 2){ toast('مش قادر أقرا الملف — لو إكسل جرّب تحفظه CSV أو الصق الجدول', 'bad'); return; }
+      Modal.closeAll();
+      setTimeout(() => openImportMap(grid), 120);
+    }).catch(e => toast(e.message || 'مش قادر أقرا الملف ده', 'bad', 'الاستيراد'));
+    return;
+  }
   if (t.id === 'logoInput' && t.files && t.files[0]){ readLogoFile(t.files[0]); return; }
   if (t.id === 'fileInput' && t.files && t.files[0]){
     const rd = new FileReader();
@@ -5554,7 +6863,14 @@ window.addEventListener('resize', throttle(() => {
   let theme = localStorage.getItem(LS_KEY + '_theme');
   if (!theme) theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
   document.documentElement.dataset.theme = theme;
-  const had = loadLocal();
+  // أي خطأ يحصل في المنصة بيتسجّل لوحده — عشان نقدر نصلّحه من غير تخمين
+  window.addEventListener('error', e => logErr('js', (e && e.message) || 'خطأ غير معروف', ((e && e.filename) || '') + ':' + ((e && e.lineno) || '')));
+  window.addEventListener('unhandledrejection', e => logErr('promise', (e && e.reason && (e.reason.message || e.reason)) || 'وعد مرفوض'));
+  let had = loadLocal();
+  if (!had && loadSafeCopy()){
+    had = true;
+    setTimeout(() => toast('المتصفح كان مسح الداتا — رجّعنا لك آخر نسخة أمان من الجهاز نفسه ✅ (راجع إن كل حاجة زي ما هي)', 'warn', 'استرجاع تلقائي'), 900);
+  }
   if (!had){ const d = defaultData(); d.meta.rev = 1; S.data = d; saveLocal(); }
   S.data.settings.theme = theme;
   const use = $('#themeBtn use'); if (use) use.setAttribute('href', theme === 'dark' ? '#i-sun' : '#i-moon');
@@ -5592,7 +6908,7 @@ window.addEventListener('resize', throttle(() => {
   window.addEventListener('offline', () => { S.fb.stream = 'down'; Cloud._offlineSeen = true; paintCloud(); });
 })();
 
-window.FB_DEFAULT = FB_DEFAULT; window.FB_RULES = FB_RULES; window.FB_RULES_RTDB = FB_RULES_RTDB; window.FB_CONSOLE = FB_CONSOLE; window.FB_APILIB = FB_APILIB; window.FB_RULES_URL = FB_RULES_URL;
+window.FB_DEFAULT = FB_DEFAULT; window.FB_RULES = FB_RULES; window.FB_RULES_RTDB = FB_RULES_RTDB; window.FB_RULES_RTDB_OPEN = FB_RULES_RTDB_OPEN; window.FB_CONSOLE = FB_CONSOLE; window.FB_APILIB = FB_APILIB; window.FB_RULES_URL = FB_RULES_URL;
 window.AF = { S: S, Cloud: Cloud, PWA: PWA, logoRef: logoRef, setLogo: setLogo, clearLogo: clearLogo, render: render, go: go, seedDemo: seedDemo, setTheme: setTheme, openStudentForm: openStudentForm, openGroupForm: openGroupForm, openExamForm: openExamForm, openProfile: openProfile, assignStudent: assignStudent, pdfStudent: pdfStudent, pdfStudents: pdfStudents, pdfGroups: pdfGroups, pdfExam: pdfExam, pdfReport: pdfReport, attPDF: attPDF, manageGroupStudents: manageGroupStudents, groupsConflict: groupsConflict };
 
 </script>
