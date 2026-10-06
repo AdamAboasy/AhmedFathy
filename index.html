@@ -426,6 +426,48 @@ select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns=
   #printArea .rep-table th,#printArea .rep-table td{padding:5px 6px}
   .rep-foot{position:fixed;bottom:0;left:0;right:0}
 }
+
+/* ============ شاشة ولي الأمر (رابط المتابعة) ============ */
+body.pmode .shell,body.pmode .fab,body.pmode .toasts{display:none!important}
+body.pmode{background:var(--bg)}
+#pview{display:none}
+body.pmode #pview{display:block;max-width:720px;margin:0 auto;padding:16px 14px 42px}
+.pm-head{display:flex;align-items:center;gap:11px;margin-bottom:14px}
+.pm-head img{width:46px;height:46px;border-radius:50%;object-fit:cover;border:2px solid var(--brand);background:#0b0b0d;flex:0 0 46px}
+.pm-plat{font-weight:800;font-size:16px}
+.pm-sub{font-size:12px;color:var(--muted)}
+.pm-kid{background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#1b1b1b;border-radius:18px;padding:14px 16px;box-shadow:var(--shadow)}
+.pm-kid .n{font-size:21px;font-weight:800}
+.pm-kid .s{font-size:13px;opacity:.8;margin-top:2px}
+.pm-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-top:13px;box-shadow:var(--shadow)}
+.pm-card h3{margin:0 0 10px;font-size:15px;display:flex;align-items:center;gap:7px}
+.pm-card h3 .sp{flex:1}
+.pm-rate{display:flex;align-items:center;gap:12px}
+.pm-num{font-size:31px;font-weight:800;line-height:1}
+.pm-bar{flex:1;height:11px;background:var(--line-2);border-radius:99px;overflow:hidden}
+.pm-bar i{display:block;height:100%;border-radius:99px;background:var(--ok)}
+.pm-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}
+.pm-chip{font-size:12.5px;padding:5px 11px;border-radius:99px;background:var(--line-2);color:var(--ink-2)}
+.pm-chip.ok{background:var(--ok-bg);color:var(--ok)}
+.pm-chip.bad{background:var(--bad-bg);color:var(--bad)}
+.pm-chip.warn{background:var(--warn-bg);color:var(--warn)}
+.pm-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px dashed var(--line)}
+.pm-row:last-child{border-bottom:0}
+.pm-row .t{font-weight:700}
+.pm-row .d{font-size:12px;color:var(--muted)}
+.pm-row .sp{flex:1}
+.pm-g{font-weight:800;font-size:15px}
+.pm-g.bad{color:var(--bad)}.pm-g.warn{color:var(--warn)}.pm-g.ok{color:var(--ok)}
+.pm-note{background:var(--line-2);border-radius:12px;padding:9px 11px;margin-bottom:8px;font-size:13px;line-height:1.9}
+.pm-note b{display:block;font-size:12.5px;color:var(--muted);margin-bottom:2px}
+.pm-foot{text-align:center;margin-top:16px;font-size:12px;color:var(--muted);line-height:2}
+.pm-empty{text-align:center;color:var(--muted);font-size:13px;padding:9px 0}
+.pm-btns{display:flex;flex-wrap:wrap;gap:9px;margin-top:13px}
+.pm-btns a,.pm-btns button{flex:1;min-width:140px;text-align:center;text-decoration:none;display:inline-flex;align-items:center;justify-content:center;gap:7px}
+.pm-load{text-align:center;padding:60px 20px;color:var(--muted)}
+.pm-spin{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--brand);border-radius:50%;margin:0 auto 14px;animation:pmspin .9s linear infinite}
+@keyframes pmspin{to{transform:rotate(360deg)}}
+.pm-alert{background:var(--bad-bg);color:var(--bad);border-radius:14px;padding:14px;line-height:1.95;font-size:13.5px}
 </style>
 <script>/* اللوجو: صورة المنصة كما هي بدون أي تعديل (logo.jpg ثم logo.png ثم شعار بديل) */
 window.AF_LOGO_KEY='mostar_logo';
@@ -723,7 +765,7 @@ function defaultData(){
     },
     groups: [], students: [], exams: [], grades: {}, attendance: {},
     /* متابعة الرسائل: أخطاء وحالة واجب لكل امتحان/طالب + أسباب الغياب + سجل الرسائل المبعوتة */
-    feedback: {}, absNotes: {}, msgSent: {}
+    feedback: {}, absNotes: {}, msgSent: {}, ptokens: {}
   };
 }
 
@@ -746,7 +788,7 @@ const S = {
 
 /* ---------------- Storage ---------------- */
 const LS_KEY = 'mostar_platform_v2';
-const APP_V = 'v2.6';
+const APP_V = 'v2.7';
 const ERR_KEY = 'mostar_errlog';
 const SAFE_KEY = 'mostar_safe';      // نسخة محلية خفية — لو المتصفح مسح بياناته نرجّعها في ثانية
 let SAFE_AT = 0, SAFE_SIG = '';
@@ -890,6 +932,7 @@ function commit(opts){
   saveLocal();
   if (!opts.silent) render();
   Cloud.push();
+  try{ Parent.touch(); }catch(e){}
 }
 
 /* ---------------- Cloud: Firebase (Realtime DB أو Firestore) عبر REST ---------------- */
@@ -1574,7 +1617,7 @@ const Cloud = {
      فاللي يتغير بس هو اللي بيتنقل، والتحديث بيوصل لحظيًا من غير
      ما المستر يعمل ريفريش أو يدوس "تنزيل".
      ========================================================== */
-  secKeys(){ return ['settings','groups','students','exams','grades','feedback','absNotes','msgSent']; },
+  secKeys(){ return ['settings','groups','students','exams','grades','feedback','absNotes','msgSent','ptokens']; },
   /* أرقام النسخ لازم تكون موحّدة بين كل الأجهزة.
      زمان كل جهاز كان بيعد من عنده (1، 2، 3…) وكل جهاز بيكتب أرقامه فوق التاني،
      فالجهاز يشوف رقم أقل من رقمه يفتكر إن مفيش جديد وما ينزّلش.
@@ -2950,6 +2993,8 @@ const Deploy = {
     }
     if (!files.length) return null;
     Object.keys(DEPLOY_CFG).forEach(k => files.push({ name: k, data: DEPLOY_CFG[k] }));
+    // ملف الربط بالمشروع كمان (عشان أمر النشر يعرف المشروع لوحده)
+    files.push({ name: '.firebaserc', data: JSON.stringify({ projects: { default: (S.fb.cfg && S.fb.cfg.projectId) || FB_DEFAULT.projectId } }, null, 2) });
     return files;
   },
   async makeZip(){
@@ -4196,6 +4241,7 @@ const GUIDE = [
     { q:'إزاي أظبط المنصة على جهاز جديد؟', a:'افتح رابط المنصة على الجهاز الجديد — <b>مفيش أي حاجة تكتبها</b>. البيانات بتنزل لوحدها، وأي تعديل من أي جهاز بيظهر على التاني في ثواني.', act:'settings', actL:'الإعدادات' },
     { q:'النت قطع وأنا بأسجّل؟', a:'كمّل عادي — كل تعديل بيتسجل بختم وقت وبيرفع <b>لوحده</b> أول ما النت يرجع، حتى لو قفلت المنصة.' },
     { q:'إيه الحكاية في «أمّن البيانات»؟', a:'خطوة اختيارية بتخلي بيانات الطلاب محدش يشوفها غيرك — المنصة بتسجّل نفسها لوحدها في فايربيز (مفيش كلمة سر تكتبها) والقواعد بتتقفل. الخطوات كلها جوه الإعدادات في 3 خطوات.', act:'authWizard', actL:'أمّن البيانات' },
+    { q:'عايز ولي الأمر يتابع ابنه بنفسه؟', a:'من ملف الطالب ← <b>رابط متابعة ولي الأمر</b> ← «إنشاء الرابط» ← ابعت الرابط لولي الأمر على واتساب. الرابط ده بيشوف منه <b>حضور ابنه ودرجاته وملاحظاتك</b> بس، ومش شايف أي طالب تاني، و<b>قراءة فقط</b> (مش بيعدّل أي حاجة)، وبيتحدّث لوحده أول ما تعدّل أي حاجة.', act:'refreshAllLinks', actL:'حدّث روابط المتابعة' },
     { q:'عايز رابط ثابت أفتح منه المنصة من أي جهاز؟', a:'المنصة تنشر على <b>فايربيز</b> نفسه (مجانًا بالكامل) — بيبقى لك رابط ثابت تفتحه من أي موبايل أو كمبيوتر في أي وقت، وكل حاجة تفضل متزامنة. الخطوات جاهزة في زر واحد.', act:'deployOpen', actL:'رابط ثابت للمنصة' },
     { q:'عايز نسخة تشتغل من غير إنترنت خالص؟', a:'فيه زر بينزّلك <b>نسخة مستقلة</b> (ملف واحد) — دوس عليها مرتين وبتفتح على أي جهاز، شغالة أوفلاين وبترجع تتزامن مع فايربيز أول ما النت يفتح.', act:'deployOpen', actL:'حمّل نسخة مستقلة' },
     { q:'عايز أعرف كل حاجة عن السحابة دلوقتي؟', a:'الإعدادات ← <b>حالة المزامنة والنسخ</b>: السيرفر المتصل، سرعته، أي تعديل لسه مرفوع، آخر نسخة احتياطية، وحجم الاستهلاك من الخطة المجانية.', act:'fbStatus', actL:'حالة المزامنة' }
@@ -5012,6 +5058,23 @@ Views.settings = function(){
     </div>
 
     <div class="card">
+      <div class="card-h"><h3>${icon('link')} روابط متابعة أولياء الأمور</h3>
+        <span class="sp"></span><span class="badge ${Parent.count() ? 'b-ok' : 'b-gray'}">${Parent.count() ? Parent.count() + ' رابط شغال' : 'مفيش روابط'}</span></div>
+      <div class="card-b">
+        <div class="help brand" style="margin-bottom:12px;line-height:1.95">
+          كل طالب له <b>رابط خاص</b> تبعته لولي أمره على واتساب — يفتحه على موبايله ويشوف
+          <b>حضور ابنه ودرجاته وملاحظاتك</b> أول بأول، ومش شايف أي طالب تاني، و<b>قراءة فقط</b>.
+          بتعمل الرابط من ملف الطالب نفسه.
+        </div>
+        <div class="flex wrap" style="gap:9px;align-items:center">
+          <button class="btn" data-act="pRefreshAll">${icon('refresh')} حدّث بيانات كل الروابط</button>
+          <button class="btn ghost" data-act="go" data-id="students">${icon('users')} روح للطلاب</button>
+          <span class="small muted">الروابط بتتحدّث لوحدها بعد أي تعديل — والزر ده بس لو عايز تحدّثها فورًا.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
       <div class="card-h"><h3>${icon('install')} تثبيت التطبيق (PWA)</h3>
         <span class="sp"></span><span class="badge ${PWA.installed ? 'b-ok' : PWA.canInstall ? 'b-brand' : 'b-gray'}">
         ${PWA.installed ? 'مثبّت' : PWA.canInstall ? 'جاهز للتثبيت' : 'افتحه من رابط HTTPS'}</span></div>
@@ -5347,6 +5410,165 @@ function nextCode(){
 }
 
 /* ---------------- نموذج الطالب ---------------- */
+/* ============================================================
+   روابط متابعة أولياء الأمور
+   • كل طالب له رابط خاص (توكن عشوائي طويل) — ولي الأمر يفتحه على موبايله
+     ويشوف ابنه لوحده: الحضور + الدرجات + الملاحظات. الرابط قراءة فقط.
+   • اللينك فيه كود المنصة، ومفتاح فايربيز (لو متاح) عشان جهاز ولي الأمر
+     يعمل الدخول الصامت لوحده من غير أي كتابة.
+   ============================================================ */
+const Parent = {
+  map(){ if (!S.data.ptokens || typeof S.data.ptokens !== 'object') S.data.ptokens = {}; return S.data.ptokens; },
+  of(sid){ const t = this.map()[sid]; return (t && t.token) || ''; },
+  rec(sid){ return this.map()[sid] || null; },
+  rnd(){
+    const a = new Uint8Array(16);
+    try{ (window.crypto || {}).getRandomValues(a); }catch(e){ for (let i = 0; i < a.length; i++) a[i] = Math.floor(Math.random() * 256); }
+    return Array.prototype.map.call(a, b => ('0' + (b & 255).toString(16)).slice(-2)).join('');
+  },
+  hash(o){ let h = 5381; const t = JSON.stringify(o || ''); for (let i = 0; i < t.length; i++) h = ((h * 33) ^ t.charCodeAt(i)) >>> 0; return h.toString(36); },
+  base(){
+    let b = String(location.href || '').split('#')[0].split('?')[0];
+    if (!/^https?:/i.test(b)) b = 'https://' + (FB_DEFAULT.projectId || 'ahmedfathy-def0f') + '.web.app/';
+    return b;
+  },
+  link(token){
+    let code = FB_DEFAULT.code || FB_DEFAULT.projectId;
+    try{ code = Cloud.cfgNow().code || code; }catch(e){}
+    let k = '';
+    try{ k = Cloud.authKeyOf() || ''; }catch(e){ k = ''; }
+    return this.base() + '?p=' + encodeURIComponent(token) + '&c=' + encodeURIComponent(code) + (k ? '&k=' + encodeURIComponent(k) : '');
+  },
+  /* صورة مختصرة لبيانات الطالب — دي اللي ولي الأمر بيقراها (ملف صغير جدًا وبيتحدّث لوحده) */
+  snapshot(sid){
+    const s = student(sid) || {}, g = groupOf(s.groupId) || {}, st = S.data.settings || {};
+    const rows = (attIndex()[sid] || []).slice(-150);
+    const att = rows.map(r => ({ d: r.date, g: r.groupId || '', s: r.status }));
+    const t = attStats(sid, '', '');
+    const ex = [];
+    sortBy(S.data.exams.filter(e => typeof (S.data.grades[e.id] || {})[sid] === 'number'), e => e.date || '', 'asc')
+      .slice(-40).forEach(e => ex.push({ n: e.name || '', d: e.date || '', max: Number(e.max || 0), m: Number(S.data.grades[e.id][sid]) }));
+    const notes = [];
+    Object.keys(S.data.feedback || {}).forEach(eid => {
+      const f = fbOf(eid, sid); if (!f || (!f.err && !f.hw)) return;
+      const e = S.data.exams.filter(x => x.id === eid)[0] || {};
+      notes.push({ d: e.date || '', n: e.name || 'امتحان', err: f.err || '', hw: f.hw || '' });
+    });
+    notes.sort((a, b) => (a.d < b.d ? 1 : -1));
+    const abs = [];
+    Object.keys(S.data.absNotes || {}).forEach(ssid => { if (ssid === sid) return; });   // ملاحظات الغياب خاصة بالطالب
+    const box = (S.data.absNotes || {})[sid] || {};
+    Object.keys(box).forEach(d => abs.push({ d: d, n: box[d] }));
+    abs.sort((a, b) => (a.d < b.d ? 1 : -1));
+    return { v: 2, at: new Date().toISOString(),
+      sid: sid, name: s.name || '', stage: s.stage || '', group: g.name || '', gid: s.groupId || '',
+      tname: st.teacherName || 'أحمد فتحي', tphone: st.phone || '',
+      tot: { present: t.present, absent: t.absent, late: t.late, rate: t.rate, total: t.total },
+      att: att, ex: ex, notes: notes.slice(0, 25), abs: abs.slice(0, 25) };
+  },
+  async put(sid, token){
+    const snap = this.snapshot(sid);
+    await Cloud.rtdb('PUT', Cloud.rootPath() + '/parents/' + token, snap);
+    const r = this.map()[sid]; if (r) r.hash = this.hash(snap);
+    return snap;
+  },
+  async make(sid){
+    const s = student(sid); if (!s){ toast('الطالب مش موجود', 'bad'); return ''; }
+    const m = this.map();
+    let token = this.of(sid);
+    if (!token){ token = this.rnd(); m[sid] = { token: token, at: new Date().toISOString() }; }
+    try{ await this.put(sid, token); }
+    catch(e){ toast('مش قادر أرفع الرابط على فايربيز — اتأكد إن النت شغال', 'bad', 'رابط المتابعة'); return ''; }
+    commit({ silent:true });
+    toast('الرابط جاهز ✅ ابعته لولي الأمر', 'ok', 'رابط المتابعة');
+    return token;
+  },
+  async reset(sid){
+    const s = student(sid); if (!s) return;
+    const m = this.map(), old = this.of(sid), token = this.rnd();
+    m[sid] = { token: token, at: new Date().toISOString() };
+    try{
+      await this.put(sid, token);
+      if (old){ try{ await Cloud.rtdb('DELETE', Cloud.rootPath() + '/parents/' + old); }catch(e){} }
+    }catch(e){ toast('مش قادر أرفع الرابط — جرّب تاني', 'bad', 'رابط المتابعة'); return; }
+    commit({ silent:true });
+    toast('اتعمل رابط جديد — القديم ما بقاش شغال', 'ok', 'رابط المتابعة');
+  },
+  msg(sid){
+    const s = student(sid) || {};
+    const t = this.of(sid);
+    return 'متابعة ' + (s.name || 'الطالب') + '\n'
+      + 'تحت أمرك — من الرابط ده تشوف حضور ' + (s.name || 'الطالب') + ' ودرجاته وملاحظاتي أول بأول:\n'
+      + this.link(t) + '\n'
+      + 'الرابط خاص بيك لوحدك، وبيتحدّث لوحده.';
+  },
+  wa(sid){
+    const s = student(sid) || {}, ph = s.parentPhone || s.phone;
+    if (!this.of(sid)){ toast('اعمل الرابط الأول', 'warn'); return; }
+    if (!ph){ toast('مفيش رقم ولي أمر مسجّل للطالب ده', 'warn', 'رابط المتابعة'); return; }
+    window.open(waLink(ph, this.msg(sid)), '_blank');
+  },
+  /* تحديث كل روابط المتابعة على السحابة (بس اللي اتغيّر فعلًا) */
+  async refreshAll(manual){
+    const m = this.map(), ids = Object.keys(m).filter(sid => m[sid] && m[sid].token);
+    if (!ids.length){ if (manual) toast('لسه مفيش روابط متابعة — اعمل رابط من ملف الطالب', 'info', 'روابط المتابعة'); return 0; }
+    if (this._busy){ return -1; }
+    this._busy = true; this._last = Date.now();
+    let n = 0, fail = 0;
+    for (let i = 0; i < ids.length; i++){
+      const sid = ids[i], t = m[sid].token;
+      if (!student(sid)) continue;
+      let snap; try{ snap = this.snapshot(sid); }catch(e){ continue; }
+      const h = this.hash(snap);
+      if (!manual && m[sid].hash === h) continue;
+      try{ await Cloud.rtdb('PUT', Cloud.rootPath() + '/parents/' + t, snap); m[sid].hash = h; m[sid].at = new Date().toISOString(); n++; }
+      catch(e){ fail++; }
+    }
+    this._busy = false;
+    if (manual){
+      if (fail) toast('اتحدّث ' + n + ' رابط · فشل ' + fail + ' (اتأكد من النت)', 'warn', 'روابط المتابعة');
+      else if (n) toast('اتحدّث ' + n + ' رابط متابعة ✅', 'ok', 'روابط المتابعة');
+      else toast('كل الروابط محدّثة بالفعل ✅', 'ok', 'روابط المتابعة');
+    }
+    return n;
+  },
+  /* بعد أي تعديل: نحدّث الروابط لوحدنا (مرة كل شوية وبس اللي اتغيّر) */
+  touch(){
+    if (!Object.keys(this.map()).length) return;
+    clearTimeout(this._t);
+    this._t = setTimeout(() => {
+      if (Date.now() - (this._last || 0) < 45000) { this.touch(); return; }
+      this.refreshAll(false);
+    }, 8000);
+  },
+  count(){ return Object.keys(this.map()).filter(sid => this.of(sid)).length; },
+  open(sid){
+    const s = student(sid); if (!s){ toast('الطالب مش موجود', 'bad'); return; }
+    const token = this.of(sid);
+    if (!token){
+      Modal.open({ title:'رابط متابعة ولي الأمر', sub:s.name, size:'md',
+        body:`<div class="help info" style="line-height:1.95">اعمل لولي أمر <b>${esc(s.name)}</b> رابط خاص بيه — يفتحه على موبايله ويشوف
+          <b>الحضور والدرجات والملاحظات</b> أول بأول، ومش شايف أي طالب تاني. الرابط <b>قراءة فقط</b> ومش بيعدّل أي حاجة.</div>`,
+        footer:`<button class="btn pri" data-act="pLinkMake" data-id="${sid}">${icon('link')} إنشاء الرابط</button>
+          <button class="btn ghost" data-close>إغلاق</button>` });
+      return;
+    }
+    const link = this.link(token);
+    const r = this.rec(sid) || {};
+    Modal.open({ title:'رابط متابعة ولي الأمر', sub:s.name, size:'md',
+      body:`
+        <div class="help ok" style="line-height:1.95">الرابط شغال ✅ — ولي الأمر بيشوف منه <b>حضور ${esc(s.name)} ودرجاته وملاحظاتك</b> بس.
+          ${r.at ? '<br>آخر تحديث للبيانات: ' + esc(String(r.at).slice(0, 10)) : ''}</div>
+        <div class="field" style="margin-top:12px"><label>الرابط</label>
+          <code class="code" style="display:block;direction:ltr;text-align:left;font-size:12px;padding:9px 11px;background:var(--bg);border-radius:9px;word-break:break-all">${esc(link)}</code>
+          <div class="small muted" style="margin-top:7px;line-height:1.9">لو فتحته من متصفح أي موبايل هتشوف صفحة المتابعة على طول — جرّبه بنفسك الأول لو حبيت.</div></div>`,
+      footer:`<button class="btn sm" data-act="pLinkCopy" data-id="${sid}">${icon('copy')} انسخ</button>
+        <button class="btn sm pri" data-act="pLinkWa" data-id="${sid}">${icon('whatsapp')} ابعت لولي الأمر</button>
+        <button class="btn sm ghost" data-act="pLinkNew" data-id="${sid}">${icon('refresh')} رابط جديد</button>
+        <button class="btn ghost" data-close>إغلاق</button>` });
+  }
+};
+
 function openStudentForm(id){
   const s = id ? student(id) : null;
   const gid = s ? s.groupId : (S.ui.stuFilter.groupId || '');
@@ -5401,7 +5623,17 @@ function openStudentForm(id){
         <div class="field"><label>&nbsp;</label>
           ${st.groupId ? `<button class="btn" type="button" data-act="manageGroup" data-id="${st.groupId}">${icon('users')} طلاب الحصة</button>` : '<span class="small muted">مفيش حصة محددة</span>'}</div>
       </div>
-      <div class="field"><label>ملاحظات</label><textarea class="inp" id="fNotes" placeholder="مستوى الطالب، ملاحظات الأداء...">${esc(st.notes)}</textarea></div>`,
+      <div class="field"><label>ملاحظات</label><textarea class="inp" id="fNotes" placeholder="مستوى الطالب، ملاحظات الأداء...">${esc(st.notes)}</textarea></div>
+      ${id ? `<div class="sep"></div>
+      <div class="field"><label>${icon('link')} رابط متابعة ولي الأمر</label>
+        <div class="small muted" style="margin-bottom:8px;line-height:1.9">
+          رابط خاص بولي أمر <b>${esc(st.name)}</b> — يفتحه على موبايله ويشوف الحضور والدرجات والملاحظات أول بأول،
+          ومش شايف أي طالب تاني. الرابط قراءة فقط ومش بيعدّل أي حاجة.
+        </div>
+        <div class="btn-row">
+          <button class="btn ${Parent.of(id) ? '' : 'pri'}" type="button" data-act="pLink" data-id="${id}">${icon('link')} ${Parent.of(id) ? 'عرض الرابط' : 'إنشاء الرابط'}</button>
+          ${Parent.of(id) ? `<button class="btn pri" type="button" data-act="pLinkWa" data-id="${id}">${icon('whatsapp')} ابعت لولي الأمر</button>` : ''}
+        </div></div>` : ''}`,
     footer: `${id ? `<button class="btn ghost sp" data-act="delStudent" data-id="${id}">${icon('trash')} حذف الطالب</button>` : ''}
       <button class="btn" data-close="__ID__">إلغاء</button>
       <button class="btn pri" id="saveStu">${icon('save')} حفظ</button>`,
@@ -6545,6 +6777,13 @@ document.addEventListener('click', function(e){
       break;
     }
     case 'deployOpen': openDeploy(); break;
+    case 'pLink': Parent.open(id); break;
+    case 'pLinkMake': Parent.make(id).then(t => { if (t) Parent.open(id); }); break;
+    case 'pLinkCopy': copyText(Parent.link(Parent.of(id)), 'الرابط اتنسخ ✅ ابعته لولي الأمر'); break;
+    case 'pLinkWa': Parent.wa(id); break;
+    case 'pLinkNew': Parent.reset(id).then(() => Parent.open(id)); break;
+    case 'pRefreshAll': Parent.refreshAll(true); break;
+    case 'refreshAllLinks': Parent.refreshAll(true); break;
     case 'deployZip': Deploy.makeZip(); break;
     case 'deployShell': try{ window.open(Deploy.shellUrl(), '_blank', 'noopener'); toast('فوق على اليمين هتلاقي أيقونة (>_) — دي Cloud Shell', 'info', 'النشر على فايربيز'); }catch(e){ toast(Deploy.shellUrl(), 'info'); } break;
     case 'deployCopy': copyText(el.dataset.cmd || '', 'اتنسخ ✅ الصقه في Cloud Shell واضغط Enter'); break;
@@ -6859,7 +7098,222 @@ window.addEventListener('resize', throttle(() => {
 }, 220));
 
 /* ---------------- Boot ---------------- */
+/* ============================================================
+   وضع ولي الأمر — شاشة المتابعة (بتفتح من الرابط اللي المستر بيبعته)
+   • الرابط شكله: .../?p=التوكن&c=كود-المنصة&k=مفتاح-فايربيز
+   • الشاشة بتقرا ملف صغير جدًا من فايربيز فيه بيانات الطالب لوحده
+   • مفيش أي كتابة ولا تعديل — قراءة بس، وبتتحدّث لوحدها
+   ============================================================ */
+const PMode = {
+  token:'', code:'', key:'', rec:null, es:null, timer:null, busy:false,
+  qp(n){ try{ return (new URLSearchParams(String(location.search || ''))).get(n) || ''; }catch(e){ return ''; } },
+  fromUrl(){
+    let t = this.qp('p');
+    if (!t){ const h = String(location.hash || ''); if (h.indexOf('#p=') === 0) t = h.slice(3).split('&')[0]; }
+    return t || '';
+  },
+  async start(){
+    const token = this.fromUrl(); if (!token) return false;
+    this.token = token;
+    this.code = this.qp('c') || FB_DEFAULT.code || FB_DEFAULT.projectId;
+    this.key = this.qp('k') || '';
+    try{
+      let th = ''; try{ th = localStorage.getItem(LS_KEY + '_theme') || ''; }catch(e){}
+      if (!th) th = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+      document.documentElement.dataset.theme = th;
+    }catch(e){}
+    document.body.classList.add('pmode');
+    this.node = document.createElement('div'); this.node.id = 'pview';
+    document.body.appendChild(this.node);
+    this.loading('بنجهّز لك متابعة ابنك...');
+    try{
+      const pid = this.code;
+      Cloud._active = Object.assign({}, FB_DEFAULT, { projectId: pid, code: pid, authDomain: pid + '.firebaseapp.com', dbUrl: FB_DEFAULT.dbUrl, apiKey: this.key || '' });
+      Cloud._key = null;
+      if (this.key){ try{ Cloud.saveKeyFor(pid, this.key); }catch(e){} }
+    }catch(e){}
+    try{ await Cloud.ensureTok(); }catch(e){}
+    await this.load();
+    this.watch();
+    return true;
+  },
+  loading(t){
+    if (!this.node) return;
+    this.node.innerHTML = '<div class="pm-load"><div class="pm-spin"></div>' + esc(t || 'لحظة...') + '</div>';
+  },
+  async load(){
+    if (this.busy) return;
+    this.busy = true;
+    let rec = null, err = '';
+    try{ rec = await Cloud.rtdb('GET', Cloud.rootPath() + '/parents/' + this.token, null, false, '?t=' + Date.now()); }
+    catch(e){ err = (e && e.message) || 'مشكلة في الاتصال'; }
+    this.busy = false;
+    if (rec && typeof rec === 'object'){ this.rec = rec; this.render(); return; }
+    if (this.rec) return;                       // عندنا نسخة قديمة → نفضل عليها
+    if (err) this.fail(err); else this.gone();
+  },
+  header(){
+    const r = this.rec || {};
+    return `<div class="pm-head">
+      <img src="logo.jpg" alt="" onerror="this.style.display='none'">
+      <div><div class="pm-plat">${esc(r.tname || 'منصة المستر')}</div><div class="pm-sub">متابعة ولي الأمر</div></div>
+      <span style="flex:1"></span>
+      <button class="btn sm ghost" data-pm="reload">${icon('refresh')} تحديث</button>
+    </div>`;
+  },
+  hook(){
+    const btn = this.node && this.node.querySelector('[data-pm="reload"]');
+    if (btn) btn.onclick = () => { this.loading('بنحدّث البيانات...'); this.load(); };
+  },
+  pmDate(d){
+    const t = String(d || '');
+    if (t.length >= 10 && t.charAt(4) === '-') return t.slice(8, 10) + '/' + t.slice(5, 7) + '/' + t.slice(0, 4);
+    return t;
+  },
+  ago(at){
+    const ms = Date.now() - new Date(String(at || '')).getTime();
+    if (!isFinite(ms) || ms < 0) return 'الآن';
+    const m = Math.round(ms / 60000);
+    if (m < 1) return 'الآن';
+    if (m < 60) return 'من ' + m + ' دقيقة';
+    const h = Math.round(m / 60);
+    if (h < 24) return 'من ' + h + ' ساعة';
+    return this.pmDate(String(at || '').slice(0, 10));
+  },
+  fail(err){
+    const msg = String(err || '');
+    const perm = /permission|denied|401|403|unauthorized/i.test(msg);
+    this.node.innerHTML = this.header() + `
+      <div class="pm-card">
+        <div class="pm-alert"><b>مش قادرين نعرض البيانات دلوقتي</b><br>
+        ${perm ? 'الرابط ده محتاج يتجدّد من جهاز المستر. اطلب من المستر يفتح ملف الطالب ← «رابط متابعة ولي الأمر» ← «رابط جديد» ويبعتهولك تاني.'
+               : 'اتأكد إن النت شغال وجرّب تاني بعد شوية.'}</div>
+        <div class="pm-btns"><button class="btn pri" data-pm="reload">${icon('refresh')} جرّب تاني</button></div>
+      </div>
+      <div class="pm-foot">${esc(msg)}</div>`;
+    this.hook();
+  },
+  gone(){
+    this.node.innerHTML = this.header() + `
+      <div class="pm-card">
+        <div class="pm-alert"><b>الرابط مش شغال</b><br>يمكن الرابط قديم أو المستر عمل رابط جديد.
+        اطلب منه يبعتهولك تاني من ملف الطالب.</div>
+      </div>`;
+    this.hook();
+  },
+  render(){
+    const r = this.rec || {};
+    const att = Array.isArray(r.att) ? r.att : [];
+    const ex = Array.isArray(r.ex) ? r.ex : [];
+    const notes = Array.isArray(r.notes) ? r.notes : [];
+    const abs = Array.isArray(r.abs) ? r.abs : [];
+    const tot = r.tot || { present: 0, absent: 0, late: 0, rate: 0, total: att.length };
+    const LAB = { present:'حاضر', absent:'غائب', late:'متأخر', excused:'بعذر' };
+    const TON = { present:'ok', absent:'bad', late:'warn', excused:'' };
+    try{ document.title = 'متابعة ' + (r.name || '') + ' — ' + (r.tname || 'منصة المستر'); }catch(e){}
+    const rate = Math.max(0, Math.min(100, Number(tot.rate) || 0));
+    const rcol = rate >= 75 ? 'var(--ok)' : rate >= 50 ? 'var(--warn)' : 'var(--bad)';
+    const last = att.slice(-14).reverse();
+    const avg = ex.length ? Math.round(ex.reduce((a, e) => a + (e.max ? (Number(e.m) / Number(e.max)) * 100 : 0), 0) / ex.length) : null;
+    const exs = ex.slice(-12).reverse();
+    this.node.innerHTML = this.header() + `
+      <div class="pm-kid"><div class="n">${esc(r.name || '')}</div>
+        <div class="s">${esc(r.stage || '')}${r.group ? ' · ' + esc(r.group) : ''}</div></div>
+
+      <div class="pm-card">
+        <h3>${icon('check')} الحضور</h3>
+        <div class="pm-rate">
+          <div class="pm-num" style="color:${rcol}">${rate}%</div>
+          <div style="flex:1">
+            <div class="pm-bar"><i style="width:${rate}%;background:${rcol}"></i></div>
+            <div class="small muted" style="margin-top:6px">من إجمالي ${tot.total || att.length} حصة مسجّلة</div>
+          </div>
+        </div>
+        <div class="pm-chips">
+          <span class="pm-chip ok">حضر ${tot.present || 0}</span>
+          <span class="pm-chip bad">غاب ${tot.absent || 0}</span>
+          <span class="pm-chip warn">تأخر ${tot.late || 0}</span>
+        </div>
+        ${last.length ? `<div style="margin-top:12px">${last.map(a => `<div class="pm-row">
+            <span class="pm-chip ${TON[a.s] || ''}">${LAB[a.s] || esc(a.s || '')}</span>
+            <span style="flex:1"></span><span class="d">${this.pmDate(a.d)}</span></div>`).join('')}</div>`
+          : '<div class="pm-empty">لسه مفيش حضور مسجّل</div>'}
+      </div>
+
+      <div class="pm-card">
+        <h3>${icon('award')} الدرجات
+          <span style="flex:1"></span>${avg != null ? `<span class="badge ${avg >= 75 ? 'b-ok' : avg >= 50 ? 'b-warn' : 'b-bad'}">المتوسط ${avg}%</span>` : ''}</h3>
+        ${exs.length ? exs.map(e => {
+          const pc = e.max ? Math.round((Number(e.m) / Number(e.max)) * 100) : null;
+          const cl = pc == null ? '' : pc >= 75 ? 'ok' : pc >= 50 ? 'warn' : 'bad';
+          return `<div class="pm-row"><div><div class="t">${esc(e.n || 'امتحان')}</div>
+            <div class="d">${this.pmDate(e.d)}</div></div><span style="flex:1"></span>
+            <span class="pm-g ${cl}">${esc(String(e.m))}${e.max ? ' / ' + esc(String(e.max)) : ''}</span>
+            ${pc != null ? `<span class="pm-chip ${cl === 'ok' ? 'ok' : cl === 'bad' ? 'bad' : 'warn'}">${pc}%</span>` : ''}</div>`;
+        }).join('') : '<div class="pm-empty">لسه مفيش درجات مسجّلة</div>'}
+      </div>
+
+      <div class="pm-card">
+        <h3>${icon('book')} ملاحظات المستر</h3>
+        ${notes.length ? notes.slice(0, 10).map(n => `<div class="pm-note">
+            <b>${esc(n.n || 'امتحان')} · ${this.pmDate(n.d)}</b>
+            ${n.err ? '<div>🔻 الأخطاء: ' + esc(n.err) + '</div>' : ''}
+            ${n.hw ? '<div>📘 الواجب: ' + esc(n.hw) + '</div>' : ''}</div>`).join('')
+          : '<div class="pm-empty">مفيش ملاحظات لحد الآن</div>'}
+        ${abs.length ? `<div style="margin-top:10px"><b class="small">ملاحظات الغياب</b>
+          ${abs.slice(0, 8).map(a => `<div class="pm-row"><span class="d">${this.pmDate(a.d)}</span><span style="flex:1"></span><span>${esc(a.n)}</span></div>`).join('')}</div>` : ''}
+      </div>
+
+      <div class="pm-btns">
+        ${r.tphone ? `<a class="btn pri" target="_blank" rel="noopener" href="${waLink(r.tphone, 'السلام عليكم أ. ' + (r.tname || '') + '، بخصوص ' + (r.name || '') + ' — ')}">${icon('whatsapp')} كلّم المستر</a>` : ''}
+        <button class="btn" data-pm="reload">${icon('refresh')} تحديث</button>
+      </div>
+      <div class="pm-foot">
+        آخر تحديث: ${this.ago(r.at)} · البيانات بتتحدّث لوحدها أول ما يحصل أي جديد
+        <br>الصفحه دي للقراءة فقط — مفيش أي تعديل ممكن منها
+      </div>`;
+    this.hook();
+  },
+  watch(){
+    this.stop();
+    const self = this;
+    (async () => {
+      let tok = '';
+      try{ tok = await Cloud.ensureTok(); }catch(e){ tok = ''; }
+      if (typeof EventSource !== 'undefined'){
+        let url = Cloud.dbUrl() + '/' + Cloud.rootPath() + '/parents/' + this.token + '.json';
+        if (tok) url += '?auth=' + encodeURIComponent(tok);
+        let es = null;
+        try{ es = new EventSource(url); }catch(e){ es = null; }
+        if (es){
+          self.es = es;
+          const on = ev => {
+            let d = null; try{ d = JSON.parse(ev.data); }catch(e){ return; }
+            if (!d || d.data == null || typeof d.data !== 'object') return;
+            self.rec = d.data; self.render();
+          };
+          es.addEventListener('put', on);
+          es.addEventListener('patch', on);
+          es.addEventListener('open', () => {});
+          es.addEventListener('error', () => { if (!self.timer) self.poll(); });
+        }
+      }
+      self.poll();
+    })();
+  },
+  poll(){
+    clearInterval(this.timer);
+    this.timer = setInterval(() => { if (!this.busy && !document.hidden) this.load(); }, 90000);
+  },
+  stop(){
+    if (this.es){ try{ this.es.close(); }catch(e){} this.es = null; }
+    clearInterval(this.timer); this.timer = null;
+  }
+};
+
 (function boot(){
+  // لو الرابط رابط متابعة ولي أمر → شاشة المتابعة على طول (مفيش أي حاجة تانية)
+  try{ if (PMode.fromUrl()){ PMode.start(); return; } }catch(e){}
   let theme = localStorage.getItem(LS_KEY + '_theme');
   if (!theme) theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
   document.documentElement.dataset.theme = theme;
