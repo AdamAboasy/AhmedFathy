@@ -818,7 +818,23 @@ const S = {
 
 /* ---------------- Storage ---------------- */
 const LS_KEY = 'mostar_platform_v2';
-const APP_V = 'v2.9';
+/* رابط المنصة الرسمي اللي بيتحط في رسايل الواتساب (يتغيّر من الإعدادات) */
+const PLATFORM_URL_DEFAULT = 'https://ahmed-fathy-five.vercel.app/';
+/* أي رابط نستخدمه في الرسايل: الإعدادات ← الرابط الرسمي ← الرابط اللي المنصة شغالة عليه (لو مش مؤقت) */
+function platformBase(){
+  try{
+    const u = String((S.data.settings || {}).platformUrl || '').trim();
+    if (/^https?:\/\//i.test(u)) return u.replace(/\/+$/, '') + '/';
+  }catch(e){}
+  try{
+    const h = String(location.href || ''), host = String(location.hostname || '');
+    if (/^https:\/\//i.test(h) && host && !/(e2b\.app|localhost|127\.0\.0\.1|\.local$|^0\.0\.0\.0$)/i.test(host)){
+      return h.split('#')[0].split('?')[0];
+    }
+  }catch(e){}
+  return PLATFORM_URL_DEFAULT;
+}
+const APP_V = 'v2.10';
 const ERR_KEY = 'mostar_errlog';
 const SAFE_KEY = 'mostar_safe';      // نسخة محلية خفية — لو المتصفح مسح بياناته نرجّعها في ثانية
 let SAFE_AT = 0, SAFE_SIG = '';
@@ -5080,6 +5096,9 @@ Views.settings = function(){
           <div class="field"><label>اسم المستر</label><input class="inp" data-set="teacherName" value="${esc(st.teacherName)}"></div>
         </div>
         <div class="field"><label>رقم الهاتف (يظهر في التقارير)</label><input class="inp" data-set="phone" value="${esc(st.phone)}" placeholder="01xxxxxxxxx"></div>
+        <div class="field"><label>رابط المنصة (بيتبعت في رسايل أولياء الأمور والمدرسين)</label>
+          <input class="inp" data-set="platformUrl" value="${esc(st.platformUrl || '')}" placeholder="https://ahmed-fathy-five.vercel.app/" style="direction:ltr;text-align:left">
+          <span class="hint">سيب الخانة فاضية وهنستخدم الرابط الرسمي: ${esc(PLATFORM_URL_DEFAULT)}</span></div>
         <div class="field"><label>المراحل الدراسية (كل مرحلة في سطر)</label>
           <textarea class="inp" data-list="stages" style="min-height:150px">${esc(st.stages.join('\n'))}</textarea>
           <span class="hint">تظهر في ملف الطالب وفي فلاتر التقارير</span></div>
@@ -5501,6 +5520,7 @@ const Roles = {
         try{ if (owner){ const n = Requests.pending().length; if (n) txt += ' · ' + n + ' طلب'; } }catch(e){}
         badge.textContent = txt; badge.className = 'role-badge ' + info.chip;
       }
+      try{ if (owner && (!this._reqAt || Date.now() - this._reqAt > 25000)){ this._reqAt = Date.now(); Requests.sync().then(n => { if (n){ try{ this.apply(); }catch(e){} } }); } }catch(e){}
       try{ if (owner) Requests.notice(); }catch(e){}
       if (owner){ document.querySelectorAll('.role-hide').forEach(x => x.classList.remove('role-hide')); return; }
       OWNER_ONLY.forEach(a => {
@@ -5513,6 +5533,12 @@ const Roles = {
   },
   /* شاشة الصلاحيات والأعضاء */
   open(){
+    if (this.isOwner()){
+      try{ Requests.sync().then(n => { if (n){ try{ this.renderNow(); }catch(e){} } }); }catch(e){}
+    }
+    return this.renderNow();
+  },
+  renderNow(){
     const info = this.info(), m = this.members(), u = this.uid();
     const yes = ['يسجّل حضور وغياب','يدخّل درجات الامتحانات','يكتب ملاحظات الأخطاء والواجب','يضيف ويعدّل الطلاب والحصص','يصدّر ويطبع التقارير','يبعت رسالة ولي أمر على واتساب'];
     const no  = ['يحذف أي حاجة (ولا يشوف سلة المحذوفات)','يرجّع أو يسترجع نسخة قديمة','يقفل السنة أو ياخد نسخة احتياطية','يغيّر إعدادات المنصة أو اللوجو','يضيف أو يشيل مدرسين','ينشر المنصة أو يغيّر السيرفر'];
@@ -5723,11 +5749,7 @@ const Parent = {
     return Array.prototype.map.call(a, b => ('0' + (b & 255).toString(16)).slice(-2)).join('');
   },
   hash(o){ let h = 5381; const t = JSON.stringify(o || ''); for (let i = 0; i < t.length; i++) h = ((h * 33) ^ t.charCodeAt(i)) >>> 0; return h.toString(36); },
-  base(){
-    let b = String(location.href || '').split('#')[0].split('?')[0];
-    if (!/^https?:/i.test(b)) b = 'https://' + (FB_DEFAULT.projectId || 'ahmedfathy-def0f') + '.web.app/';
-    return b;
-  },
+  base(){ try{ return platformBase(); }catch(e){ return PLATFORM_URL_DEFAULT; } },
   link(token){
     let code = FB_DEFAULT.code || FB_DEFAULT.projectId;
     try{ code = Cloud.cfgNow().code || code; }catch(e){}
@@ -5794,10 +5816,13 @@ const Parent = {
     const s = student(sid) || {}, st = S.data.settings || {};
     const t = this.of(sid);
     return 'السلام عليكم ' + (s.guardian || '') + '،\n'
-      + 'دي متابعة ' + (s.name || 'الطالب') + ' مع أ. ' + (st.teacherName || 'أحمد فتحي') + ' — ' + (st.platformName || 'منصة المستر') + '.\n'
-      + 'افتح الرابط ده وهيوّديك على صفحة ابنك على طول (الحضور والدرجات والملاحظات أول بأول):\n'
-      + this.link(t) + '\n'
-      + 'احفظ الرابط عندك عشان ترجع له في أي وقت — الرابط خاص بيك لوحدك وبيتحدّث لوحده.';
+      + 'تحياتي أ. ' + (st.teacherName || 'أحمد فتحي') + ' — ' + (st.platformName || 'منصة المستر') + '.\n'
+      + 'تحب تتابع مستوى ' + (s.name || 'الطالب') + '؟\n\n'
+      + 'كود المتابعة بتاعك:\n' + t + '\n\n'
+      + 'رابط المنصة:\n' + this.base() + '\n\n'
+      + 'أو افتح لينك ابنك على طول (أسهل حاجة):\n' + this.link(t) + '\n\n'
+      + 'الدخول بالكود: افتح رابط المنصة ← «عندك كود متابعة؟» ← اكتب الكود، وهتفتحلك صفحة ' + (s.name || 'ابنك') + ' على طول.\n'
+      + 'تقدر تحفظ اللينك عندك وترجع له في أي وقت — بيتحدّث لوحده أول ما يحصل أي جديد.';
   },
   wa(sid){
     const s = student(sid) || {}, ph = s.parentPhone || s.phone;
@@ -5850,15 +5875,30 @@ const Parent = {
           <button class="btn ghost" data-close>إغلاق</button>` });
       return;
     }
-    const link = this.link(token);
+    const link = this.link(token), noKey = link.indexOf('&k=') < 0;
     const r = this.rec(sid) || {};
     Modal.open({ title:'رابط متابعة ولي الأمر', sub:s.name, size:'md',
       body:`
         <div class="help ok" style="line-height:1.95">الرابط شغال ✅ — ولي الأمر بيشوف منه <b>حضور ${esc(s.name)} ودرجاته وملاحظاتك</b> بس.
           ${r.at ? '<br>آخر تحديث للبيانات: ' + esc(String(r.at).slice(0, 10)) : ''}</div>
-        <div class="field" style="margin-top:12px"><label>الرابط</label>
+        <div class="field" style="margin-top:12px"><label>كود المتابعة (بيتبعت لولي الأمر)</label>
+          <div class="flex wrap" style="gap:8px;align-items:center">
+            <code class="code" style="direction:ltr;font-size:12.5px;padding:8px 11px;background:var(--bg);border-radius:9px;flex:1;overflow:auto">${esc(token)}</code>
+            <button class="btn sm" data-act="pLinkCodeCopy" data-id="${sid}">${icon('copy')} انسخ الكود</button>
+          </div></div>
+        <div class="field"><label>رابط المنصة</label>
+          <div class="flex wrap" style="gap:8px;align-items:center">
+            <code class="code" style="direction:ltr;font-size:12.5px;padding:8px 11px;background:var(--bg);border-radius:9px;flex:1;overflow:auto">${esc(this.base())}</code>
+            <button class="btn sm" data-act="pLinkPlatCopy" data-id="${sid}">${icon('copy')} انسخ</button>
+          </div>
+          <div class="small muted" style="margin-top:6px;line-height:1.9">الدخول بالكود: يفتح رابط المنصة ← «عندك كود متابعة؟» ← يكتب الكود.</div></div>
+        <div class="field"><label>لينك ابنك المباشر</label>
           <code class="code" style="display:block;direction:ltr;text-align:left;font-size:12px;padding:9px 11px;background:var(--bg);border-radius:9px;word-break:break-all">${esc(link)}</code>
-          <div class="small muted" style="margin-top:7px;line-height:1.9">لو فتحته من متصفح أي موبايل هتشوف صفحة المتابعة على طول — جرّبه بنفسك الأول لو حبيت.</div></div>`,
+          <div class="small muted" style="margin-top:7px;line-height:1.9">لو فتحته من متصفح أي موبايل هتشوف صفحة المتابعة على طول — جرّبه بنفسك الأول لو حبيت.</div></div>
+        ${noKey ? `<div class="role-strip" style="background:var(--warn-bg);color:var(--warn);line-height:1.9">
+          ملاحظة: مفتاح المشروع مش على الجهاز ده. لو ولي الأمر فتح على جهاز جديد ومش عارف يدخل،
+          افتح <b>الإعدادات ← المزامنة ← «أمّن البيانات»</b> مرة واحدة، وبعدها ابعتله الرسالة تاني.
+        </div>` : ''}`,
       footer:`<button class="btn sm" data-act="pLinkCopy" data-id="${sid}">${icon('copy')} انسخ</button>
         <button class="btn sm pri" data-act="pLinkWa" data-id="${sid}">${icon('whatsapp')} ابعت لولي الأمر</button>
         <button class="btn sm ghost" data-act="pLinkNew" data-id="${sid}">${icon('refresh')} رابط جديد</button>
@@ -5917,6 +5957,19 @@ const Requests = {
     await this.put(uid, { status:'cancelled', at:new Date().toISOString() });
     Roles.lsSet(Roles.KEY, ''); Roles.lsSet(Roles.UIDK, '');
   },
+  /* المالك: نجيب الطلبات من السحابة على طول (مش مستنيين دورة المزامنة) */
+  async sync(){
+    let d = null;
+    try{ d = await Cloud.rtdb('GET', Cloud.rootPath() + '/requests'); }catch(e){ return 0; }
+    if (!d || typeof d !== 'object' || Array.isArray(d)) return 0;
+    let n = 0;
+    Object.keys(d).forEach(k => {
+      const cur = this.map()[k];
+      if (!cur || JSON.stringify(cur) !== JSON.stringify(d[k])){ this.map()[k] = d[k]; n++; }
+    });
+    if (n){ try{ saveLocal(); }catch(e){} }
+    return n;
+  },
   async state(){                                   // الجهاز الجديد بيسأل: وافقوا عليّ ولا لأ؟
     const uid = Roles.uid();
     let mem = null, req = null;
@@ -5930,6 +5983,14 @@ const Requests = {
     return 'none';
   }
 };
+
+/* رابط دخول ولي الأمر بكود المتابعة (بيستخدم رابط المنصة الرسمي) */
+function parentEntryUrl(code){
+  let c = '', k = '';
+  try{ c = Cloud.cfgNow().code || ''; }catch(e){}
+  try{ k = Cloud.authKeyOf() || ''; }catch(e){ k = ''; }
+  return platformBase() + '?p=' + encodeURIComponent(code) + (c ? '&c=' + encodeURIComponent(c) : '') + (k ? '&k=' + encodeURIComponent(k) : '');
+}
 
 /* ============================================================
    صفحة تسجيل الدخول (الأجهزة اللي لسه مسجّلتش)
@@ -5977,7 +6038,14 @@ const LMode = {
         </div>
         <div class="jv-foot">هيوصل للمستر إشعار على المنصة، وهو يقبل (ويحدد دورك: مالك أو مدرس) أو يرفض.</div>
         <div class="sep"></div>
-        <div class="field"><label>معاك كود دعوة من المستر؟</label>
+        <div class="field"><label>${icon('eye')} عندك كود متابعة؟ (ولي أمر)</label>
+          <div class="small muted" style="margin-bottom:6px;line-height:1.9">لو المستر باعتلك كود لمتابعة ابنك، اكتبه هنا وهتفتحلك صفحة ابنك على طول.</div>
+          <div class="flex wrap" style="gap:8px">
+            <input class="inp" id="lPCode" placeholder="كود المتابعة" style="flex:1;min-width:150px;direction:ltr;text-align:left">
+            <button class="btn pri" id="lPGo">${icon('link')} اعرض متابعة ابني</button>
+          </div></div>
+        <div class="sep"></div>
+        <div class="field"><label>معاك كود دعوة من المستر؟ (مدرس)</label>
           <div class="flex wrap" style="gap:8px">
             <input class="inp" id="lCode" placeholder="كود الدعوة" style="flex:1;min-width:150px;direction:ltr;text-align:left">
             <button class="btn" id="lGo">${icon('link')} ادخل بالكود</button>
@@ -5988,6 +6056,30 @@ const LMode = {
     if (send) send.onclick = () => this.send();
     const go = $('#lGo', this.node);
     if (go) go.onclick = () => this.byCode();
+    const pg = $('#lPGo', this.node);
+    if (pg) pg.onclick = () => this.asParent();
+    const pi = $('#lPCode', this.node);
+    if (pi) pi.addEventListener('keydown', e => { if (e.key === 'Enter') this.asParent(); });
+  },
+  /* الدخول بكود متابعة ولي الأمر */
+  async asParent(){
+    const inp = $('#lPCode', this.node), btn = $('#lPGo', this.node);
+    const code = (inp ? inp.value : '').trim().toLowerCase().replace(/[^0-9a-f]/g, '');
+    if (code.length < 8){ toast('اكتب كود المتابعة كامل', 'warn', 'متابعة ولي الأمر'); return; }
+    if (btn){ btn.disabled = true; btn.textContent = 'بنتأكد من الكود...'; }
+    let found = null;
+    try{ found = await Cloud.rtdb('GET', Cloud.rootPath() + '/parents/' + code, null, false, '?t=' + Date.now()); }catch(e){}
+    if (!found || typeof found !== 'object'){
+      if (btn){ btn.disabled = false; btn.innerHTML = 'اعرض متابعة ابني'; }
+      const strip = document.createElement('div');
+      strip.className = 'role-strip';
+      strip.style.cssText = 'background:var(--bad-bg);color:var(--bad);margin-top:10px;line-height:1.9';
+      strip.textContent = 'الكود ده مش موجود — اتأكد منه أو اطلب من المستر يبعتهولك تاني.';
+      if (btn && btn.parentNode) btn.parentNode.parentNode.appendChild(strip);
+      return;
+    }
+    try{ PMode.remember(code); }catch(e){}
+    location.href = parentEntryUrl(code);
   },
   async send(){
     if (this.busy) return; this.busy = true;
@@ -6087,9 +6179,7 @@ function inviteLink(token){
   let code = FB_DEFAULT.code || FB_DEFAULT.projectId, k = '';
   try{ code = Cloud.cfgNow().code || code; }catch(e){}
   try{ k = Cloud.authKeyOf() || ''; }catch(e){ k = ''; }
-  let b = String(location.href || '').split('#')[0].split('?')[0];
-  if (!/^https?:/i.test(b)) b = 'https://' + (FB_DEFAULT.projectId || '') + '.web.app/';
-  return b + '?j=' + encodeURIComponent(token) + '&c=' + encodeURIComponent(code) + (k ? '&k=' + encodeURIComponent(k) : '');
+  return platformBase() + '?j=' + encodeURIComponent(token) + '&c=' + encodeURIComponent(code) + (k ? '&k=' + encodeURIComponent(k) : '');
 }
 function openInvite(){
   if (!Roles.isOwner()){ Roles.deny(); return; }
@@ -7491,6 +7581,8 @@ document.addEventListener('click', function(e){
     case 'pLink': Parent.open(id); break;
     case 'pLinkMake': Parent.make(id).then(t => { if (t) Parent.open(id); }); break;
     case 'pLinkCopy': copyText(Parent.link(Parent.of(id)), 'الرابط اتنسخ ✅ ابعته لولي الأمر'); break;
+    case 'pLinkCodeCopy': copyText(Parent.of(id), 'كود المتابعة اتنسخ ✅'); break;
+    case 'pLinkPlatCopy': copyText(Parent.base(), 'رابط المنصة اتنسخ ✅'); break;
     case 'pLinkWa': Parent.wa(id); break;
     case 'pLinkNew': Parent.reset(id).then(() => Parent.open(id)); break;
     case 'pRefreshAll': Parent.refreshAll(true); break;
