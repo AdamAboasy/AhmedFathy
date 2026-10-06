@@ -427,6 +427,34 @@ select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns=
   .rep-foot{position:fixed;bottom:0;left:0;right:0}
 }
 
+/* ============ الأدوار ============ */
+.req-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:9px 11px;border:1px solid var(--line);border-radius:12px;background:var(--bg);margin-bottom:8px}
+body.lmode .shell,body.lmode .fab{display:none!important}
+#lview{display:none}
+body.lmode #lview{display:block;max-width:460px;margin:0 auto;padding:26px 16px 40px;position:relative;z-index:5}
+body.lmode{background:radial-gradient(520px 320px at 50% -40px,var(--brand-soft),transparent),var(--bg)}
+.guest-bar{position:sticky;top:0;z-index:60;background:var(--warn-bg);color:var(--warn);border-bottom:1px solid var(--line);
+  padding:9px 14px;font-size:13px;line-height:1.95;text-align:center}
+.guest-bar code{margin-inline-start:6px}
+.role-hide{display:none!important}
+.role-badge{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:800;padding:3px 10px;border-radius:99px;
+  border:1px solid transparent;cursor:pointer;background:var(--brand-soft);color:var(--brand-3);font-family:var(--font)}
+.role-badge.b-info{background:var(--info-bg);color:var(--info)}
+.role-badge.b-warn{background:var(--warn-bg);color:var(--warn)}
+.role-badge.b-gray{background:var(--line-2);color:var(--muted)}
+.role-badge:hover{filter:brightness(.96)}
+.role-note{font-size:11.5px;color:var(--muted);display:block;margin-top:3px}
+.role-strip{background:var(--info-bg);color:var(--info);border-radius:12px;padding:8px 11px;font-size:12.5px;line-height:1.9}
+/* ============ شاشة الانضمام (المدرس) ============ */
+body.jmode .shell,body.jmode .fab,body.jmode .toasts{display:none!important}
+#jview{display:none}
+body.jmode #jview{display:block;max-width:460px;margin:0 auto;padding:26px 16px 40px}
+.jv-logo{width:64px;height:64px;border-radius:50%;object-fit:cover;border:2px solid var(--brand);background:#0b0b0d;display:block;margin:0 auto 12px}
+.jv-t{text-align:center;font-size:19px;font-weight:800}
+.jv-s{text-align:center;font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.9}
+.jv-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:15px;margin-top:15px;box-shadow:var(--shadow)}
+.jv-badge{display:flex;align-items:center;gap:8px;background:var(--info-bg);color:var(--info);border-radius:12px;padding:9px 11px;font-size:13px;line-height:1.9;margin-bottom:12px}
+.jv-foot{text-align:center;font-size:12px;color:var(--muted);margin-top:14px;line-height:2}
 /* ============ شاشة ولي الأمر (رابط المتابعة) ============ */
 body.pmode .shell,body.pmode .fab,body.pmode .toasts{display:none!important}
 body.pmode{background:var(--bg)}
@@ -543,6 +571,7 @@ window.AF_logoNext=function(img){
       <div class="bt">
         <b id="brandName">أحمد فتحي</b>
         <span><i></i><span id="brandSub">منصة المستر</span></span>
+        <button class="role-badge" id="roleBadge" data-act="rolesOpen" title="الصلاحيات والأعضاء">المالك</button>
       </div>
     </div>
     <nav class="nav" id="nav">
@@ -765,7 +794,8 @@ function defaultData(){
     },
     groups: [], students: [], exams: [], grades: {}, attendance: {},
     /* متابعة الرسائل: أخطاء وحالة واجب لكل امتحان/طالب + أسباب الغياب + سجل الرسائل المبعوتة */
-    feedback: {}, absNotes: {}, msgSent: {}, ptokens: {}
+    feedback: {}, absNotes: {}, msgSent: {}, ptokens: {},
+    members: {}, invites: {}, requests: {}
   };
 }
 
@@ -788,7 +818,7 @@ const S = {
 
 /* ---------------- Storage ---------------- */
 const LS_KEY = 'mostar_platform_v2';
-const APP_V = 'v2.7';
+const APP_V = 'v2.9';
 const ERR_KEY = 'mostar_errlog';
 const SAFE_KEY = 'mostar_safe';      // نسخة محلية خفية — لو المتصفح مسح بياناته نرجّعها في ثانية
 let SAFE_AT = 0, SAFE_SIG = '';
@@ -1123,6 +1153,16 @@ const Cloud = {
   clearTok(){ this.clearTokFor(this.cfgNow().projectId); },
   tokFor(pid){ const t = this.loadTokFor(pid); return (t && t.id && Number(t.exp || 0) > Date.now() + 90000) ? t.id : ''; },
   tok(){ return this.tokFor(this.cfgNow().projectId); },
+  // هوية الجهاز من شهادة الدخول (نقرا الجزء الأوسط من الشهادة بدون أي مكتبة)
+  uid(){
+    try{
+      const t = this.tok(); if (!t || t.split('.').length < 3) return '';
+      let b = t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      while (b.length % 4) b += '=';
+      const j = JSON.parse(decodeURIComponent(escape(atob(b))));
+      return j.user_id || j.sub || '';
+    }catch(e){ return ''; }
+  },
   authState(){ return S.fb.auth || (this.tok() ? 'on' : (this.authKeyOf() ? 'ready' : 'no-key')); },
   // لو الدخول الصامت شغال: بنجيب شهادة جديدة لو القديمة قربت تخلص (لكل مشروع شهادته)
   async ensureTok(){ return this.ensureTokFor(this.cfgNow().projectId); },
@@ -1617,7 +1657,7 @@ const Cloud = {
      فاللي يتغير بس هو اللي بيتنقل، والتحديث بيوصل لحظيًا من غير
      ما المستر يعمل ريفريش أو يدوس "تنزيل".
      ========================================================== */
-  secKeys(){ return ['settings','groups','students','exams','grades','feedback','absNotes','msgSent','ptokens']; },
+  secKeys(){ return ['settings','groups','students','exams','grades','feedback','absNotes','msgSent','ptokens','members','invites','requests']; },
   /* أرقام النسخ لازم تكون موحّدة بين كل الأجهزة.
      زمان كل جهاز كان بيعد من عنده (1، 2، 3…) وكل جهاز بيكتب أرقامه فوق التاني،
      فالجهاز يشوف رقم أقل من رقمه يفتكر إن مفيش جديد وما ينزّلش.
@@ -2811,6 +2851,7 @@ const Cloud = {
 };
 
 function paintCloud(){
+  try{ if (typeof Roles !== 'undefined' && S.fb.status === 'live') Roles.init(); }catch(e){}
   const chip = $('#cloudChip'); if (!chip) return;
   const st = S.fb.status;
   let cls = '', title = 'تخزين محلي', sub = 'اضغط للربط بالسحابة';
@@ -4241,6 +4282,10 @@ const GUIDE = [
     { q:'إزاي أظبط المنصة على جهاز جديد؟', a:'افتح رابط المنصة على الجهاز الجديد — <b>مفيش أي حاجة تكتبها</b>. البيانات بتنزل لوحدها، وأي تعديل من أي جهاز بيظهر على التاني في ثواني.', act:'settings', actL:'الإعدادات' },
     { q:'النت قطع وأنا بأسجّل؟', a:'كمّل عادي — كل تعديل بيتسجل بختم وقت وبيرفع <b>لوحده</b> أول ما النت يرجع، حتى لو قفلت المنصة.' },
     { q:'إيه الحكاية في «أمّن البيانات»؟', a:'خطوة اختيارية بتخلي بيانات الطلاب محدش يشوفها غيرك — المنصة بتسجّل نفسها لوحدها في فايربيز (مفيش كلمة سر تكتبها) والقواعد بتتقفل. الخطوات كلها جوه الإعدادات في 3 خطوات.', act:'authWizard', actL:'أمّن البيانات' },
+    { q:'فتحت المنصة على جهاز جديد وطلب مني تسجيل دخول؟', a:'ده طبيعي — أي جهاز جديد لازم المستر يوافق عليه. اكتب اسم الجهاز ودوس <b>«ابعت طلب انضمام للمستر»</b>، وهيوصلك إشعار على المنصة عند المستر، وهو <b>يقبل (ويحدد دورك: مالك أو مدرس) أو يرفض</b>. الصفحة هتفتحلك لوحدها أول ما يوافق — من غير ما تعمل أي حاجة. ولو معاك <b>كود دعوة</b> من المستر، اكتبه واضغط «ادخل بالكود» على طول.', act:'rolesOpen', actL:'شوف الصلاحيات' },
+    { q:'فتحت المنصة على جهاز جديد وطلع «جهاز غير مصرّح»؟', a:'ده طبيعي عشان الأمان: أي جهاز جديد محتاج اعتماد من المالك. هتلاقي على الشاشة <b>كود الجهاز</b> — انسخه وابعته للمستر، وهو من <b>الإعدادات ← الأدوار والصلاحيات ← اعتماد جهاز تاني</b> يلزقه ويعتمدك (مالك أو مدرس). أو لو معاك المدرس، يبعتلك <b>رابط دعوة</b> من نفس الشاشة.', act:'rolesOpen', actL:'شوف الصلاحيات والأعضاء' },
+    { q:'إيه الأدوار الموجودة في المنصة؟', a:'تلات أدوار بس: <b>المالك</b> (إنت — كل حاجة، ومن غير أي تسجيل دخول) · <b>مدرس</b> (يسجّل حضور ويدخّل درجات ويكتب ملاحظات ويضيف طلاب — <b>وممنوع من أي حذف</b>) · <b>ولي أمر</b> (رابط متابعة لابنه — قراءة فقط).', act:'rolesOpen', actL:'شوف الصلاحيات والأعضاء' },
+    { q:'عايز أضيف مدرس يساعدني؟', a:'من الإعدادات ← <b>الأدوار والصلاحيات</b> ← «دعوة مدرس» ← اكتب اسمه وإيمهيله ← ابعتله الرابط. بيفتحه مرة واحدة ويعمل لنفسه باسورد، وبعدها الجهاز بتاعه فاكر — ومن أي جهاز تاني بيدخل بالإيميل والباسورد. تقدر تلغي صلاحيته في أي وقت بضغطة.', act:'memberInvite', actL:'اعمل دعوة مدرس' },
     { q:'عايز ولي الأمر يتابع ابنه بنفسه؟', a:'من ملف الطالب ← <b>رابط متابعة ولي الأمر</b> ← «إنشاء الرابط» ← ابعت الرابط لولي الأمر على واتساب. الرابط ده بيشوف منه <b>حضور ابنه ودرجاته وملاحظاتك</b> بس، ومش شايف أي طالب تاني، و<b>قراءة فقط</b> (مش بيعدّل أي حاجة)، وبيتحدّث لوحده أول ما تعدّل أي حاجة.', act:'refreshAllLinks', actL:'حدّث روابط المتابعة' },
     { q:'عايز رابط ثابت أفتح منه المنصة من أي جهاز؟', a:'المنصة تنشر على <b>فايربيز</b> نفسه (مجانًا بالكامل) — بيبقى لك رابط ثابت تفتحه من أي موبايل أو كمبيوتر في أي وقت، وكل حاجة تفضل متزامنة. الخطوات جاهزة في زر واحد.', act:'deployOpen', actL:'رابط ثابت للمنصة' },
     { q:'عايز نسخة تشتغل من غير إنترنت خالص؟', a:'فيه زر بينزّلك <b>نسخة مستقلة</b> (ملف واحد) — دوس عليها مرتين وبتفتح على أي جهاز، شغالة أوفلاين وبترجع تتزامن مع فايربيز أول ما النت يفتح.', act:'deployOpen', actL:'حمّل نسخة مستقلة' },
@@ -5058,6 +5103,24 @@ Views.settings = function(){
     </div>
 
     <div class="card">
+      <div class="card-h"><h3>${icon('star')} الأدوار والصلاحيات</h3>
+        <span class="sp"></span><span class="badge ${Roles.info().chip}">${icon(Roles.info().ic)} ${Roles.label()}</span></div>
+      <div class="card-b">
+        <div class="role-strip">إنت داخل كـ<b>${Roles.label()}</b> — ${esc(Roles.info().note)}.
+          ${Roles.isOwner() ? ' مفيش أي تسجيل دخول عليك.' : ''}</div>
+        <div class="flex wrap" style="gap:9px;align-items:center;margin-top:11px">
+          <button class="btn" data-act="rolesOpen">${icon('eye')} شوف الصلاحيات والأعضاء${Roles.count() ? ' (' + Roles.count() + ')' : ''}</button>
+          ${Roles.isOwner() ? `<button class="btn pri" data-act="memberInvite">${icon('plus')} دعوة مدرس</button>` : ''}
+        </div>
+        <div class="small muted" style="margin-top:9px;line-height:1.9">
+          الأدوار تلاتة بس: <b>المالك</b> (إنت — كل حاجة، ومفيش عليك أي تسجيل) ·
+          <b>مدرس</b> (حضور ودرجات وملاحظات، من غير أي حذف) ·
+          <b>ولي أمر</b> (رابط متابعة لابنه — قراءة فقط).
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
       <div class="card-h"><h3>${icon('link')} روابط متابعة أولياء الأمور</h3>
         <span class="sp"></span><span class="badge ${Parent.count() ? 'b-ok' : 'b-gray'}">${Parent.count() ? Parent.count() + ' رابط شغال' : 'مفيش روابط'}</span></div>
       <div class="card-b">
@@ -5274,6 +5337,239 @@ function confirmDialog(title, msg, okLabel, cb, danger){
   ov.querySelector('#cfOk').onclick = () => { Modal.close(id); cb(); };
   return id;
 }
+/* ============================================================
+   الأدوار: مالك · مدرس · ولي أمر
+   -----------------------------------------------------------------
+   • المالك (المستر) = أول جهاز، من غير أي تسجيل دخول خالص.
+   • المدرس = يدخل بإيميل وباسورد مرة واحدة على جهازه، وممنوع من:
+     الحذف · السلة · التراجع · الإعدادات · قفل السنة · النسخ الاحتياطية
+     · إدارة المدرسين · تغيير اللوجو · النشر · اختيار السيرفر
+   • ولي الأمر = شاشة المتابعة (رابط الطالب) — قراءة فقط
+   منع الأزرار في الواجهة بيتم هنا، والحماية النهائية على السيرفر
+   بتتضاف في مرحلة القواعد.
+   ============================================================ */
+const ROLE_INFO = {
+  owner:   { ar:'المالك',  chip:'b-brand', ic:'star',  note:'صلاحيات كاملة — إنت' },
+  teacher: { ar:'مدرس',    chip:'b-info',  ic:'users', note:'حضور · درجات · ملاحظات · طلاب' },
+  parent:  { ar:'ولي أمر', chip:'b-gray',  ic:'eye',   note:'يشوف ابنه بس — قراءة فقط' },
+  pending: { ar:'بانتظار الموافقة', chip:'b-warn', ic:'clock', note:'طلبك عند المستر' },
+  guest:   { ar:'جهاز غير مسجّل', chip:'b-warn', ic:'alert', note:'محتاج تسجيل دخول' }
+};
+/* الأعمال اللي المالك بس يقدر يعملها */
+const OWNER_ONLY = ['delStudent','delGroup','delExam','delExamAll','trashOpen','trashRestore','trashEmpty','trashRestoreAsk',
+  'undoOpen','undoLast','ycOpen','ycDo','ycArchive','snapRestoreAsk','snapshotNow',
+  'deployOpen','deployZip','deployShell','deployCopy','deployTry','standaloneSave',
+  'saveSettings','logoPick','logoClear','logoFile','membersOpen','memberInvite','memberRevoke',
+  'seed','fbPickServer','fbTryNext','authWizard','fbPaste','fbClear','dataReset'];
+
+const Roles = {
+  KEY:'mostar_role', UIDK:'mostar_uid',
+  ls(k){ try{ return localStorage.getItem(k) || ''; }catch(e){ return ''; } },
+  lsSet(k, v){ try{ v ? localStorage.setItem(k, v) : localStorage.removeItem(k); }catch(e){} },
+  uid(){ const s = this.ls(this.UIDK); if (s) return s; let u = ''; try{ u = Cloud.uid(); }catch(e){} return u || this.devId(); },
+  devId(){
+    let d = this.ls('mostar_dev_id');
+    if (!d){ d = 'dev-' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36); this.lsSet('mostar_dev_id', d); }
+    return d;
+  },
+  members(){ if (!S.data.members || typeof S.data.members !== 'object' || Array.isArray(S.data.members)) S.data.members = {}; return S.data.members; },
+  invites(){ if (!S.data.invites || typeof S.data.invites !== 'object' || Array.isArray(S.data.invites)) S.data.invites = {}; return S.data.invites; },
+  count(){ return Object.keys(this.members()).length; },
+  role(){
+    const saved = this.ls(this.KEY);
+    const m = this.members(), u = this.uid();
+    if (m[u] && m[u].role) return m[u].role;
+    if (saved === 'pending') return 'pending';                    // بعت طلب وبيستنى الموافقة
+    if (saved === 'guest') return 'guest';
+    if (saved === 'teacher'){
+      // جهاز المدرس: لو القايمة الحالية جاية من السحابة وهو مش فيها → الصلاحية اتلغت
+      if (Object.keys(m).length && !m[u] && S.fb && S.fb.status === 'live') return 'guest';
+      return 'teacher';
+    }
+    if (saved === 'owner' && this.hasLocalData()) return 'owner';  // جهاز المستر (حتى لو شهادته اتجددت)
+    if (!Object.keys(m).length) return 'owner';    // أول جهاز = المالك
+    if (this.hasData()) return 'owner';            // جهاز قديم فيه بيانات المستر
+    return 'guest';                                 // جهاز جديد من غير تسجيل
+  },
+  /* فيه بيانات المنصة على الجهاز؟ (أي بيانات) */
+  hasLocalData(){
+    try{
+      if (S.data.meta && S.data.meta.hadData) return true;
+      return !!((S.data.students || []).length || (S.data.groups || []).length || (S.data.exams || []).length
+        || Object.keys(S.data.attendance || {}).length || Object.keys(S.data.grades || {}).length);
+    }catch(e){ return false; }
+  },
+  /* جهاز المستر القديم: فيه بيانات المنصة، ولسه مفيش فيه أعضاء مسجّلين (يعني بياناته أقدم من نظام الأدوار) */
+  hasData(){
+    try{
+      const old = !Object.keys(this.members()).length;
+      if (!old) return false;
+      if (S.data.meta && S.data.meta.hadData) return true;
+      return !!((S.data.students || []).length || (S.data.groups || []).length || (S.data.exams || []).length
+        || Object.keys(S.data.attendance || {}).length || Object.keys(S.data.grades || {}).length);
+    }catch(e){ return false; }
+  },
+  code(){ return this.uid(); },
+  isOwner(){ return this.role() === 'owner'; },
+  info(r){ return ROLE_INFO[r || this.role()] || ROLE_INFO.guest; },
+  label(){ return this.info().ar; },
+  device(){ try{ return (typeof devKind === 'function') ? devKind() : 'جهاز'; }catch(e){ return 'جهاز'; } },
+  /* اعتماد الجهاز كمالك */
+  becomeOwner(msg){
+    const m = this.members(), u = this.uid();
+    m[u] = Object.assign({}, m[u] || {}, { role:'owner', name:(S.data.settings.teacherName || 'المستر'),
+      at:(m[u] && m[u].at) || new Date().toISOString(), device:this.device() });
+    this.lsSet(this.UIDK, u); this.lsSet(this.KEY, 'owner'); this._claimed = true;
+    try{ commit({ silent:true }); }catch(e){}
+    this.push(u);
+    if (msg) setTimeout(() => toast(msg, 'ok', 'الأدوار'), 1200);
+    return true;
+  },
+  /* أول جهاز بياخد دور المالك لوحده — وأي جهاز تاني فيه بيانات المستر بيتعتمد كمان
+     ملاحظة مهمة: جهاز جديد من غير بيانات ماياخدش المالك غير لو السحابة فاضية فعلًا */
+  async init(){
+    if (this.ls(this.KEY) === 'teacher' || this.ls(this.KEY) === 'guest') return false;   // جهاز عارف دوره
+    const m = this.members(), u = this.uid();
+    if (m[u] && m[u].role) return false;
+    // جهاز المستر اللي شهادته اتجدّدت (أو عضويته اتشالت بالغلط) → نرجّعه مالك
+    if (this.ls(this.KEY) === 'owner' && this.hasLocalData()) return this.becomeOwner('');
+    if (Object.keys(m).length){ for (const k in m){ if ((m[k] || {}).role) { if (this.hasData()) return this.becomeOwner('تم اعتماد الجهاز ده كجهاز للمستر ✅'); return false; } } }
+    // جهاز المستر القديم (فيه بيانات المنصة) → مالك على طول
+    if (this.hasData()) return this.becomeOwner('');
+    if (this._checking) return false;
+    this._checking = true;
+    let cloudMembers = null, cloudMeta = null;
+    try{ cloudMembers = await Cloud.rtdb('GET', Cloud.rootPath() + '/members'); }catch(e){}
+    try{ cloudMeta = await Cloud.rtdb('GET', Cloud.rootPath() + '/meta'); }catch(e){}
+    this._checking = false;
+    const cloudKnown = (cloudMembers && typeof cloudMembers === 'object' && Object.keys(cloudMembers).length)
+                    || (cloudMeta && typeof cloudMeta === 'object' && Object.keys(cloudMeta).length);
+    if (cloudKnown){
+      // المنصة موجودة على السحابة وجهازنا مش من أعضائها → محتاج اعتماد من المستر
+      if (cloudMembers && typeof cloudMembers === 'object'){
+        Object.keys(cloudMembers).forEach(k => { if (!m[k]) m[k] = cloudMembers[k]; });
+      }
+      this.lsSet(this.KEY, 'guest');
+      try{ Roles.apply(); }catch(e){}
+      return false;
+    }
+    return this.becomeOwner('');
+  },
+  setRole(uid, role, extra){
+    if (!uid) return;
+    const m = this.members();
+    if (role === null) delete m[uid];
+    else m[uid] = Object.assign({}, m[uid] || {}, extra || {}, { role: role, at:(m[uid] && m[uid].at) || new Date().toISOString() });
+    if (uid === this.uid()) this.lsSet(this.KEY, role === null ? '' : role);
+    try{ commit({ silent:true }); }catch(e){}
+    this.push(uid, role === null);
+  },
+  push(uid, del){
+    try{ Cloud.rtdb(del ? 'DELETE' : 'PUT', Cloud.rootPath() + '/members/' + uid, del ? undefined : this.members()[uid]); }catch(e){}
+  },
+  /* اللي مسموح لكل دور */
+  can(act){
+    if (!act) return true;
+    const r = this.role();
+    if (r === 'guest' || r === 'pending'){
+      // جهاز لسه مسجّلش: ممنوع من كل حاجة غير أزرار صفحة الدخول
+      return ['rolesOpen','guestCodeCopy','lSend','lGo','lCheck','lCancel','lAgain'].indexOf(act) >= 0;
+    }
+    if (r === 'owner') return true;
+    if (OWNER_ONLY.indexOf(act) >= 0) return false;
+    if (/^del|^trash/i.test(act)) return false;
+    return true;
+  },
+  deny(){
+    if (this.role() === 'guest') toast('الجهاز ده مش مصرّح — اطلب من المستر دعوة', 'warn', 'الصلاحيات');
+    else toast('الحاجة دي للمستر بس (إنت داخل كمدرس) — كلّم المستر لو محتاجها', 'warn', 'الصلاحيات');
+    return false;
+  },
+  /* الشارة + إخفاء الأزرار الممنوعة + صفحة تسجيل الدخول للأجهزة الجديدة */
+  apply(){
+    try{
+      const r = this.role(), info = this.info(r), owner = this.isOwner();
+      const b = document.body;
+      if (b.dataset.role !== r) b.dataset.role = r;
+      b.classList.toggle('role-mem', !owner);
+      // أي جهاز مش مسجّل أو بانتظار الموافقة → صفحة تسجيل الدخول على الشاشة كاملة
+      if (r === 'guest' || r === 'pending'){ try{ LMode.show(r); }catch(e){} }
+      else { try{ LMode.hide(); }catch(e){} try{ localStorage.removeItem('mostar_ptok'); }catch(e){} }
+      const badge = $('#roleBadge');
+      if (badge){
+        let txt = info.ar;
+        try{ if (owner){ const n = Requests.pending().length; if (n) txt += ' · ' + n + ' طلب'; } }catch(e){}
+        badge.textContent = txt; badge.className = 'role-badge ' + info.chip;
+      }
+      try{ if (owner) Requests.notice(); }catch(e){}
+      if (owner){ document.querySelectorAll('.role-hide').forEach(x => x.classList.remove('role-hide')); return; }
+      OWNER_ONLY.forEach(a => {
+        document.querySelectorAll('[data-act="' + a + '"]').forEach(el => el.classList.add('role-hide'));
+      });
+      const st = $('#roleStrip'); if (st) st.textContent = info.ar + ' — ' + info.note;
+      const bar = $('#guestBar'); if (bar) bar.remove();
+      document.body.classList.remove('guest');
+    }catch(e){}
+  },
+  /* شاشة الصلاحيات والأعضاء */
+  open(){
+    const info = this.info(), m = this.members(), u = this.uid();
+    const yes = ['يسجّل حضور وغياب','يدخّل درجات الامتحانات','يكتب ملاحظات الأخطاء والواجب','يضيف ويعدّل الطلاب والحصص','يصدّر ويطبع التقارير','يبعت رسالة ولي أمر على واتساب'];
+    const no  = ['يحذف أي حاجة (ولا يشوف سلة المحذوفات)','يرجّع أو يسترجع نسخة قديمة','يقفل السنة أو ياخد نسخة احتياطية','يغيّر إعدادات المنصة أو اللوجو','يضيف أو يشيل مدرسين','ينشر المنصة أو يغيّر السيرفر'];
+    const rows = Object.keys(m).map(k => {
+      const x = m[k] || {}, inf = this.info(x.role), isMe = k === u;
+      return `<div class="flex" style="gap:10px;align-items:center;padding:9px 0;border-bottom:1px dashed var(--line)">
+        <span class="badge ${inf.chip}">${icon(inf.ic)} ${inf.ar}</span>
+        <div style="flex:1;min-width:0"><div style="font-weight:700">${esc(x.name || x.email || 'عضو')}${isMe ? ' — إنت' : ''}</div>
+          <div class="small muted">${esc(x.email || '')}${x.email ? ' · ' : ''}${esc(x.device || '')}${x.at ? ' · ' + String(x.at).slice(0, 10) : ''}</div></div>
+        ${(this.isOwner() && !isMe) ? `<button class="btn sm ghost" data-act="memberRevoke" data-id="${esc(k)}">${icon('trash')} الغي</button>` : ''}
+      </div>`;
+    }).join('');
+    Modal.open({ title:'الصلاحيات والأعضاء', sub:'مين معاك على المنصة وإيه المسموح لكل واحد', size:'lg',
+      body:`
+        <div class="help brand" style="line-height:1.95">
+          <b>${this.isOwner() ? 'إنت المالك' : 'إنت داخل كـ' + esc(info.ar)}</b> — ${esc(info.note)}.
+          ${this.isOwner() ? ' مفيش أي تسجيل دخول عليك خالص.' : ''}
+        </div>
+        ${(this.isOwner() && Requests.pending().length) ? `
+          <div style="margin-top:14px"><b>${icon('bell')} طلبات انضمام بانتظار موافقتك (${Requests.pending().length})</b></div>
+          <div style="margin-top:8px">${Requests.pending().map(u => {
+            const r = Requests.of(u) || {};
+            return `<div class="req-row">
+              <div style="flex:1;min-width:0">
+                <div style="font-weight:700">${esc(r.name || 'جهاز جديد')}</div>
+                <div class="small muted">${esc(r.device || '')}${r.at ? ' · ' + String(r.at).slice(0, 16).replace('T', ' ') : ''}</div>
+              </div>
+              <select class="inp" id="reqRole-${esc(u)}" style="width:auto">
+                <option value="teacher">يدخل كمدرس</option>
+                <option value="owner">يدخل كمالك</option>
+              </select>
+              <button class="btn sm pri" data-act="reqApprove" data-id="${esc(u)}">${icon('check')} اقبل</button>
+              <button class="btn sm ghost" data-act="reqReject" data-id="${esc(u)}">${icon('trash')} ارفض</button>
+            </div>`;
+          }).join('')}</div>` : ''}
+        ${this.count() ? `<div style="margin-top:14px"><b>الأعضاء</b></div><div style="margin-top:8px">${rows}</div>` : ''}
+        ${this.isOwner() ? `<div class="field" style="margin-top:14px"><label>دعوة مدرس جديد</label>
+          <div class="small muted" style="margin-bottom:8px;line-height:1.9">يدخل بإيميل وباسورد مرة واحدة على جهازه، وبيشتغل بالصلاحيات اللي تحت، ومش هيقدر يحذف أي حاجة.</div>
+          <button class="btn pri" data-act="memberInvite">${icon('plus')} اعمل رابط دعوة لمدرس</button></div>` : ''}
+        ${this.isOwner() ? `<div class="field" style="margin-top:14px"><label>اعتماد جهاز تاني (موبايل/كمبيوتر ليك)</label>
+          <div class="small muted" style="margin-bottom:8px;line-height:1.9">
+            لو فتحت المنصة على جهاز جديد وطلعت «جهاز غير مصرّح»، هتلاقي عليه كود — الصقه هنا فيتعتمد على طول.
+          </div>
+          <div class="flex wrap" style="gap:8px">
+            <input class="inp" id="devCode" placeholder="كود الجهاز" style="flex:1;min-width:180px;direction:ltr;text-align:left">
+            <select class="inp" id="devRole" style="width:auto"><option value="owner">مالك (كل حاجة)</option><option value="teacher">مدرس (من غير حذف)</option></select>
+            <button class="btn" data-act="memberApproveDevice">${icon('check')} اعتمد</button>
+          </div></div>` : ''}
+        <div class="sep"></div>
+        <div class="frow">
+          <div><b class="small">المدرس يقدر يعمل إيه</b><ul class="small" style="line-height:2;padding-inline-start:18px;margin:6px 0">${yes.map(t => '<li>' + t + '</li>').join('')}</ul></div>
+          <div><b class="small">المدرس ممنوع من إيه</b><ul class="small" style="line-height:2;padding-inline-start:18px;margin:6px 0">${no.map(t => '<li>' + t + '</li>').join('')}</ul></div>
+        </div>`,
+      footer:`<button class="btn ghost" data-close>إغلاق</button>` });
+  }
+};
+
 /* ============================================================
    التراجع + سلة المحذوفات — الشبكة الأمان بتاعة المستر
    • أي عملية بيتاخد لها لقطة، وزر «رجّع» بيظهر جوه التنبيه 10 ثواني
@@ -5495,12 +5791,13 @@ const Parent = {
     toast('اتعمل رابط جديد — القديم ما بقاش شغال', 'ok', 'رابط المتابعة');
   },
   msg(sid){
-    const s = student(sid) || {};
+    const s = student(sid) || {}, st = S.data.settings || {};
     const t = this.of(sid);
-    return 'متابعة ' + (s.name || 'الطالب') + '\n'
-      + 'تحت أمرك — من الرابط ده تشوف حضور ' + (s.name || 'الطالب') + ' ودرجاته وملاحظاتي أول بأول:\n'
+    return 'السلام عليكم ' + (s.guardian || '') + '،\n'
+      + 'دي متابعة ' + (s.name || 'الطالب') + ' مع أ. ' + (st.teacherName || 'أحمد فتحي') + ' — ' + (st.platformName || 'منصة المستر') + '.\n'
+      + 'افتح الرابط ده وهيوّديك على صفحة ابنك على طول (الحضور والدرجات والملاحظات أول بأول):\n'
       + this.link(t) + '\n'
-      + 'الرابط خاص بيك لوحدك، وبيتحدّث لوحده.';
+      + 'احفظ الرابط عندك عشان ترجع له في أي وقت — الرابط خاص بيك لوحدك وبيتحدّث لوحده.';
   },
   wa(sid){
     const s = student(sid) || {}, ph = s.parentPhone || s.phone;
@@ -5566,6 +5863,376 @@ const Parent = {
         <button class="btn sm pri" data-act="pLinkWa" data-id="${sid}">${icon('whatsapp')} ابعت لولي الأمر</button>
         <button class="btn sm ghost" data-act="pLinkNew" data-id="${sid}">${icon('refresh')} رابط جديد</button>
         <button class="btn ghost" data-close>إغلاق</button>` });
+  }
+};
+
+/* ============================================================
+   طلبات الانضمام: أي جهاز جديد يبعت طلب للمالك، والمالك يقبل
+   (ويحدد الدور: مالك أو مدرس) أو يرفض خالص.
+   ============================================================ */
+const Requests = {
+  map(){ if (!S.data.requests || typeof S.data.requests !== 'object' || Array.isArray(S.data.requests)) S.data.requests = {}; return S.data.requests; },
+  pending(){ return Object.keys(this.map()).filter(k => (this.map()[k] || {}).status === 'pending' && !Roles.members()[k]); },
+  of(uid){ return this.map()[uid] || null; },
+  async put(uid, obj){
+    this.map()[uid] = Object.assign({}, this.map()[uid] || {}, obj);
+    try{ await Cloud.rtdb('PUT', Cloud.rootPath() + '/requests/' + uid, this.map()[uid]); }catch(e){ throw e; }
+    return this.map()[uid];
+  },
+  async approve(uid, role){
+    const req = this.of(uid) || {};
+    Roles.setRole(uid, role, { name:req.name || (role === 'owner' ? 'جهاز المستر' : 'مدرس'), device:req.device || 'جهاز', via:'request' });
+    await this.put(uid, { status:'approved', role:role, at:new Date().toISOString() });
+    try{ commit({ silent:true }); }catch(e){}
+  },
+  async reject(uid){
+    await this.put(uid, { status:'rejected', at:new Date().toISOString() });
+    try{ commit({ silent:true }); }catch(e){}
+  },
+  /* إشعار للمالك لما يوصل طلب جديد */
+  notice(){
+    if (!Roles.isOwner()) return;
+    const ps = this.pending(); if (!ps.length) return;
+    let seen = [];
+    try{ seen = JSON.parse(localStorage.getItem('mostar_seen_req') || '[]'); }catch(e){ seen = []; }
+    const fresh = ps.filter(u => seen.indexOf(u) < 0);
+    if (fresh.length){
+      try{ localStorage.setItem('mostar_seen_req', JSON.stringify(seen.concat(fresh))); }catch(e){}
+      const r = this.of(fresh[0]) || {};
+      toast('طلب انضمام جديد من «' + (r.name || 'جهاز جديد') + '» (' + (r.device || '') + ') — افتح الصلاحيات ووافق أو ارفض',
+        'info', 'طلب انضمام', false);
+    }
+  },
+  /* كتابة الطلب من الجهاز الجديد */
+  async send(name){
+    const uid = Roles.uid();
+    const obj = { name:(name || '').trim() || 'جهاز جديد', device:Roles.device(), at:new Date().toISOString(), status:'pending', v:1 };
+    await this.put(uid, obj);
+    Roles.lsSet(Roles.UIDK, uid); Roles.lsSet(Roles.KEY, 'pending');
+    try{ commit({ silent:true }); }catch(e){}
+    return obj;
+  },
+  async cancel(){
+    const uid = Roles.uid();
+    await this.put(uid, { status:'cancelled', at:new Date().toISOString() });
+    Roles.lsSet(Roles.KEY, ''); Roles.lsSet(Roles.UIDK, '');
+  },
+  async state(){                                   // الجهاز الجديد بيسأل: وافقوا عليّ ولا لأ؟
+    const uid = Roles.uid();
+    let mem = null, req = null;
+    try{ mem = await Cloud.rtdb('GET', Cloud.rootPath() + '/members/' + uid); }catch(e){}
+    try{ req = await Cloud.rtdb('GET', Cloud.rootPath() + '/requests/' + uid); }catch(e){}
+    if (mem && mem.role){                       // اتقبل ✅
+      Roles.setRole(uid, mem.role, { name:mem.name, email:mem.email, device:mem.device });
+      return 'approved';
+    }
+    if (req && req.status) return req.status;    // pending / rejected / cancelled
+    return 'none';
+  }
+};
+
+/* ============================================================
+   صفحة تسجيل الدخول (الأجهزة اللي لسه مسجّلتش)
+   • الجهاز يكتب اسمه ← يبعت طلب انضمام ← المالك يقبل أو يرفض
+   • أو يكمل بدعوة مدرس (كود) لو معاه واحد
+   • بعد الموافقة: بيدخل المنصة على طول وحسب الدور اللي المالك حدّده
+   ============================================================ */
+const LMode = {
+  node:null, shown:'', timer:null, busy:false, state:'none',
+  show(role){
+    const st = (role === 'pending') ? 'pending' : 'none';
+    if (!this.node){
+      this.node = document.createElement('div'); this.node.id = 'lview';
+      document.body.appendChild(this.node);
+      this.render(st);
+    } else if (this.shown !== st){
+      this.render(st);
+    }
+    document.body.classList.add('lmode');
+    if (st === 'pending') this.watch(); else this.watch(9000);
+  },
+  hide(){
+    this.stopWatch();
+    if (this.node){ this.node.remove(); this.node = null; this.shown = ''; }
+    document.body.classList.remove('lmode');
+  },
+  head(){
+    const st = S.data.settings || {};
+    return `<img class="jv-logo" src="logo.jpg" alt="" onerror="this.style.display='none'">
+      <div class="jv-t">${esc(st.platformName || 'منصة المستر')}</div>
+      <div class="jv-s">${esc(st.teacherName || 'أ. أحمد فتحي')} · تسجيل دخول الجهاز</div>`;
+  },
+  render(state){
+    if (!this.node) return;
+    this.state = state; this.shown = state === 'pending' ? 'pending' : 'none';
+    if (state === 'pending'){ this.renderPending(); this.watch(6000); return; }
+    if (state === 'rejected') return this.renderRejected();
+    this.node.innerHTML = this.head() + `
+      <div class="jv-card">
+        <div class="jv-badge">${icon('alert')} <span>الجهاز ده <b>لسه مش مسجّل</b> على المنصة — محتاج موافقة المستر.</span></div>
+        <div class="field"><label>اسم الجهاز / اسمك</label>
+          <input class="inp" id="lName" placeholder="مثال: موبايل المستر · تابلت الحصة"></div>
+        <div class="btn-row" style="margin-top:12px">
+          <button class="btn pri" id="lSend">${icon('check')} ابعت طلب انضمام للمستر</button>
+        </div>
+        <div class="jv-foot">هيوصل للمستر إشعار على المنصة، وهو يقبل (ويحدد دورك: مالك أو مدرس) أو يرفض.</div>
+        <div class="sep"></div>
+        <div class="field"><label>معاك كود دعوة من المستر؟</label>
+          <div class="flex wrap" style="gap:8px">
+            <input class="inp" id="lCode" placeholder="كود الدعوة" style="flex:1;min-width:150px;direction:ltr;text-align:left">
+            <button class="btn" id="lGo">${icon('link')} ادخل بالكود</button>
+          </div></div>
+      </div>`;
+    const n = $('#lName', this.node); if (n) n.focus();
+    const send = $('#lSend', this.node);
+    if (send) send.onclick = () => this.send();
+    const go = $('#lGo', this.node);
+    if (go) go.onclick = () => this.byCode();
+  },
+  async send(){
+    if (this.busy) return; this.busy = true;
+    const n = $('#lName', this.node), btn = $('#lSend', this.node);
+    const name = n ? n.value.trim() : '';
+    if (btn){ btn.disabled = true; btn.textContent = 'بنبعت الطلب...'; }
+    try{
+      await Requests.send(name);
+      this.render('pending');
+    }catch(e){
+      this.busy = false;
+      if (btn){ btn.disabled = false; btn.innerHTML = 'ابعت طلب انضمام للمستر'; }
+      this.node.innerHTML = this.head() + `<div class="jv-card">
+        <div class="role-strip" style="background:var(--bad-bg);color:var(--bad)">مقدرناش نبعت الطلب — اتأكد إن النت شغال وجرّب تاني.</div>
+        <div class="btn-row" style="margin-top:11px"><button class="btn pri" id="lRetry">${icon('refresh')} جرّب تاني</button></div></div>`;
+      const r = $('#lRetry', this.node); if (r) r.onclick = () => this.render('none');
+      return;
+    }
+    this.busy = false;
+  },
+  renderPending(){
+    this.node.innerHTML = this.head() + `
+      <div class="jv-card" style="text-align:center">
+        <div class="pm-spin" style="margin:6px auto 12px"></div>
+        <div style="font-weight:800;font-size:16px">طلبك وصل للمستر ✅</div>
+        <div class="small muted" style="margin-top:7px;line-height:1.95">
+          المستر هيراجع الطلب ويقبله أو يرفضه.<br>الصفحة دي هتفتحلك لوحدها أول ما يوافق — من غير ما تعمل أي حاجة.
+        </div>
+        <div class="field" style="margin-top:14px;text-align:right"><label>كود الجهاز (لو المستر طلبه)</label>
+          <div class="flex wrap" style="gap:8px">
+            <code class="code" id="lDev" style="direction:ltr;padding:8px 11px;background:var(--bg);border-radius:9px;font-size:12px;flex:1;overflow:auto">${esc(Roles.code())}</code>
+            <button class="btn sm" data-act="guestCodeCopy">${icon('copy')} انسخ</button>
+          </div></div>
+        <div class="btn-row" style="margin-top:12px">
+          <button class="btn" id="lCheck">${icon('refresh')} اتأكد من الحالة</button>
+          <button class="btn ghost" id="lCancel">${icon('trash')} إلغاء الطلب</button>
+        </div>
+      </div>`;
+    const c = $('#lCheck', this.node); if (c) c.onclick = () => this.check(true);
+    const x = $('#lCancel', this.node);
+    if (x) x.onclick = async () => { x.disabled = true; try{ await Requests.cancel(); }catch(e){} this.render('none'); Roles.apply(); };
+  },
+  renderRejected(){
+    this.node.innerHTML = this.head() + `
+      <div class="jv-card">
+        <div class="role-strip" style="background:var(--bad-bg);color:var(--bad);line-height:1.95">
+          <b>طلبك اترفض</b><br>المستر رفض طلب الانضمام للجهاز ده. لو في غلط، كلّمه وابعت طلب تاني.
+        </div>
+        <div class="btn-row" style="margin-top:12px">
+          <button class="btn pri" id="lAgain">${icon('refresh')} ابعت طلب تاني</button>
+        </div>
+      </div>`;
+    const a = $('#lAgain', this.node); if (a) a.onclick = () => this.render('none');
+  },
+  byCode(){
+    const c = ($('#lCode', this.node) || {}).value || '';
+    const t = c.trim();
+    if (!t){ toast('اكتب كود الدعوة', 'warn'); return; }
+    let code = FB_DEFAULT.code || FB_DEFAULT.projectId, k = '';
+    try{ code = Cloud.cfgNow().code || code; }catch(e){}
+    try{ k = Cloud.authKeyOf() || ''; }catch(e){ k = ''; }
+    let base = String(location.href || '').split('#')[0].split('?')[0];
+    location.href = base + '?j=' + encodeURIComponent(t) + '&c=' + encodeURIComponent(code) + (k ? '&k=' + encodeURIComponent(k) : '');
+  },
+  watch(ms){
+    this.stopWatch();
+    const every = (this.state === 'pending') ? 6000 : (ms || 12000);
+    this.timer = setInterval(() => this.check(false), every);
+    setTimeout(() => this.check(false), 800);
+  },
+  stopWatch(){ if (this.timer){ clearInterval(this.timer); this.timer = null; } },
+  async check(manual){
+    if (this.busy) return;
+    this.busy = true;
+    let st = 'none';
+    try{ st = await Requests.state(); }catch(e){ st = this.state === 'pending' ? 'pending' : 'none'; }
+    this.busy = false;
+    if (st === 'approved'){
+      toast('تمت الموافقة ✅ — أهلاً بيك', 'ok', 'الأدوار');
+      try{ Roles.apply(); }catch(e){}
+      setTimeout(() => { try{ const u = String(location.href).split('?')[0]; if (location.search) location.replace(u); else location.reload(); }catch(e){} }, 900);
+      return;
+    }
+    if (st === 'rejected'){ if (this.shown !== 'rejected'){ this.shown = 'rejected'; this.render('rejected'); } return; }
+    if (st === 'pending'){ if (this.shown !== 'pending') this.render('pending'); return; }
+    if (st === 'cancelled'){ if (this.shown !== 'none') this.render('none'); return; }
+    if (manual) toast('لسه المستر ماردش — جرّب بعد شوية', 'info');
+  }
+};
+
+/* ============================================================
+   دعوة مدرس + شاشة الانضمام
+   • المالك بيعمل دعوة (اسم + إيميل) → رابط بيتفتح مرة واحدة
+   • المدرس بيعمل لنفسه باسورد على الرابط ده → الجهاز بيفضل فاكر
+   ============================================================ */
+function inviteLink(token){
+  let code = FB_DEFAULT.code || FB_DEFAULT.projectId, k = '';
+  try{ code = Cloud.cfgNow().code || code; }catch(e){}
+  try{ k = Cloud.authKeyOf() || ''; }catch(e){ k = ''; }
+  let b = String(location.href || '').split('#')[0].split('?')[0];
+  if (!/^https?:/i.test(b)) b = 'https://' + (FB_DEFAULT.projectId || '') + '.web.app/';
+  return b + '?j=' + encodeURIComponent(token) + '&c=' + encodeURIComponent(code) + (k ? '&k=' + encodeURIComponent(k) : '');
+}
+function openInvite(){
+  if (!Roles.isOwner()){ Roles.deny(); return; }
+  Modal.open({ title:'دعوة مدرس', sub:'يدخل بإيميل وباسورد — من غير أي حذف', size:'md',
+    body:`
+      <div class="help info" style="line-height:1.95;margin-bottom:12px">
+        المدرس هيدخل بإيميل وباسورد <b>مرة واحدة</b> على جهازه، وبعدها الجهاز بيفضل فاكر.
+        صلاحياته: <b>حضور · درجات · ملاحظات · إضافة وتعديل الطلاب</b> — و<b>ممنوع من أي حذف</b> أو إعدادات أو استرجاع.
+      </div>
+      <div class="field"><label>اسم المدرس</label><input class="inp" id="invName" placeholder="مثال: أ. محمد"></div>
+      <div class="field"><label>الإيميل</label><input class="inp" id="invMail" type="email" placeholder="name@example.com" style="direction:ltr;text-align:left"></div>`,
+    footer:`<button class="btn pri" data-act="memberInviteMake">${icon('link')} اعمل رابط الدعوة</button>
+      <button class="btn ghost" data-close>إلغاء</button>`,
+    onMount(body){ const n = $('#invName', body); if (n) n.focus(); } });
+}
+async function makeTeacherInvite(){
+  const n = (($('#invName') || {}).value || '').trim(), m = (($('#invMail') || {}).value || '').trim();
+  if (!n){ toast('اكتب اسم المدرس', 'warn'); return; }
+  if (!m || m.indexOf('@') < 0){ toast('اكتب إيميل صحيح', 'warn'); return; }
+  // مفتاح المشروع: لازم يكون في الرابط عشان المدرس يقدر يعمل حسابه من أي جهاز
+  try{ if (!Cloud.authKeyOf()) await Cloud.findAuthKey(); }catch(e){}
+  const token = Parent.rnd();
+  Roles.invites()[token] = { name:n, email:m, role:'teacher', at:new Date().toISOString(), by:Roles.uid(), byName:(S.data.settings.teacherName || '') };
+  commit({ silent:true });
+  try{ await Cloud.rtdb('PUT', Cloud.rootPath() + '/invites/' + token, Roles.invites()[token]); }catch(e){}
+  memberInviteShow(token, n, m);
+}
+function memberInviteShow(token, name, email){
+  const link = inviteLink(token);
+  try{ Modal.closeAll(); }catch(e){}
+  const msg = 'السلام عليكم ' + (name || '') + '، اتفضل رابط الدخول على منصة المستر — بتفتحه مرة واحدة وتعمل لنفسك باسورد، وبعدها بتدخل عادي:\n' + link;
+  Modal.open({ title:'رابط دعوة المدرس ✅', sub:(name || '') + (email ? ' · ' + email : ''), size:'md',
+    body:`
+      <div class="help ok" style="line-height:1.95">ابعت الرابط ده للمدرس — بيفتحه <b>مرة واحدة</b> ويعمل لنفسه باسورد، والجهاز بتاعه بيفضل فاكر.</div>
+      <div class="field" style="margin-top:12px"><label>رابط الدعوة</label>
+        <code class="code" style="display:block;direction:ltr;text-align:left;font-size:12px;padding:9px 11px;background:var(--bg);border-radius:9px;word-break:break-all">${esc(link)}</code></div>
+      ${inviteLink(token).indexOf('&k=') < 0 ? `<div class="role-strip" style="background:var(--warn-bg);color:var(--warn);margin-top:10px;line-height:1.9">
+        ملاحظة: مفتاح المشروع مش موجود على الجهاز ده دلوقتي. لو المدرس فتح الرابط من جهاز تاني وما قدرش يعمل حسابه،
+        افتح <b>الإعدادات ← المزامنة ← «أمّن البيانات»</b> مرة واحدة (بتلاقي المفتاح لوحده)، وبعدها اعمل الدعوة تاني.
+      </div>` : ''}
+      <div class="small muted" style="line-height:1.9">تقدّر تلغي صلاحية المدرس في أي وقت من «الصلاحيات والأعضاء» — ولو عملت دعوة تانية لنفس الشخص، الأولى تشتغل برضه.</div>`,
+    footer:`<button class="btn sm" data-act="invCopy" data-id="${esc(link)}">${icon('copy')} انسخ الرابط</button>
+      <button class="btn sm" data-act="invMsgCopy" data-id="${esc(msg)}">${icon('copy')} انسخ الرسالة</button>
+      <button class="btn ghost" data-close>إغلاق</button>` });
+}
+/* ---------------- شاشة الانضمام (اللي المدرس بيفتحها) ---------------- */
+const JMode = {
+  token:'', code:'', key:'', inv:null, busy:false,
+  qp(n){ try{ return (new URLSearchParams(String(location.search || ''))).get(n) || ''; }catch(e){ return ''; } },
+  fromUrl(){ return this.qp('j') || ''; },
+  async start(){
+    const t = this.fromUrl(); if (!t) return false;
+    this.token = t; this.code = this.qp('c') || FB_DEFAULT.code || FB_DEFAULT.projectId; this.key = this.qp('k') || '';
+    try{
+      let th = ''; try{ th = localStorage.getItem(LS_KEY + '_theme') || ''; }catch(e){}
+      if (!th) th = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+      document.documentElement.dataset.theme = th;
+    }catch(e){}
+    document.body.classList.add('jmode');
+    this.node = document.createElement('div'); this.node.id = 'jview';
+    document.body.appendChild(this.node);
+    this.form('بنجهّز الدعوة...');
+    try{
+      Cloud._active = Object.assign({}, FB_DEFAULT, { projectId:this.code, code:this.code, authDomain:this.code + '.firebaseapp.com', apiKey:this.key || '' });
+      if (this.key){ try{ Cloud.saveKeyFor(this.code, this.key); }catch(e){} }
+    }catch(e){}
+    try{ await Cloud.ensureTok(); }catch(e){}
+    let inv = null;
+    try{ inv = await Cloud.rtdb('GET', Cloud.rootPath() + '/invites/' + this.token, null, false, '?t=' + Date.now()); }catch(e){}
+    if (!inv || typeof inv !== 'object'){ this.dead(); return true; }
+    this.inv = inv; this.form(); return true;
+  },
+  head(){
+    return `<img class="jv-logo" src="logo.jpg" alt="" onerror="this.style.display='none'">
+      <div class="jv-t">${esc((S.data.settings && S.data.settings.platformName) || 'منصة المستر')}</div>
+      <div class="jv-s">${esc((S.data.settings && S.data.settings.teacherName) || 'أ. أحمد فتحي')} · دخول المدرسين</div>`;
+  },
+  form(over){
+    const inv = this.inv || {};
+    this.node.innerHTML = this.head() + `
+      <div class="jv-card">
+        <div class="jv-badge">${icon('users')} <span>إنت مدعو كـ<b>مدرس</b> — صلاحياتك: حضور · درجات · ملاحظات · طلاب، <b>ومن غير أي حذف</b>.</span></div>
+        ${over ? `<div class="role-strip" style="margin-bottom:11px">${esc(over)}</div>` : ''}
+        <div class="field"><label>الاسم</label><input class="inp" id="jvName" value="${esc(inv.name || '')}" placeholder="اسمك"></div>
+        <div class="field"><label>الإيميل</label><input class="inp" id="jvMail" type="email" value="${esc(inv.email || '')}" placeholder="name@example.com" style="direction:ltr;text-align:left"></div>
+        <div class="field"><label>باسورد (٦ حروف على الأقل)</label><input class="inp" id="jvPass" type="password" placeholder="••••••" style="direction:ltr;text-align:left"></div>
+        <div class="btn-row" style="margin-top:12px">
+          <button class="btn pri" id="jvGo">${icon('check')} إنشاء الحساب والدخول</button>
+          <button class="btn" id="jvIn">${icon('user')} عندي حساب بالفعل</button>
+        </div>
+        <div class="jv-foot">الجهاز ده هيفضل فاكر دخولك — من غير ما تكتب حاجة تاني في كل مرة.</div>
+      </div>`;
+    const name = $('#jvName', this.node), mail = $('#jvMail', this.node), pass = $('#jvPass', this.node);
+    if (name) name.focus();
+    const go = $('#jvGo', this.node), inn = $('#jvIn', this.node);
+    if (go) go.onclick = () => this.submit('signUp', name.value.trim(), mail.value.trim(), pass.value);
+    if (inn) inn.onclick = () => this.submit('signIn', name.value.trim(), mail.value.trim(), pass.value);
+  },
+  async auth(mode, email, pass){
+    const url = 'https://identitytoolkit.googleapis.com/v1/accounts:' + (mode === 'signUp' ? 'signUp' : 'signInWithPassword') + '?key=' + encodeURIComponent(this.key);
+    const r = await fetch(url, { method:'POST', cache:'no-store', headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify(mode === 'signUp' ? { email:email, password:pass, returnSecureToken:true } : { email:email, password:pass, returnSecureToken:true }) });
+    let j = null; try{ j = await r.json(); }catch(e){ j = null; }
+    if (j && j.idToken) return j;
+    const code = (j && j.error && j.error.message) || 'FAIL';
+    throw Object.assign(new Error(code), { code:code });
+  },
+  async submit(mode, name, email, pass){
+    if (this.busy) return;
+    if (!email || email.indexOf('@') < 0){ this.form('اكتب إيميل صح'); return; }
+    if (!pass || pass.length < 6){ this.form('الباسورد لازم ٦ حروف على الأقل'); return; }
+    if (mode === 'signUp' && !name){ this.form('اكتب اسمك'); return; }
+    if (!this.key){ this.form('الرابط ناقص المفتاح — اطلب من المستر يبعتلك الرابط تاني'); return; }
+    this.busy = true;
+    const go = $('#jvGo', this.node); if (go){ go.disabled = true; go.textContent = 'لحظة...'; }
+    let j = null;
+    try{ j = await this.auth(mode, email, pass); }
+    catch(e){
+      this.busy = false;
+      const c = String(e.code || '');
+      if (mode === 'signUp' && /EMAIL_EXISTS/i.test(c)) { this.form('الإيميل ده مستخدم بالفعل — دوس «عندي حساب بالفعل»'); return; }
+      if (mode === 'signIn' && /EMAIL_NOT_FOUND|INVALID_LOGIN_CREDENTIALS|INVALID_PASSWORD/i.test(c)){ this.form('الإيميل أو الباسورد غلط — جرّب تاني'); return; }
+      if (/OPERATION_NOT_ALLOWED|CONFIGURATION_NOT_FOUND/i.test(c)){ this.form('الدخول بالإيميل لسه مش مفعّل في فايربيز — المستر يفعّله من Authentication ← Sign-in method ← Email/Password (مجاني)'); return; }
+      if (/INVALID_API_KEY|API key not valid/i.test(c)){ this.form('مفتاح المشروع غلط — اطلب من المستر يبعتلك الرابط تاني'); return; }
+      this.form('مش قادر أدخّلك دلوقتي (' + (c || 'خطأ') + ') — جرّب تاني');
+      return;
+    }
+    const uid = j.localId, email2 = j.email || email;
+    try{ Cloud.saveTokFor(this.code, { id:j.idToken, refresh:j.refreshToken, exp: Date.now() + Number(j.expiresIn || 3600) * 1000 }); }catch(e){}
+    // نسجّل العضو + نعلّم الدعوة إنها اتستخدمت
+    try{ Roles.setRole(uid, 'teacher', { name:name || (this.inv && this.inv.name) || 'مدرس', email:email2, device:Roles.device() }); }catch(e){}
+    try{ Roles.lsSet(Roles.UIDK, uid); Roles.lsSet(Roles.KEY, 'teacher'); }catch(e){}
+    try{ await Cloud.rtdb('PUT', Cloud.rootPath() + '/invites/' + this.token + '/used', { at:new Date().toISOString(), uid:uid }); }catch(e){}
+    try{ saveLocal(); }catch(e){}
+    // نعيد التحميل من غير رابط الدعوة → المنصة تفتح بوضع المدرس
+    let base = String(location.href || '').split('#')[0].split('?')[0];
+    this.node.innerHTML = this.head() + `<div class="jv-card"><div class="jv-badge">${icon('check')} <span>تمام! خلصنا — بنجهّز المنصة ليك...</span></div></div>`;
+    setTimeout(() => { try{ location.replace(base); }catch(e){ location.href = base; } }, 700);
+  },
+  dead(){
+    this.node.innerHTML = this.head() + `<div class="jv-card">
+      <div class="role-strip" style="background:var(--bad-bg);color:var(--bad)">الرابط ده مش شغال — يمكن المستر شاله أو الرابط قديم. اطلب منه دعوة جديدة من «الصلاحيات والأعضاء».</div>
+    </div>`;
   }
 };
 
@@ -6262,6 +6929,7 @@ function render(){
   $('#content').innerHTML = Views[v]();
 
   $$('#nav a').forEach(a => a.classList.toggle('on', a.dataset.view === v));
+  try{ Roles.apply(); }catch(e){}
   const al = alerts().length;
   const pill = $('#navAlertsPill'); pill.textContent = al; pill.classList.toggle('hide', !al);
   $('#navStudentsPill').textContent = S.data.students.length;
@@ -6523,6 +7191,8 @@ document.addEventListener('click', function(e){
   const el = e.target.closest('[data-act]');
   if (!el) return;
   const act = el.dataset.act, id = el.dataset.id;
+  // الصلاحيات: أي حاجة للمالك بس → رسالة واضحة بدل التنفيذ
+  if (!Roles.can(act)){ Roles.deny(); return; }
 
   switch (act){
     /* --- تنقل وفلاتر --- */
@@ -6777,6 +7447,47 @@ document.addEventListener('click', function(e){
       break;
     }
     case 'deployOpen': openDeploy(); break;
+    case 'rolesOpen': Roles.open(); break;
+    case 'memberInvite': openInvite(); break;
+    case 'memberInviteMake': makeTeacherInvite(); break;
+    case 'memberRevoke': {
+      const mem = Roles.members()[id] || {};
+      confirmDialog('إلغاء صلاحية', 'متأكد إنك تشيل «' + (mem.name || mem.email || 'العضو') + '»؟\nهيفقد الوصول للمنصة على طول، وتقدر تدعوه تاني في أي وقت.', 'الغي', () => {
+        Roles.setRole(id, null);
+        toast('اتشالت صلاحية «' + (mem.name || mem.email || 'العضو') + '»', 'ok', 'الصلاحيات');
+        Roles.open();
+      }, true);
+      break;
+    }
+    case 'guestCodeCopy': copyText(Roles.code(), 'كود الجهاز اتنسخ ✅ ابعته للمستر'); break;
+    case 'reqApprove': {
+      const sel = $('#reqRole-' + id), rol = (sel && sel.value) || 'teacher';
+      const rq = Requests.of(id) || {};
+      Requests.approve(id, rol).then(() => {
+        toast('تم قبول «' + (rq.name || 'الجهاز') + '» ك' + (rol === 'owner' ? 'مالك' : 'مدرس') + ' ✅', 'ok', 'طلبات الانضمام');
+        Roles.open();
+      }).catch(() => toast('مش قادر أوافق — اتأكد من النت', 'bad'));
+      break;
+    }
+    case 'reqReject': {
+      const rq = Requests.of(id) || {};
+      Requests.reject(id).then(() => {
+        toast('اترفض طلب «' + (rq.name || 'الجهاز') + '»', 'ok', 'طلبات الانضمام');
+        Roles.open();
+      }).catch(() => toast('مش قادر أرفض — اتأكد من النت', 'bad'));
+      break;
+    }
+    case 'memberApproveDevice': {
+      const c = (($('#devCode') || {}).value || '').trim(), r = (($('#devRole') || {}).value) || 'owner';
+      if (!c){ toast('الصق كود الجهاز', 'warn'); break; }
+      if (c === Roles.uid()){ toast('ده كود الجهاز ده نفسه — إنت المالك بالفعل', 'info'); break; }
+      Roles.setRole(c, r, { name:(r === 'owner' ? 'جهاز المستر' : 'مدرس'), device:'جهاز معتمد' });
+      toast('تم اعتماد الجهاز ✅ هيفتح كـ' + (r === 'owner' ? 'مالك' : 'مدرس'), 'ok', 'الصلاحيات');
+      Roles.open();
+      break;
+    }
+    case 'invCopy': copyText(id || '', 'الرابط اتنسخ ✅ ابعته للمدرس'); break;
+    case 'invMsgCopy': copyText(id || '', 'الرسالة اتنسخت ✅ ابعتها واتساب'); break;
     case 'pLink': Parent.open(id); break;
     case 'pLinkMake': Parent.make(id).then(t => { if (t) Parent.open(id); }); break;
     case 'pLinkCopy': copyText(Parent.link(Parent.of(id)), 'الرابط اتنسخ ✅ ابعته لولي الأمر'); break;
@@ -7106,17 +7817,40 @@ window.addEventListener('resize', throttle(() => {
    ============================================================ */
 const PMode = {
   token:'', code:'', key:'', rec:null, es:null, timer:null, busy:false,
+  lsGet(k){ try{ return localStorage.getItem(k) || ''; }catch(e){ return ''; } },
   qp(n){ try{ return (new URLSearchParams(String(location.search || ''))).get(n) || ''; }catch(e){ return ''; } },
   fromUrl(){
     let t = this.qp('p');
     if (!t){ const h = String(location.hash || ''); if (h.indexOf('#p=') === 0) t = h.slice(3).split('&')[0]; }
-    return t || '';
+    if (t) return t;
+    return this.remembered();          // نفس الجهاز: بيفتح على صفحة ابنه على طول
+  },
+  remembered(){
+    try{
+      const role = localStorage.getItem('mostar_role') || '';
+      if (role === 'owner' || role === 'teacher') return '';     // جهاز المستر/المدرس مايفضلش عالق
+      return localStorage.getItem('mostar_ptok') || '';
+    }catch(e){ return ''; }
+  },
+  remember(token){
+    try{
+      const role = localStorage.getItem('mostar_role') || '';
+      if (role === 'owner' || role === 'teacher') return;
+      localStorage.setItem('mostar_ptok', token);
+      const c = this.qp('c'); if (c) localStorage.setItem('mostar_pcode', c);
+      const k = this.qp('k'); if (k) localStorage.setItem('mostar_pkey', k);
+    }catch(e){}
+  },
+  forget(){
+    try{ localStorage.removeItem('mostar_ptok'); localStorage.removeItem('mostar_pcode'); localStorage.removeItem('mostar_pkey'); }catch(e){}
+    try{ const u = String(location.href).split('?')[0]; location.replace(u); }catch(e){ try{ location.reload(); }catch(err){} }
   },
   async start(){
     const token = this.fromUrl(); if (!token) return false;
     this.token = token;
-    this.code = this.qp('c') || FB_DEFAULT.code || FB_DEFAULT.projectId;
-    this.key = this.qp('k') || '';
+    this.code = this.qp('c') || this.lsGet('mostar_pcode') || FB_DEFAULT.code || FB_DEFAULT.projectId;
+    this.key = this.qp('k') || this.lsGet('mostar_pkey') || '';
+    this.remember(token);
     try{
       let th = ''; try{ th = localStorage.getItem(LS_KEY + '_theme') || ''; }catch(e){}
       if (!th) th = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
@@ -7164,6 +7898,8 @@ const PMode = {
   hook(){
     const btn = this.node && this.node.querySelector('[data-pm="reload"]');
     if (btn) btn.onclick = () => { this.loading('بنحدّث البيانات...'); this.load(); };
+    const fg = this.node && this.node.querySelector('[data-pm="forget"]');
+    if (fg) fg.onclick = e => { e.preventDefault(); this.forget(); };
   },
   pmDate(d){
     const t = String(d || '');
@@ -7271,6 +8007,7 @@ const PMode = {
       <div class="pm-foot">
         آخر تحديث: ${this.ago(r.at)} · البيانات بتتحدّث لوحدها أول ما يحصل أي جديد
         <br>الصفحه دي للقراءة فقط — مفيش أي تعديل ممكن منها
+        <br><a href="#" data-pm="forget" style="color:var(--muted)">مش ده جهازي؟ ارجع لصفحة المنصة</a>
       </div>`;
     this.hook();
   },
@@ -7314,6 +8051,7 @@ const PMode = {
 (function boot(){
   // لو الرابط رابط متابعة ولي أمر → شاشة المتابعة على طول (مفيش أي حاجة تانية)
   try{ if (PMode.fromUrl()){ PMode.start(); return; } }catch(e){}
+  try{ if (JMode.fromUrl()){ JMode.start(); return; } }catch(e){}
   let theme = localStorage.getItem(LS_KEY + '_theme');
   if (!theme) theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
   document.documentElement.dataset.theme = theme;
@@ -7330,6 +8068,7 @@ const PMode = {
   const use = $('#themeBtn use'); if (use) use.setAttribute('href', theme === 'dark' ? '#i-sun' : '#i-moon');
   const mt = document.querySelector('meta[name=theme-color]');
   if (mt) mt.setAttribute('content', theme === 'dark' ? '#0b0b0d' : '#fac518');
+  try{ Roles.init(); }catch(e){}
   PWA.init();
   paintCloud(); paintLogo();
   const h = (location.hash || '').slice(1);
