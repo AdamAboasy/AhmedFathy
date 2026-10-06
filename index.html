@@ -834,7 +834,7 @@ function platformBase(){
   }catch(e){}
   return PLATFORM_URL_DEFAULT;
 }
-const APP_V = 'v2.10';
+const APP_V = 'v2.12';
 const ERR_KEY = 'mostar_errlog';
 const SAFE_KEY = 'mostar_safe';      // نسخة محلية خفية — لو المتصفح مسح بياناته نرجّعها في ثانية
 let SAFE_AT = 0, SAFE_SIG = '';
@@ -999,8 +999,59 @@ const FB_RULES_RTDB = `{
   "rules": {
     "platforms": {
       "$code": {
-        ".read": "auth != null",
-        ".write": "auth != null"
+        "members": {
+          ".read": "auth != null && (root.child('platforms/'+$code+'/members').exists() == false || root.child('platforms/'+$code+'/members/'+auth.uid).exists())",
+          "$uid": {
+            ".read": "auth != null && (auth.uid == $uid || root.child('platforms/'+$code+'/members/'+auth.uid).exists())",
+            ".write": "auth != null && (root.child('platforms/'+$code+'/members').exists() == false && auth.uid == $uid && newData.child('role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || (auth.uid == $uid && newData.child('role').val() == 'teacher' && root.child('platforms/'+$code+'/invites/'+newData.child('via').val()+'/used/uid').val() == auth.uid))"
+          }
+        },
+        "requests": {
+          ".read": "auth != null && (root.child('platforms/'+$code+'/members').exists() == false || root.child('platforms/'+$code+'/members/'+auth.uid).exists())",
+          "$uid": {
+            ".read": "auth != null && (auth.uid == $uid || root.child('platforms/'+$code+'/members/'+auth.uid).exists())",
+            ".write": "auth != null && (auth.uid == $uid || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner')"
+          }
+        },
+        "invites": {
+          "$token": {
+            ".read": "auth != null",
+            ".write": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner'",
+            "used": { ".write": "auth != null && newData.child('uid').val() == auth.uid && (!data.exists() || data.child('uid').val() == auth.uid)" }
+          }
+        },
+        "parents": {
+          "$token": {
+            ".read": "auth != null",
+            ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher')"
+          }
+        },
+        "meta": { ".read": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid).exists()", ".write": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid).exists()" },
+        "main": { ".read": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid).exists()", ".write": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid).exists()" },
+        "attendance": { ".read": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid).exists()", ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher')" },
+        "ts": { ".read": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid).exists()", ".write": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid).exists()" },
+        "logo": {
+          ".read": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid).exists()",
+          ".write": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner'"
+        },
+        "sec": {
+          ".read": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid).exists()",
+          "$sk": {
+            ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || ($sk != 'settings' && $sk != 'members' && $sk != 'invites' && $sk != 'requests' && root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher'))"
+          }
+        },
+        "att": {
+          ".read": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid).exists()",
+          "$mo": {
+            ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher')"
+          }
+        },
+        "backups": {
+          ".read": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner'",
+          ".write": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner'",
+          "$b": { ".read": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner'", ".write": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner'" }
+        },
+        ".write": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner'"
       }
     }
   }
@@ -1122,7 +1173,12 @@ const Cloud = {
     if (!m.dbUrl && (!c.projectId || c.projectId === FB_DEFAULT.projectId)) m.dbUrl = FB_DEFAULT.dbUrl;
     return m;
   },
-  setStatus(s, msg){ S.fb.status = s; S.fb.err = msg || ''; if (s === 'error' && msg) logErr('cloud', msg, (S.fb.cfg && S.fb.cfg.projectId) || ''); paintCloud(); },
+  setStatus(s, msg, kind){
+    if (kind === 'norole'){ S.fb.status = s; S.fb.err = ''; paintCloud(); return; }   // جهاز غير مسجّل — مش خطأ
+    S.fb.status = s; S.fb.err = msg || '';
+    if (s === 'error' && msg) logErr('cloud', msg, (S.fb.cfg && S.fb.cfg.projectId) || '');
+    paintCloud();
+  },
 
   /* ---------- قراءة إعدادات ملزوقة (firebaseConfig / JSON / رابط قاعدة بيانات) ---------- */
   parseCfg(text){
@@ -1299,13 +1355,15 @@ const Cloud = {
     }
     if (!res.ok || (j && j.error)){
       const raw = (j && (j.error || j.message)) || ('HTTP ' + res.status);
-      const diag = this.diagnose(raw, res.status);
+      const diag = this.diagnose(raw, res.status, path);
       // السيرفر رفض الطلب لأن القواعد محكمة وإحنا مش مسجّلين → نسجّل دخول صامت ونجرّب تاني
       if (diag.kind === 'rules' && !retry && !tok && this.authKeyOf()){
         try{ const t2 = await this.signIn(); if (t2){ S.fb.auth = 'on'; return this.rtdb(method, path, body, true, query); } }catch(e){ S.fb.auth = 'fail'; S.fb.authErr = e.message; }
       }
       throw Object.assign(new Error(diag.msg), { kind: diag.kind, raw: raw, http: res.status });
     }
+    // ✅ فايربيز قبلت «قايمة الأعضاء»: ده الفيصل → نشيل علامة الرفض القديمة
+    if (S.fb.denied && this.pathKind(path) === 'members') S.fb.denied = false;
     // ✅ نجح: نمرّر نفس الكتابة للسيرفر التاني (مرآة) — عشان لو سيرفر وقع أو خلص، التاني فيه كل حاجة
     if (method === 'PUT' || method === 'DELETE') this.mirror(method, path, body);
     return j;
@@ -1535,17 +1593,43 @@ const Cloud = {
     let j = null; try{ j = await res.json(); }catch(e){}
     if (!res.ok){
       const raw = (j && j.error && j.error.message) || ('HTTP ' + res.status);
-      const diag = this.diagnose(raw, res.status);
+      const diag = this.diagnose(raw, res.status, path);
       throw Object.assign(new Error(diag.msg), { kind: diag.kind, raw: raw, http: res.status });
     }
     return j;
   },
-  diagnose(raw, http){
+  /* نوع المسار: own = المالك بس · core = كل الأعضاء · open = أي مسجّل · members = مسار الأعضاء نفسه (الفيصل) */
+  pathKind(path){
+    const p = String(path || '');
+    if (/(^|\/)(backups|logo)(\/|$)/.test(p)) return 'own';
+    const sec = /(^|\/)sec\/([^\/]+)/.exec(p);
+    if (sec && ['settings','members','invites','requests'].indexOf(sec[2]) >= 0) return 'own';
+    if (/(^|\/)sec(\/|$)/.test(p)) return 'core';
+    if (/(^|\/)members(\/|$)/.test(p)) return 'members';      // قايمة الأعضاء: بتتقرا لو المنصة فاضية أو إحنا أعضاء
+    if (/(^|\/)(requests|meta|ts|main|att|attendance)(\/|$)/.test(p)) return 'core';
+    return 'open';
+  },
+  diagnose(raw, http, path){
     const m = String(raw || '');
     // حدود الخطة المجانية: فايربيز بيوقف الكتابة لحد ما الشهر يخلص (بترجع 402/429)
     if (http === 402 || http === 429 || /exceeded|quota|billing|limit reached|too many requests/i.test(m))
       return { kind:'quota', msg:'وصلنا لحد الاستخدام المجاني للسيرفر ده — بنحوّل تلقائيًا للسيرفر التاني عشان كل حاجة تكمل' };
     if (/Permission denied|permission_denied|Missing or insufficient permissions|PERMISSION_DENIED/i.test(m) || http === 403){
+      // القواعد بترفض: يا إما الجهاز مش عضو (وده مش خطأ — بياخد صفحة تسجيل الدخول)
+      // يا إما الدخول الصامت مش شغال، يا إما القواعد نفسها محتاجة تتحدّث
+      let role = 'owner';
+      try{ role = Roles.role(); }catch(e){}
+      const authOk = (S.fb.auth === 'on');
+      const pk = this.pathKind(path);
+      let fresh = false;
+      try{ fresh = !Roles.hasLocalData() && !Roles.ls(Roles.KEY); }catch(e){}
+      if (role === 'guest' || role === 'pending' || (authOk && pk === 'members' && (fresh || role === 'owner' || role === 'teacher'))){
+        // فايربيز رفضت «قايمة الأعضاء»: يعني المنصة فيها أعضاء وإحنا مش منهم (مش خطأ — دي حالة جهاز جديد)
+        if (S.fb.auth === 'on') S.fb.denied = true;
+        return { kind:'norole', msg:'الجهاز ده لسه مش مسجّل في المنصة — محتاج موافقة المستر (صفحة تسجيل الدخول)' };
+      }
+      // مدرس = لو فايربيز رفضت له أي مسار أساسي (مش مسار المالك) يبقى صلاحيته اتلغت فعلًا
+      if (authOk && role === 'teacher' && (pk === 'core' || pk === 'members')) S.fb.denied = true;
       if (S.fb.auth === 'fail' || S.fb.auth === 'no-key')
         return { kind:'rules', msg:'القواعد محكمة بس الدخول الصامت مش شغال — الإعدادات ← «أمّن البيانات» وفيه الخطوات بضغطة' };
       return { kind:'rules', msg:'قواعد الحماية بتمنع الوصول — الإعدادات ← «أمّن البيانات»، أو الصق القواعد الجاهزة (زر "قواعد الحماية")' };
@@ -2066,7 +2150,9 @@ const Cloud = {
       const fresh = await this.readMeta();
       if (fresh && fresh.exists){ S.fb.meta = fresh.data || null; S.fb.remoteRev = fresh.rev || 0; }
     }catch(e){}
+    const _amOwner = (() => { try{ return Roles.isOwner(); }catch(e){ return true; } })();
     this.secKeys().forEach(k => {
+      if (!_amOwner && OWNER_SECTIONS.indexOf(k) >= 0) return;    // المدرس مايرفعش أقسام المالك (القواعد بترفضها)
       const json = self.secJson(k);
       const cloudNewer = self.cloudRevOf('sec', k) > self.locRev('sec', k);   // السحابة فيها تعديل أحدث
       if (!all && c.sec[k] === json && self.locRev('sec', k) && !cloudNewer) return;
@@ -2101,7 +2187,8 @@ const Cloud = {
     });
     const lg = (typeof logoRef === 'function' ? (logoRef() || '') : '');
     const lgPush = (lg && lg.length <= 300000) ? lg : '';
-    if (all || c.logo !== lgPush || (lgPush && !self.locRev('logo'))){
+    if (!_amOwner) { /* اللوجو للمالك بس — القواعد بترفضه من جهاز المدرس */ }
+    else if (all || c.logo !== lgPush || (lgPush && !self.locRev('logo'))){
       const rev = self.nowRev(self.cloudRevOf('logo', ''), self.locRev('logo'));
       jobs.push(self.rtdb('PUT', self.rootPath() + '/logo', { rev: rev, at: at, v: lgPush })
         .then(() => { c.logo = lgPush; self.setLocRev('logo', '', rev); self.markPart('logo'); self.markKnown('logo', '', lgPush); }));
@@ -2288,7 +2375,7 @@ const Cloud = {
         (used.nick || used.projectId) + ' وكل بياناتك بتتزامن عادي ومن غير أي نقصان', 'warn', 'السحابة');
     } else if (!S.fb.fellBack) this._fallbackTold = null;
     if (err){
-      this.setStatus('error', err.message);
+      if (err && err.kind === 'norole') this.setStatus('error', err.message, 'norole'); else this.setStatus('error', err.message);
       S.fb.errKind = err.kind;
       toast(err.message, 'bad', 'السحابة');
       // مفيش نوافذ تلقائية — التنبيه في شريحة السحابة وفي الإعدادات، والتفاصيل عند الضغط على "اختبار الاتصال"
@@ -2472,6 +2559,7 @@ const Cloud = {
   },
   async maybeSnapshot(){
     try{
+      if (typeof Roles !== 'undefined' && !Roles.isOwner()) return false;    // النسخ الاحتياطية للمالك بس (القواعد بترفضها للمدرس)
       if ((S.data.settings || {}).cloudBackup === false) return false;
       if ((S.data.students.length + S.data.groups.length) === 0) return false;
       const last = S.data.meta.snapAt ? Date.parse(S.data.meta.snapAt) : 0;
@@ -3646,8 +3734,13 @@ function openAuthWizard(){
           <button class="btn ghost" data-act="authAuto">${icon('search')} دوّر عليه لوحده</button>
         </div></div>
 
-      <div class="field" style="margin-top:14px"><label>3) انسخ القواعد المحكمة والصقها في Rules ${on ? '' : '<span class="badge b-gray">بعد الخطوة اللي فوق</span>'}</label>
-        <div class="small muted" style="margin-bottom:8px;line-height:1.9">القواعد دي بتقفل كل حاجة وتفتحها بس للمنصة. <b>متنساش تضغط Publish</b> بعد اللصق.</div>
+      <div class="help info" style="margin-top:14px;line-height:1.95">
+        <b>القواعد دي بقت بتحمي حسب الدور:</b> المالك كل حاجة · المدرس (حضور · درجات · ملاحظات · طلاب) وممنوع من الإعدادات والنسخ والحذف ·
+        ولي أمر يشوف <b>صفحة ابنه بس</b> · وأي جهاز جديد مايشوفش أي حاجة غير صفحة تسجيل الدخول.
+        ودي الحماية الحقيقية: <b>فايربيز نفسها هي اللي بترفض الطلب</b>، مش الواجهة بس.
+      </div>
+      <div class="field" style="margin-top:14px"><label>3) انسخ القواعد والصقها في Rules ${on ? '' : '<span class="badge b-gray">بعد الخطوة اللي فوق</span>'}</label>
+        <div class="small muted" style="margin-bottom:8px;line-height:1.9">كل حاجة مقفولة إلا لأعضاء المنصة. <b>متنساش تضغط Publish</b> بعد اللصق — ولو أي حاجة اتعطّلت، تحت فيه زر <b>«وقّف التأمين»</b> بيرجّع كل حاجة زي الأول في ثانية.</div>
         <pre class="code" style="direction:ltr;text-align:left;font-size:11.5px;line-height:1.6;white-space:pre-wrap;margin:0 0 9px">${esc(FB_RULES_RTDB)}</pre>
         <div class="btn-row">
           <button class="btn pri" data-act="authCopyRules">${icon('copy')} انسخ القواعد</button>
@@ -4057,6 +4150,8 @@ function buildParentMsg(sid, opts){
   if (hwn && (!exam || !exam.hw)) L.push('📌 الواجب المطلوب حاليًا: ' + hwn.text);
   L.push('');
   L.push(msgSign());
+  // 👇 كود المتابعة + رابط المنصة + لينك ابنه — في آخر كل رسالة لولي الأمر
+  try{ L.push(''); L.push(Parent.follow(sid)); }catch(e){}
   return L.join('\n');
 }
 
@@ -4116,6 +4211,7 @@ function buildAbsenceMsg(sid, date, groupId){
   L.push('');
   L.push('لو الغياب بعذر رسمي ابعتلي وأنا أسجّله ✅');
   L.push(msgSign());
+  try{ L.push(''); L.push(Parent.follow(sid)); }catch(e){}   // كود المتابعة + اللينك في رسالة الغياب كمان
   return L.join('\n');
 }
 
@@ -5374,6 +5470,8 @@ const ROLE_INFO = {
   pending: { ar:'بانتظار الموافقة', chip:'b-warn', ic:'clock', note:'طلبك عند المستر' },
   guest:   { ar:'جهاز غير مسجّل', chip:'b-warn', ic:'alert', note:'محتاج تسجيل دخول' }
 };
+/* الأقسام اللي المالك بس يقدر يرفعها على السحابة (نفس قواعد فايربيز) */
+const OWNER_SECTIONS = ['settings','members','invites','requests'];
 /* الأعمال اللي المالك بس يقدر يعملها */
 const OWNER_ONLY = ['delStudent','delGroup','delExam','delExamAll','trashOpen','trashRestore','trashEmpty','trashRestoreAsk',
   'undoOpen','undoLast','ycOpen','ycDo','ycArchive','snapRestoreAsk','snapshotNow',
@@ -5401,6 +5499,7 @@ const Roles = {
     if (saved === 'pending') return 'pending';                    // بعت طلب وبيستنى الموافقة
     if (saved === 'guest') return 'guest';
     if (saved === 'teacher'){
+      if (S.fb && S.fb.denied) return 'guest';      // فايربيز رفضت الوصول → الصلاحية مش سارية
       // جهاز المدرس: لو القايمة الحالية جاية من السحابة وهو مش فيها → الصلاحية اتلغت
       if (Object.keys(m).length && !m[u] && S.fb && S.fb.status === 'live') return 'guest';
       return 'teacher';
@@ -5428,33 +5527,86 @@ const Roles = {
         || Object.keys(S.data.attendance || {}).length || Object.keys(S.data.grades || {}).length);
     }catch(e){ return false; }
   },
+  /* نجيب قايمة الأعضاء من السحابة (بتنجح بس لو إحنا من الأعضاء) — وده اللي بيدخّل
+     الجهاز المعتمد لوحده بعد ما المستر يوافق على طلبه، وبيشيل صلاحية اللي اترفض */
+  async syncMembers(){
+    const u = this.uid(), m = this.members(), saved = this.ls(this.KEY);
+    let d = null;
+    try{ d = await Cloud.rtdb('GET', Cloud.rootPath() + '/members'); }
+    catch(e){
+      // فايربيز رفضت قايمة الأعضاء ومعانا دور مدرس محفوظ → يعني المستر شال صلاحيتنا
+      if (saved === 'teacher' && S.fb && S.fb.denied){
+        delete m[u]; this.lsSet(this.KEY, 'guest');
+        try{ commit({ silent:true }); saveLocal(); }catch(x){}
+        try{ this.apply(); }catch(x){}
+      }
+      return false;
+    }
+    if (!d || typeof d !== 'object') return false;
+    Object.keys(d).forEach(k => { if (!m[k]) m[k] = d[k]; });
+    if (d[u] && d[u].role){
+      if (d[u].role !== saved){ this.lsSet(this.KEY, d[u].role); this.lsSet(this.UIDK, u); try{ commit({ silent:true }); }catch(e){} }
+      return true;
+    }
+    if (saved === 'teacher' && Object.keys(d).length){
+      // القايمة اتقرات فعلًا وإحنا مش فيها → المستر شال صلاحية الجهاز ده
+      delete m[u]; this.lsSet(this.KEY, 'guest');
+      try{ commit({ silent:true }); saveLocal(); }catch(e){}
+      try{ this.apply(); }catch(e){}
+      return false;
+    }
+    return false;
+  },
   code(){ return this.uid(); },
   isOwner(){ return this.role() === 'owner'; },
   info(r){ return ROLE_INFO[r || this.role()] || ROLE_INFO.guest; },
   label(){ return this.info().ar; },
   device(){ try{ return (typeof devKind === 'function') ? devKind() : 'جهاز'; }catch(e){ return 'جهاز'; } },
-  /* اعتماد الجهاز كمالك */
-  becomeOwner(msg){
+  /* اعتماد الجهاز كمالك — ونتأكد إن فايربيز قبلت (القواعد هي الحكم) */
+  async becomeOwner(msg){
     const m = this.members(), u = this.uid();
     m[u] = Object.assign({}, m[u] || {}, { role:'owner', name:(S.data.settings.teacherName || 'المستر'),
       at:(m[u] && m[u].at) || new Date().toISOString(), device:this.device() });
     this.lsSet(this.UIDK, u); this.lsSet(this.KEY, 'owner'); this._claimed = true;
     try{ commit({ silent:true }); }catch(e){}
-    this.push(u);
+    let okWrite = true;
+    try{ await Cloud.rtdb('PUT', Cloud.rootPath() + '/members/' + u, m[u]); }
+    catch(e){ okWrite = false; }
+    if (!okWrite){
+      // فايربيز رفضت: يعني فيه أعضاء بالفعل والجهاز ده مش منهم → جهاز جديد محتاج تسجيل
+      delete m[u]; this.lsSet(this.KEY, 'guest');
+      try{ Roles.apply(); }catch(e){}
+      return false;
+    }
     if (msg) setTimeout(() => toast(msg, 'ok', 'الأدوار'), 1200);
     return true;
   },
   /* أول جهاز بياخد دور المالك لوحده — وأي جهاز تاني فيه بيانات المستر بيتعتمد كمان
      ملاحظة مهمة: جهاز جديد من غير بيانات ماياخدش المالك غير لو السحابة فاضية فعلًا */
   async init(){
-    if (this.ls(this.KEY) === 'teacher' || this.ls(this.KEY) === 'guest') return false;   // جهاز عارف دوره
+    const savedRole = this.ls(this.KEY);
+    const m0 = this.members(), u0 = this.uid();
+    if (m0[u0] && m0[u0].role) return false;
+    if (savedRole === 'teacher'){
+      if (S.fb && S.fb.denied){ this.lsSet(this.KEY, 'guest'); try{ this.apply(); }catch(e){} return false; }
+      if (this._memAt && Date.now() - this._memAt < 60000) return false;    // فحص الأعضاء مرة كل دقيقة بالكتير
+      this._memAt = Date.now();
+      if (await this.syncMembers()){ if (this.ls(this.KEY) !== 'teacher'){ try{ this.apply(); }catch(e){} } }
+      return false;
+    }
+    if (savedRole === 'guest'){
+      // ممكن المستر وافق على الجهاز ده وهو واقف على صفحة الدخول → ناخد دورنا من السحابة
+      if (this._memAt && Date.now() - this._memAt < 5000) return false;
+      this._memAt = Date.now();
+      if (await this.syncMembers()){ try{ this.apply(); }catch(e){} return true; }
+      return false;
+    }
     const m = this.members(), u = this.uid();
-    if (m[u] && m[u].role) return false;
     // جهاز المستر اللي شهادته اتجدّدت (أو عضويته اتشالت بالغلط) → نرجّعه مالك
-    if (this.ls(this.KEY) === 'owner' && this.hasLocalData()) return this.becomeOwner('');
-    if (Object.keys(m).length){ for (const k in m){ if ((m[k] || {}).role) { if (this.hasData()) return this.becomeOwner('تم اعتماد الجهاز ده كجهاز للمستر ✅'); return false; } } }
+    if (this.ls(this.KEY) === 'owner' && this.hasLocalData()) return await this.becomeOwner('');
+    if (Object.keys(m).length){ for (const k in m){ if ((m[k] || {}).role) { if (this.hasData()) return await this.becomeOwner('تم اعتماد الجهاز ده كجهاز للمستر ✅'); return false; } } }
     // جهاز المستر القديم (فيه بيانات المنصة) → مالك على طول
-    if (this.hasData()) return this.becomeOwner('');
+    if (this.hasData()) return await this.becomeOwner('');
     if (this._checking) return false;
     this._checking = true;
     let cloudMembers = null, cloudMeta = null;
@@ -5463,7 +5615,8 @@ const Roles = {
     this._checking = false;
     const cloudKnown = (cloudMembers && typeof cloudMembers === 'object' && Object.keys(cloudMembers).length)
                     || (cloudMeta && typeof cloudMeta === 'object' && Object.keys(cloudMeta).length);
-    if (cloudKnown){
+    const denied = (S.fb && S.fb.denied);      // فايربيز رفضت القراءة = فيه أعضاء والجهاز ده مش منهم
+    if (cloudKnown || denied){
       // المنصة موجودة على السحابة وجهازنا مش من أعضائها → محتاج اعتماد من المستر
       if (cloudMembers && typeof cloudMembers === 'object'){
         Object.keys(cloudMembers).forEach(k => { if (!m[k]) m[k] = cloudMembers[k]; });
@@ -5472,7 +5625,7 @@ const Roles = {
       try{ Roles.apply(); }catch(e){}
       return false;
     }
-    return this.becomeOwner('');
+    return await this.becomeOwner('');
   },
   setRole(uid, role, extra){
     if (!uid) return;
@@ -5790,6 +5943,57 @@ const Parent = {
     const r = this.map()[sid]; if (r) r.hash = this.hash(snap);
     return snap;
   },
+  /* ذيل المتابعة اللي بيتحط في آخر كل رسالة لولي الأمر: الكود + رابط المنصة + لينك ابنه */
+  follow(sid){
+    const s = student(sid) || {}, first = String(s.name || '').split(' ')[0] || 'ابنك';
+    const t = this.of(sid), L = [];
+    L.push('━━━━━━━━━━━━━');
+    if (t){
+      L.push('🔑 كود المتابعة بتاعك:');
+      L.push(t);
+      L.push('');
+    }
+    L.push('🌐 رابط المنصة:');
+    L.push(this.base());
+    if (t){
+      L.push('');
+      L.push('👉 أو افتح لينك ' + first + ' على طول (أسهل حاجة):');
+      L.push(this.link(t));
+      L.push('');
+      L.push('الدخول بالكود: افتح رابط المنصة ← «عندك كود متابعة؟» ← اكتب الكود، وهتفتحلك صفحة ' + first + ' على طول.');
+      L.push('احفظ اللينك عندك وارجع له في أي وقت — بيتحدّث لوحده أول ما يحصل أي جديد.');
+    } else {
+      L.push('');
+      L.push('(لو تحب تتابع درجات ' + first + ' وحضوره وملاحظات المستر في أي وقت، المستر هيبعتلك كود المتابعة.)');
+    }
+    return L.join('\n');
+  },
+  /* نجهّز كود المتابعة لوحده (من غير إزعاج) — بنستخدمه قبل أي رسالة تتبعت لولي الأمر */
+  async ensure(sid, quiet){
+    if (!student(sid)) return '';
+    const have = this.of(sid);
+    if (have) return have;
+    if (typeof Cloud === 'undefined' || !Cloud.dbUrl() || (S.fb && S.fb.status !== 'live')) return '';
+    const m = this.map(), token = this.rnd(), at = new Date().toISOString();
+    m[sid] = { token: token, at: at };
+    try{ await this.put(sid, token); }
+    catch(e){ delete m[sid]; if (!quiet) toast('مش قادر أجهّز كود المتابعة — اتأكد من النت', 'bad', 'رابط المتابعة'); return ''; }
+    try{ saveLocal(); }catch(e){}
+    if (!quiet) toast('كود المتابعة اتجهّز ✅', 'ok', 'رابط المتابعة');
+    return token;
+  },
+  async ensureAll(sids){
+    const list = (sids || []).filter(id => student(id) && !this.of(id));
+    if (!list.length) return 0;
+    let n = 0;
+    for (let i = 0; i < list.length && i < 40; i++){
+      if (this.of(list[i])) continue;
+      const t = await this.ensure(list[i], true);
+      if (t) n++;
+    }
+    if (n){ try{ commit({ silent:true }); }catch(e){} }
+    return n;
+  },
   async make(sid){
     const s = student(sid); if (!s){ toast('الطالب مش موجود', 'bad'); return ''; }
     const m = this.map();
@@ -5864,9 +6068,15 @@ const Parent = {
     }, 8000);
   },
   count(){ return Object.keys(this.map()).filter(sid => this.of(sid)).length; },
-  open(sid){
+  open(sid, retry){
     const s = student(sid); if (!s){ toast('الطالب مش موجود', 'bad'); return; }
     const token = this.of(sid);
+    if (!token && !retry){
+      // بنعمله لوحده على طول (القواعد بتسمح للمالك والمدرس بالكتابة في مسار الروابط)
+      toast('بنجهّز رابط المتابعة...', 'info', 'رابط المتابعة');
+      this.ensure(sid, true).then(() => this.open(sid, true)).catch(() => this.open(sid, true));
+      return;
+    }
     if (!token){
       Modal.open({ title:'رابط متابعة ولي الأمر', sub:s.name, size:'md',
         body:`<div class="help info" style="line-height:1.95">اعمل لولي أمر <b>${esc(s.name)}</b> رابط خاص بيه — يفتحه على موبايله ويشوف
@@ -5880,6 +6090,7 @@ const Parent = {
     Modal.open({ title:'رابط متابعة ولي الأمر', sub:s.name, size:'md',
       body:`
         <div class="help ok" style="line-height:1.95">الرابط شغال ✅ — ولي الأمر بيشوف منه <b>حضور ${esc(s.name)} ودرجاته وملاحظاتك</b> بس.
+          <br>ومش محتاج تنسخ حاجة: <b>الكود واللينك بيتحطّوا لوحدهم في آخر كل رسالة بتتبعت لولي الأمر</b>.
           ${r.at ? '<br>آخر تحديث للبيانات: ' + esc(String(r.at).slice(0, 10)) : ''}</div>
         <div class="field" style="margin-top:12px"><label>كود المتابعة (بيتبعت لولي الأمر)</label>
           <div class="flex wrap" style="gap:8px;align-items:center">
@@ -6309,10 +6520,16 @@ const JMode = {
     }
     const uid = j.localId, email2 = j.email || email;
     try{ Cloud.saveTokFor(this.code, { id:j.idToken, refresh:j.refreshToken, exp: Date.now() + Number(j.expiresIn || 3600) * 1000 }); }catch(e){}
-    // نسجّل العضو + نعلّم الدعوة إنها اتستخدمت
-    try{ Roles.setRole(uid, 'teacher', { name:name || (this.inv && this.inv.name) || 'مدرس', email:email2, device:Roles.device() }); }catch(e){}
+    // نعلّم الدعوة إنها اتستخدمت الأول — القواعد بتشترط ده قبل اعتماد المدرس
+    let usedOk = false;
+    try{
+      await Cloud.rtdb('PUT', Cloud.rootPath() + '/invites/' + this.token + '/used', { at:new Date().toISOString(), uid:uid });
+      usedOk = true;
+    }catch(e){ usedOk = false; }
+    // نسجّل العضو (الدعوة نفسها هي الإذن — والقواعد بتتحقق منها على السيرفر)
     try{ Roles.lsSet(Roles.UIDK, uid); Roles.lsSet(Roles.KEY, 'teacher'); }catch(e){}
-    try{ await Cloud.rtdb('PUT', Cloud.rootPath() + '/invites/' + this.token + '/used', { at:new Date().toISOString(), uid:uid }); }catch(e){}
+    try{ Roles.setRole(uid, 'teacher', { name:name || (this.inv && this.inv.name) || 'مدرس', email:email2, device:Roles.device(), via:this.token }); }catch(e){}
+    if (!usedOk) toast('الرابط اتسجّل على الجهاز، بس مش قادر أوصّل السحابة دلوقتي — لو ما فتحش على طول، اضغط «تحديث»', 'warn', 'الدعوة');
     try{ saveLocal(); }catch(e){}
     // نعيد التحميل من غير رابط الدعوة → المنصة تفتح بوضع المدرس
     let base = String(location.href || '').split('#')[0].split('?')[0];
@@ -7067,6 +7284,18 @@ let msgDraft = null;
 function openMsgCompose(sid, opts){
   opts = opts || {};
   const s = student(sid); if (!s) return;
+  // لو رسالة لولي الأمر ولسه مفيش كود متابعة → نجهّزه الأول (بيتحط جوه الرسالة)
+  const kind0 = opts.kind === 'student' ? 'student' : 'parent';
+  if (kind0 === 'parent' && !Parent.of(sid)){
+    toast('بنجهّز كود المتابعة للمرة الأولى...', 'info', 'رابط المتابعة');
+    Parent.ensure(sid, true).then(() => openMsgComposeGo(sid, opts)).catch(() => openMsgComposeGo(sid, opts));
+    return;
+  }
+  openMsgComposeGo(sid, opts);
+}
+function openMsgComposeGo(sid, opts){
+  opts = opts || {};
+  const s = student(sid); if (!s) return;
   const kind = opts.kind === 'student' ? 'student' : 'parent';
   const exam = opts.examId ? examOf(opts.examId) : (examHistory(sid, 1)[0] || null);
   msgDraft = { sid: sid, kind: kind, examId: exam ? exam.id : '', absDate: opts.absDate || '', groupId: opts.groupId || '', edited: false };
@@ -7099,6 +7328,7 @@ function openMsgCompose(sid, opts){
       <div class="field"><label>نص الرسالة (قابل للتعديل بالكامل)</label>
         <textarea class="inp" id="msgText" rows="15">${esc(buildMsg(sid, msgDraft))}</textarea></div>
       <p class="small muted">الحفظ أوتوماتيك للأخطاء وحالة الواجب. لو عدّلت النص بإيدك، اضغط «تحديث النص» لو حبيت ترجع للنسخة المبنية من البيانات.</p>
+      <div class="help brand" style="line-height:1.9;margin-top:4px">🔑 <b>كود المتابعة + رابط المنصة + لينك ابنه</b> بيتحطّوا لوحدهم في آخر كل رسالة لولي الأمر — مش محتاج تنسخهم بإيدك.</div>
       ${lastMsgSent(sid, kind) ? `<p class="small muted">آخر رسالة ${kind === 'parent' ? 'لولي الأمر' : 'للطالب'}: ${esc(fmtDate(lastMsgSent(sid, kind)))}</p>` : ''}`,
     footer: `<button class="btn ghost" data-act="msgCopy">${icon('copy')} نسخ النص</button>
       <button class="btn ghost" data-act="msgReload">${icon('refresh')} تحديث النص</button>
@@ -7156,11 +7386,16 @@ function waComposeFromEl(el){
 }
 
 /* ============ قائمة رسائل نتيجة امتحان (كل الطلاب) ============ */
-function waExamResults(examId){
+async function waExamResults(examId){
   const ex = examOf(examId); if (!ex) return;
   const gr = S.data.grades[ex.id] || {};
   const ss = (ex.groupId ? studentsOfGroup(ex.groupId) : (ex.stage ? studentsOfStage(ex.stage) : S.data.students))
     .filter(s => typeof gr[s.id] === 'number');
+  // نجهّز أكواد المتابعة الناقصة الأول — عشان كل رسالة تطلع والكود واللينك جواها
+  if (ss.some(s => !Parent.of(s.id))){
+    toast('بنجهّز أكواد المتابعة...', 'info', 'رابط المتابعة');
+    await Parent.ensureAll(ss.map(s => s.id));
+  }
   const rows = sortBy(ss, s => gr[s.id], 'desc').map(s => {
     const pc = Math.round(gr[s.id] / ex.max * 100), fb = fbOf(ex.id, s.id);
     const ph = s.parentPhone || s.phone, phS = s.phone;
@@ -7181,9 +7416,13 @@ function waExamResults(examId){
 }
 
 /* ============ قائمة رسائل الغياب لحصة/يوم ============ */
-function waAbsentList(date, gid){
+async function waAbsentList(date, gid){
   const g = groupOf(gid);
   const ss = studentsOfGroup(gid).filter(s => s.status !== 'stopped');
+  if (ss.some(s => !Parent.of(s.id))){
+    toast('بنجهّز أكواد المتابعة...', 'info', 'رابط المتابعة');
+    await Parent.ensureAll(ss.map(s => s.id));
+  }
   const recs = (attDraft && attDraft.date === date && attDraft.groupId === gid) ? attDraft.records : (((getAtt(date, gid) || {}).records) || {});
   const rows = ss.filter(s => recs[s.id] === 'absent').map(s => {
     const ph = s.parentPhone || s.phone;
@@ -7273,6 +7512,20 @@ function waListModal(title, list){
 }
 
 /* ---------------- Click delegation ---------------- */
+/* تنبيه أولياء الأمور — بنجهّز الأكواد الأول عشان الكود واللينك يبقوا جوه كل رسالة */
+async function waAllList(){
+  const list = S.data.students.filter(s => { const a = attStats(s.id, addDays(today(), -30), today()); return (s.groupId && a.absent >= (S.data.settings.absentWarn || 3)) || (!s.groupId && s.status === 'active'); });
+  if (list.some(s => !Parent.of(s.id))){
+    toast('بنجهّز أكواد المتابعة...', 'info', 'رابط المتابعة');
+    await Parent.ensureAll(list.map(s => s.id));
+  }
+  const rows = list.map(s => ({ name: s.name, tone:'warn', icon:'alert', phone: s.parentPhone || s.phone,
+    sub: (!s.groupId ? 'بدون حصة' : 'غياب ' + attStats(s.id, addDays(today(), -30), today()).absent + ' مرات'),
+    msg: (!s.groupId && !absRecordsOf(s.id, 1).length)
+      ? buildParentMsg(s.id).replace('برجاء توضيح سبب الغياب عشان نتابعه ونعوّض اللي فاته 🙏', 'برجاء تحديد موعد الحصة المناسب')
+      : buildParentMsg(s.id) }));
+  waListModal('تنبيه أولياء الأمور', rows);
+}
 document.addEventListener('click', function(e){
   const closeBtn = e.target.closest('[data-close]');
   if (closeBtn){ Modal.close(closeBtn.getAttribute('data-close')); return; }
@@ -7448,16 +7701,7 @@ document.addEventListener('click', function(e){
           ss.map(s => { const v = examAvg(s.id); return [s.name, s.stage, groupName(s.groupId), attRate(s.id), v == null ? '' : v]; }));
       break;
     }
-    case 'waAll': {
-      const list = S.data.students.filter(s => { const a = attStats(s.id, addDays(today(), -30), today()); return (s.groupId && a.absent >= (S.data.settings.absentWarn || 3)) || (!s.groupId && s.status === 'active'); })
-        .map(s => ({ name: s.name, tone:'warn', icon:'alert', phone: s.parentPhone || s.phone,
-          sub: (!s.groupId ? 'بدون حصة' : 'غياب ' + attStats(s.id, addDays(today(), -30), today()).absent + ' مرات'),
-          msg: (!s.groupId && !absRecordsOf(s.id, 1).length)
-            ? buildParentMsg(s.id).replace('برجاء توضيح سبب الغياب عشان نتابعه ونعوّض اللي فاته 🙏', 'برجاء تحديد موعد الحصة المناسب')
-            : buildParentMsg(s.id) }));
-      waListModal('تنبيه أولياء الأمور', list);
-      break;
-    }
+    case 'waAll': waAllList(); break;
     /* --- رسائل الواتساب --- */
     case 'waCompose': waComposeFromEl(el); break;
     case 'msgKind': if (msgDraft){ msgDraft.kind = el.dataset.kind; refreshMsgCompose(); } break;
@@ -7544,6 +7788,7 @@ document.addEventListener('click', function(e){
       const mem = Roles.members()[id] || {};
       confirmDialog('إلغاء صلاحية', 'متأكد إنك تشيل «' + (mem.name || mem.email || 'العضو') + '»؟\nهيفقد الوصول للمنصة على طول، وتقدر تدعوه تاني في أي وقت.', 'الغي', () => {
         Roles.setRole(id, null);
+        try{ if (mem.via) Cloud.rtdb('DELETE', Cloud.rootPath() + '/invites/' + mem.via); }catch(e){}   // رابط دعوته يتلغي معاه
         toast('اتشالت صلاحية «' + (mem.name || mem.email || 'العضو') + '»', 'ok', 'الصلاحيات');
         Roles.open();
       }, true);
