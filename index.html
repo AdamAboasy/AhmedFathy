@@ -834,7 +834,7 @@ function platformBase(){
   }catch(e){}
   return PLATFORM_URL_DEFAULT;
 }
-const APP_V = 'v2.12';
+const APP_V = 'v2.13';
 const ERR_KEY = 'mostar_errlog';
 const SAFE_KEY = 'mostar_safe';      // نسخة محلية خفية — لو المتصفح مسح بياناته نرجّعها في ثانية
 let SAFE_AT = 0, SAFE_SIG = '';
@@ -4187,6 +4187,8 @@ function buildStudentMsg(sid, opts){
   L.push('');
   L.push('بالتوفيق 🌟');
   L.push(msgSign());
+  // لينك صفحة الطالب عشان يبقى عارف مستواه
+  try{ L.push(''); L.push(Parent.followStudent(sid)); }catch(e){}
   return L.join('\n');
 }
 
@@ -5945,26 +5947,36 @@ const Parent = {
   },
   /* ذيل المتابعة اللي بيتحط في آخر كل رسالة لولي الأمر: الكود + رابط المنصة + لينك ابنه */
   follow(sid){
-    const s = student(sid) || {}, first = String(s.name || '').split(' ')[0] || 'ابنك';
+    const s = student(sid) || {};
     const t = this.of(sid), L = [];
     L.push('━━━━━━━━━━━━━');
     if (t){
-      L.push('🔑 كود المتابعة بتاعك:');
-      L.push(t);
-      L.push('');
-    }
-    L.push('🌐 رابط المنصة:');
-    L.push(this.base());
-    if (t){
-      L.push('');
-      L.push('👉 أو افتح لينك ' + first + ' على طول (أسهل حاجة):');
+      // الأهم الأول: الجملة + اللينك اللي بيفتح صفحة ابنه على طول
+      L.push('لمتابعة تفاصيل ابنك، يرجى الدخول على صفحة ابنك من اللينك ده:');
       L.push(this.link(t));
       L.push('');
-      L.push('الدخول بالكود: افتح رابط المنصة ← «عندك كود متابعة؟» ← اكتب الكود، وهتفتحلك صفحة ' + first + ' على طول.');
-      L.push('احفظ اللينك عندك وارجع له في أي وقت — بيتحدّث لوحده أول ما يحصل أي جديد.');
-    } else {
+      L.push('واحفظ اللينك عندك وارجع له في أي وقت — بيتحدّث لوحده أول ما يحصل أي جديد ✅');
       L.push('');
-      L.push('(لو تحب تتابع درجات ' + first + ' وحضوره وملاحظات المستر في أي وقت، المستر هيبعتلك كود المتابعة.)');
+      L.push('ولو حبيت تدخل من جهاز تاني في أي وقت:');
+      L.push('🔑 كود المتابعة: ' + t);
+      L.push('🌐 رابط المنصة: ' + this.base());
+    } else {
+      L.push('(المستر هيرسل لك لينك صفحة ' + (String(s.name || '').split(' ')[0] || 'ابنك') + ' على طول — كلّم المستر لو مالكش.)');
+    }
+    return L.join('\n');
+  },
+  /* بلوك رسالة الطالب: لينك صفحته عشان يبقى عارف مستواه */
+  followStudent(sid){
+    const s = student(sid) || {};
+    const t = this.of(sid), L = [];
+    L.push('━━━━━━━━━━━━━');
+    if (t){
+      L.push('لمتابعة مستواك ودرجاتك وحضورك، ادخل على صفحتك من اللينك ده:');
+      L.push(this.link(t));
+      L.push('');
+      L.push('تقدر تحفظ اللينك عندك وترجع له في أي وقت — بيتحدّث لوحده أول ما يحصل أي جديد ✅');
+    } else {
+      L.push('(المستر هيبعتلك لينك صفحتك على طول — تشوف منه درجاتك وحضورك.)');
     }
     return L.join('\n');
   },
@@ -6090,7 +6102,8 @@ const Parent = {
     Modal.open({ title:'رابط متابعة ولي الأمر', sub:s.name, size:'md',
       body:`
         <div class="help ok" style="line-height:1.95">الرابط شغال ✅ — ولي الأمر بيشوف منه <b>حضور ${esc(s.name)} ودرجاته وملاحظاتك</b> بس.
-          <br>ومش محتاج تنسخ حاجة: <b>الكود واللينك بيتحطّوا لوحدهم في آخر كل رسالة بتتبعت لولي الأمر</b>.
+          <br>ومش محتاج تنسخ حاجة: <b>لينك صفحة الطالب بيتحط لوحده في آخر كل رسالة لولي الأمر</b>
+          (بجملة «لمتابعة تفاصيل ابنك، يرجى الدخول على صفحة ابنك»)، وكمان <b>رسالة الطالب</b> بيبقى فيها لينك صفحته.
           ${r.at ? '<br>آخر تحديث للبيانات: ' + esc(String(r.at).slice(0, 10)) : ''}</div>
         <div class="field" style="margin-top:12px"><label>كود المتابعة (بيتبعت لولي الأمر)</label>
           <div class="flex wrap" style="gap:8px;align-items:center">
@@ -7286,7 +7299,7 @@ function openMsgCompose(sid, opts){
   const s = student(sid); if (!s) return;
   // لو رسالة لولي الأمر ولسه مفيش كود متابعة → نجهّزه الأول (بيتحط جوه الرسالة)
   const kind0 = opts.kind === 'student' ? 'student' : 'parent';
-  if (kind0 === 'parent' && !Parent.of(sid)){
+  if (!Parent.of(sid)){
     toast('بنجهّز كود المتابعة للمرة الأولى...', 'info', 'رابط المتابعة');
     Parent.ensure(sid, true).then(() => openMsgComposeGo(sid, opts)).catch(() => openMsgComposeGo(sid, opts));
     return;
@@ -7328,7 +7341,7 @@ function openMsgComposeGo(sid, opts){
       <div class="field"><label>نص الرسالة (قابل للتعديل بالكامل)</label>
         <textarea class="inp" id="msgText" rows="15">${esc(buildMsg(sid, msgDraft))}</textarea></div>
       <p class="small muted">الحفظ أوتوماتيك للأخطاء وحالة الواجب. لو عدّلت النص بإيدك، اضغط «تحديث النص» لو حبيت ترجع للنسخة المبنية من البيانات.</p>
-      <div class="help brand" style="line-height:1.9;margin-top:4px">🔑 <b>كود المتابعة + رابط المنصة + لينك ابنه</b> بيتحطّوا لوحدهم في آخر كل رسالة لولي الأمر — مش محتاج تنسخهم بإيدك.</div>
+      <div class="help brand" style="line-height:1.9;margin-top:4px">🔗 <b>لينك صفحة ابنه</b> (مع جملة «لمتابعة تفاصيل ابنك، يرجى الدخول على صفحة ابنك») و<b>كود المتابعة + رابط المنصة</b> بيتحطّوا لوحدهم في آخر كل رسالة لولي الأمر — و<b>رسالة الطالب</b> بيبقى فيها لينك صفحته هو كمان. مش محتاج تنسخ حاجة بإيدك.</div>
       ${lastMsgSent(sid, kind) ? `<p class="small muted">آخر رسالة ${kind === 'parent' ? 'لولي الأمر' : 'للطالب'}: ${esc(fmtDate(lastMsgSent(sid, kind)))}</p>` : ''}`,
     footer: `<button class="btn ghost" data-act="msgCopy">${icon('copy')} نسخ النص</button>
       <button class="btn ghost" data-act="msgReload">${icon('refresh')} تحديث النص</button>
@@ -7404,7 +7417,7 @@ async function waExamResults(examId){
       <span class="at"><b>${esc(s.name)} — ${gr[s.id]} من ${ex.max} (${pc}%)</b>
         <span>${fb.err ? 'الأخطاء: ' + esc(fb.err) : 'لسه مفيش أخطاء مكتوبة'}${fb.hw ? ' · ' + esc(HW_LABEL[fb.hw] || '') : ''}</span></span>
       ${ph ? `<a class="btn sm" target="_blank" rel="noopener" href="${waLink(ph, buildParentMsg(s.id, { examId: ex.id }))}">${icon('whatsapp')} ولي الأمر</a>` : '<span class="badge b-warn">مفيش رقم</span>'}
-      ${phS ? `<a class="btn sm ghost" target="_blank" rel="noopener" href="${waLink(phS, buildStudentMsg(s.id, { examId: ex.id }))}">${icon('user')} الطالب</a>` : ''}
+      ${phS ? `<a class="btn sm ghost" target="_blank" rel="noopener" href="${waLink(phS, buildStudentMsg(s.id, { examId: ex.id }))}">${icon('user')} الطالب (بلينك صفحته)</a>` : ''}
       <button class="btn sm ghost" data-act="waCompose" data-id="${s.id}" data-exam="${ex.id}">${icon('edit')} تعديل</button>
     </div>`;
   }).join('');
