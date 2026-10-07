@@ -25,7 +25,7 @@
 /* شبكة أمان: أي أيقونة SVG جوه المنصة ليها مقاس افتراضي معقول.
    من غير القاعدة دي أي حاوية من غير قاعدة مقاس خاصة بتخلي الأيقونة
    تترسم بحجم المتصفح الافتراضي (150px) وتخرج بره الكارت. */
-.shell svg, .modal svg, #toasts svg{
+.shell svg, .modal svg, #toasts svg, #pview svg{
   width:18px; height:18px; flex:0 0 auto;
   max-width:100%; max-height:100%;
 }
@@ -318,6 +318,11 @@ select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns=
 .sched .slot span{display:block;font-size:11px;color:var(--muted);font-weight:700;font-variant-numeric:tabular-nums}
 .sched .slot em{display:block;font-size:10.5px;color:var(--brand-3);font-style:normal;font-weight:800;margin-top:3px}
 .sched .none{text-align:center;color:var(--muted-2);font-size:11.5px;padding:18px 0}
+.sched .slot.extra{background:linear-gradient(135deg,rgba(64,140,255,.13),rgba(64,140,255,.03));border:1px dashed rgba(64,140,255,.55)}
+.sched .slot.extra em{color:var(--info)}
+.extras-x .xrow{display:flex;align-items:center;gap:9px;flex-wrap:wrap;padding:9px 0;border-bottom:1px dashed var(--line)}
+.extras-x .xrow:last-child{border-bottom:0}
+.extras-x .xrow b{font-size:13.5px}
 
 /* ---------- Charts ---------- */
 .chart{width:100%;display:block;height:210px}
@@ -465,13 +470,24 @@ body.pmode #pview{display:block;max-width:720px;margin:0 auto;padding:16px 14px 
 .pm-plat{font-weight:800;font-size:16px}
 .pm-sub{font-size:12px;color:var(--muted)}
 .pm-kid{background:linear-gradient(135deg,var(--brand),var(--brand-2));color:#1b1b1b;border-radius:18px;padding:14px 16px;box-shadow:var(--shadow)}
-.pm-kid .n{font-size:21px;font-weight:800}
+.pm-kid .n{font-size:19px;font-weight:800}
 .pm-kid .s{font-size:13px;opacity:.8;margin-top:2px}
-.pm-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-top:13px;box-shadow:var(--shadow)}
-.pm-card h3{margin:0 0 10px;font-size:15px;display:flex;align-items:center;gap:7px}
+.pm-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:13px;margin-top:11px;box-shadow:var(--shadow)}
+.pm-card h3{margin:0 0 10px;font-size:14.5px;display:flex;align-items:center;gap:7px;font-weight:800}
+.pm-month{display:flex;align-items:center;gap:9px;margin:13px 0 4px;font-size:12px;font-weight:800;color:var(--muted)}
+.pm-month:first-child{margin-top:2px}
+.pm-month i{flex:1;height:1px;background:var(--line);display:block}
+.pm-tag{font-size:10.5px;padding:2px 8px;border-radius:99px;background:var(--brand);color:#1b1b1b;font-weight:800;white-space:nowrap}
+.pm-tag.gray{background:var(--line-2);color:var(--ink-2)}
+.pm-srow{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px dashed var(--line);font-size:13px}
+.pm-srow:last-child{border-bottom:0}
+.pm-facts{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.pm-fact{flex:1;min-width:104px;background:var(--line-2);border-radius:12px;padding:8px 10px}
+.pm-fact b{display:block;font-size:16px;font-weight:800;line-height:1.3}
+.pm-fact span{font-size:11.5px;color:var(--muted)}
 .pm-card h3 .sp{flex:1}
 .pm-rate{display:flex;align-items:center;gap:12px}
-.pm-num{font-size:31px;font-weight:800;line-height:1}
+.pm-num{font-size:26px;font-weight:800;line-height:1}
 .pm-bar{flex:1;height:11px;background:var(--line-2);border-radius:99px;overflow:hidden}
 .pm-bar i{display:block;height:100%;border-radius:99px;background:var(--ok)}
 .pm-chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}
@@ -795,6 +811,8 @@ function defaultData(){
     groups: [], students: [], exams: [], grades: {}, attendance: {},
     /* متابعة الرسائل: أخطاء وحالة واجب لكل امتحان/طالب + أسباب الغياب + سجل الرسائل المبعوتة */
     feedback: {}, absNotes: {}, msgSent: {}, ptokens: {},
+    /* الحصص الإضافية (مش محسوبة): حصة ليوم واحد مش من الجدول الأسبوعي */
+    extras: {},
     members: {}, invites: {}, requests: {}
   };
 }
@@ -834,7 +852,7 @@ function platformBase(){
   }catch(e){}
   return PLATFORM_URL_DEFAULT;
 }
-const APP_V = 'v2.13';
+const APP_V = 'v2.14';
 const ERR_KEY = 'mostar_errlog';
 const SAFE_KEY = 'mostar_safe';      // نسخة محلية خفية — لو المتصفح مسح بياناته نرجّعها في ثانية
 let SAFE_AT = 0, SAFE_SIG = '';
@@ -913,6 +931,7 @@ function migrate(d){
   out.attendance = out.attendance || {};
   out.feedback = out.feedback || {};
   out.absNotes = out.absNotes || {};
+  out.extras = out.extras || {};
   out.msgSent = out.msgSent || {};
   out.meta.secrev = out.meta.secrev || {};
   out.meta.attrev = out.meta.attrev || {};
@@ -1757,7 +1776,7 @@ const Cloud = {
      فاللي يتغير بس هو اللي بيتنقل، والتحديث بيوصل لحظيًا من غير
      ما المستر يعمل ريفريش أو يدوس "تنزيل".
      ========================================================== */
-  secKeys(){ return ['settings','groups','students','exams','grades','feedback','absNotes','msgSent','ptokens','members','invites','requests']; },
+  secKeys(){ return ['settings','groups','students','exams','grades','feedback','absNotes','msgSent','ptokens','members','invites','requests','extras']; },
   /* أرقام النسخ لازم تكون موحّدة بين كل الأجهزة.
      زمان كل جهاز كان بيعد من عنده (1، 2، 3…) وكل جهاز بيكتب أرقامه فوق التاني،
      فالجهاز يشوف رقم أقل من رقمه يفتكر إن مفيش جديد وما ينزّلش.
@@ -3952,6 +3971,54 @@ function setAtt(date, gid, records, note){
   bustCache();
 }
 /* ==========================================================
+   الحصة الإضافية (المش محسوبة)
+   حصة ليوم واحد بس — مش مجموعة جديدة ومش جزء من الجدول الأسبوعي.
+   بتظهر في المواعيد وفي شاشة الحضور لحد ما تخلص، وبعد كده بتتشال
+   من المواعيد (لوحدها أو بضغطة) — لكن حضور الطلبة فيها بيفضل مسجّل
+   عندهم وفي كل التقارير، لأن الحضور بيتسجّل على مجموعة الطالب نفسها.
+   ========================================================== */
+function extraKey(date, gid){ return String(date) + '@' + (gid || 'none'); }
+function extrasAll(){
+  if (!S.data.extras || typeof S.data.extras !== 'object' || Array.isArray(S.data.extras)) S.data.extras = {};
+  return S.data.extras;
+}
+function extraOf(date, gid){ return extrasAll()[extraKey(date, gid)] || null; }
+/* حصة إضافية (قديمة أو حالية) في اليوم ده؟ — بنعلّم بيها الحضور في التقارير */
+function isExtra(date, gid){ return !!extraOf(date, gid); }
+/* الفعّالة دلوقتي: لسه ما خلصتش (يومها النهارده أو بعده) */
+function extrasActive(){
+  const t = today();
+  return Object.keys(extrasAll()).map(k => extrasAll()[k])
+    .filter(x => x && !x.done && String(x.date) >= t && groupOf(x.groupId));   // لو الحصة اتمسحت خلاص، الحصة الإضافية تختفي معاها
+}
+function extrasOfGroup(gid){ return extrasActive().filter(x => x.groupId === gid); }
+/* «خلصت — شيلها»: بتختفي من المواعيد، والحضور بيفضل زي ما هو */
+function extraClose(date, gid){
+  const x = extraOf(date, gid); if (!x) return;
+  x.done = 1; x.doneAt = new Date().toISOString(); x.rev = (x.rev || 0) + 1;
+}
+/* تعارض المواعيد لحصة إضافية: حصة واحدة بس في الوقت ده */
+function extraConflict(date, from, to){
+  const f = toMin(from), tt = toMin(to);
+  if (f == null || tt == null) return '';
+  const d = parseISO(date); if (!d) return '';
+  let hit = '';
+  groupsSorted().forEach(g => {
+    if (Number(g.day) !== d.getDay()) return;
+    const gf = toMin(g.from), gt = toMin(g.to);
+    if (gf == null || gt == null) return;
+    if (f < gt && gf < tt) hit = g.name || 'حصة تانية';
+  });
+  extrasActive().forEach(x => {
+    if (x.date !== date) return;
+    const xf = toMin(x.from), xt = toMin(x.to);
+    if (xf == null || xt == null) return;
+    if (f < xt && xf < tt) hit = groupName(x.groupId) + ' (إضافية)';
+  });
+  return hit;
+}
+
+/* ==========================================================
    فهارس الأداء — المنصة بتبني فهرس الحضور والدرجات مرة واحدة
    وبعدها كل حساب بياخد وقت ثابت. من غير كده كل طالب كان بيعيد
    قراءة كل سجلات الحضور من الصفر (بطء شديد مع البيانات الكبيرة).
@@ -3971,7 +4038,7 @@ function attIndex(){
     const groupId = rawG === 'none' ? '' : rawG;
     const recs = rec.records || {};
     Object.keys(recs).forEach(sid => {
-      (idx[sid] = idx[sid] || []).push({ date: date, groupId: groupId, status: recs[sid] });
+      (idx[sid] = idx[sid] || []).push({ date: date, groupId: groupId, status: recs[sid], x: (typeof isExtra === 'function' && isExtra(date, groupId)) ? 1 : 0 });
     });
   });
   Object.keys(idx).forEach(sid => idx[sid].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0)));
@@ -4557,7 +4624,8 @@ Views.dashboard = function(){
   });
   const top = sortBy(act.map(s => ({ s: s, rate: attRate(s.id, addDays(t,-60), t), n: attStats(s.id, addDays(t,-60), t).total }))
     .filter(x => x.n >= 3), x => x.rate, 'desc').slice(0, 5);
-  const todayG = groupsSorted().filter(g => Number(g.day) === new Date().getDay());
+  const todayG = groupsSorted().filter(g => Number(g.day) === new Date().getDay())
+    .concat(extrasActive().filter(x => x.date === t).map(x => ({ id: x.groupId, name: groupName(x.groupId) + ' (مش محسوبة)', from: x.from, to: x.to })));
 
   return pageHead('لوحة التحكم', `اليوم ${fmtDate(t, true)} · ${S.data.settings.teacherName || ''}`,
       `<button class="btn" data-act="go" data-id="attendance">${icon('check-square')} تسجيل حضور</button>
@@ -4639,15 +4707,22 @@ Views.dashboard = function(){
   </div>`;
 };
 function scheduleHTML(){
-  const gs = groupsSorted();
+  const gs = groupsSorted(), xs = extrasActive();
   const dayBox = d => {
     const list = gs.filter(g => Number(g.day) === d);
+    /* الحصة الإضافية بتبان في يومها بس (وبتختفي لوحدها بعد ما تخلص) */
+    const xl = xs.filter(x => { const dd = parseISO(x.date); return dd && dd.getDay() === d; });
     return `<div class="day"><h4>${AR_DAYS[d]}</h4>
-      ${list.length ? list.map(g => `<div class="slot" data-act="attGroup" data-id="${g.id}" title="تسجيل حضور ${esc(g.name)}">
+      ${list.map(g => `<div class="slot" data-act="attGroup" data-id="${g.id}" title="تسجيل حضور ${esc(g.name)}">
         <span>${timeRange(g)}</span>
         <b>${esc(g.name)}</b>
         <em>${esc(g.stage || '—')} · ${studentsOfGroup(g.id).length} طالب · ${esc(payLabel(g.payMode))}</em>
-      </div>`).join('') : '<div class="none">لا توجد حصص</div>'}</div>`;
+      </div>`).join('')}${xl.map(x => `<div class="slot extra" data-act="attExtra" data-id="${x.groupId}" data-date="${esc(x.date)}" title="حصة مش محسوبة — ${fmtDate(x.date, true)}">
+        <span>${x.from ? esc(x.from) + (x.to ? ' - ' + esc(x.to) : '') : ''}</span>
+        <b>${esc(groupName(x.groupId))}</b>
+        <em>مش محسوبة · ${fmtShort(x.date)} · ${studentsOfGroup(x.groupId).length} طالب</em>
+      </div>`).join('')}
+      ${(list.length || xl.length) ? '' : '<div class="none">لا توجد حصص</div>'}</div>`;
   };
   return `<div class="sched">${DAY_ORDER.map(dayBox).join('')}</div>`;
 }
@@ -4793,6 +4868,7 @@ Views.groups = function(){
 
   return pageHead('المجموعات والحصص', `${S.data.groups.length} حصة أسبوعية · ${ar(S.data.students.filter(s => !s.groupId).length)} طالب بدون حصة`,
     `<button class="btn" data-act="pdfGroups">${icon('pdf')} جدول الحصص PDF</button>
+     <button class="btn" data-act="addExtra">${icon('calendar')} حصة مش محسوبة</button>
      <button class="btn pri" data-act="addGroup">${icon('plus')} حصة جديدة</button>`) + `
 
   <div class="card">
@@ -4814,6 +4890,8 @@ Views.groups = function(){
       <div class="card-b">${gs.length ? groupCards(gs) : '<p class="muted small">لا توجد حصص مطابقة للفلتر</p>'}</div></div>`
     : `<div class="grid g-3 mt">${groupCards(gs)}</div>`}
 
+  ${extrasBlock()}
+
   ${S.data.students.filter(s => !s.groupId && s.status !== 'stopped').length ? `<div class="card mt">
     <div class="card-h"><h3>${icon('user')} طلاب بدون حصة</h3>
       <span class="badge b-warn">${nf(S.data.students.filter(s => !s.groupId && s.status !== 'stopped').length)}</span>
@@ -4822,6 +4900,29 @@ Views.groups = function(){
       `<button class="chip" data-act="assign" data-id="${s.id}">${esc(s.name)}${s.stage ? ' — ' + esc(s.stage) : ''}</button>`).join('')}</div></div>
   </div>` : ''}`;
 };
+/* الحصص الإضافية الفعّالة — بتبان هنا لحد ما تخلص */
+function extrasBlock(){
+  const xs = extrasActive();
+  if (!xs.length) return '';
+  return `<div class="card mt extras-x">
+    <div class="card-h"><h3>${icon('calendar')} حصص مش محسوبة (إضافية)</h3>
+      <span class="badge b-warn">${nf(xs.length)}</span>
+      <span class="sp"></span>
+      <button class="btn sm" data-act="addExtra">${icon('plus')} إضافة حصة</button></div>
+    <div class="card-b">
+      <p class="small muted" style="margin:0 0 7px">دي حصص مؤقتة ليوم واحد — مش في الجدول الأسبوعي، وبتتشال من المواعيد لوحدها بعد يومها. حضور الطلبة فيها بيفضل مسجّل في كل التقارير.</p>
+      ${xs.map(x => `<div class="xrow">
+        <b>${esc(groupName(x.groupId))}</b>
+        <span class="badge b-warn">إضافية</span>
+        <span class="badge b-gray">${icon('calendar')} ${fmtDate(x.date, true)}</span>
+        ${x.from ? `<span class="badge b-info">${icon('clock')} ${esc(x.from)}${x.to ? ' - ' + esc(x.to) : ''}</span>` : ''}
+        ${x.note ? `<span class="small muted">${esc(x.note)}</span>` : ''}
+        <span class="sp"></span>
+        <button class="btn sm pri" data-act="attExtra" data-id="${x.groupId}" data-date="${esc(x.date)}">${icon('check-square')} تسجيل حضورها</button>
+        <button class="btn sm ghost" data-act="extraDone" data-id="${x.groupId}" data-date="${esc(x.date)}">${icon('check')} خلصت — شيلها</button>
+      </div>`).join('')}
+    </div></div>`;
+}
 function groupCards(list){
   if (!list.length) return '';
   return list.map(g => {
@@ -4850,6 +4951,7 @@ function groupCards(list){
         <div class="btn-row">
           <button class="btn sm pri" data-act="attGroup" data-id="${g.id}">${icon('check-square')} تسجيل حضور</button>
           <button class="btn sm" data-act="manageGroup" data-id="${g.id}">${icon('users')} طلاب الحصة (${ss.length})</button>
+          ${ss.length ? `<button class="btn sm ghost" data-act="addExtra" data-id="${g.id}">${icon('calendar')} حصة مش محسوبة</button>` : ''}
         </div>
       </div></div>`;
   }).join('');
@@ -4909,10 +5011,13 @@ Views.attendance = function(){
       <input type="date" class="inp" style="max-width:165px" data-att="date" value="${a.date}">
       <select class="inp" style="max-width:260px" data-att="group">
         ${groupsSorted().map(x => `<option value="${x.id}" ${gid === x.id ? 'selected' : ''}>${esc(x.name)} — ${AR_DAYS[x.day]} ${timeRange(x)}</option>`).join('')}
+        ${extrasActive().filter(x => x.date === a.date).map(x => `<option value="${x.groupId}" ${gid === x.groupId ? 'selected' : ''}>${esc(groupName(x.groupId))} — مش محسوبة ${fmtShort(x.date)}${x.from ? ' ' + esc(x.from) : ''}</option>`).join('')}
       </select>
     </div>
     <div class="card-b">
-      ${!sameDay ? `<div class="help" style="margin-bottom:12px">ملاحظة: الحصة دي يوم <b>${AR_DAYS[g.day]}</b> وأنت بتسجّل يوم <b>${AR_DAYS[dow]}</b> (${fmtDate(a.date)}) — التسجيل مسموح لأي يوم.</div>` : ''}
+      ${extraOf(a.date, gid) ? `<div class="help" style="margin-bottom:12px">الحصة دي <b>مش محسوبة</b> (إضافية) — حصة ليوم ${fmtDate(a.date, true)} بس، مش جزء من الجدول الأسبوعي.
+        الحضور اللي هيتسجّل هنا بيفضل مسجّل عند الطلبة وفي كل التقارير، والحصة نفسها بتتشال من المواعيد بعد ما تخلص.</div>`
+        : (!sameDay ? `<div class="help" style="margin-bottom:12px">ملاحظة: الحصة دي يوم <b>${AR_DAYS[g.day]}</b> وأنت بتسجّل يوم <b>${AR_DAYS[dow]}</b> (${fmtDate(a.date)}) — التسجيل مسموح لأي يوم.</div>` : '')}
       ${ss.length ? `
       <div class="flex wrap" style="margin-bottom:12px">
         <button class="btn sm" data-act="attAll" data-v="present">${icon('check')} الكل حاضر</button>
@@ -5915,12 +6020,14 @@ const Parent = {
   /* صورة مختصرة لبيانات الطالب — دي اللي ولي الأمر بيقراها (ملف صغير جدًا وبيتحدّث لوحده) */
   snapshot(sid){
     const s = student(sid) || {}, g = groupOf(s.groupId) || {}, st = S.data.settings || {};
-    const rows = (attIndex()[sid] || []).slice(-150);
-    const att = rows.map(r => ({ d: r.date, g: r.groupId || '', s: r.status }));
+    // كل بيانات السنة/الترم — من أول تسجيل لحد آخر تسجيل (بدون أي قص)
+    const rows = (attIndex()[sid] || []);
+    const att = rows.map(r => ({ d: r.date, g: r.groupId || '', s: r.status, x: r.x ? 1 : 0 }));
+    att.sort((a, b) => (a.d < b.d ? -1 : a.d > b.d ? 1 : 0));
     const t = attStats(sid, '', '');
     const ex = [];
     sortBy(S.data.exams.filter(e => typeof (S.data.grades[e.id] || {})[sid] === 'number'), e => e.date || '', 'asc')
-      .slice(-40).forEach(e => ex.push({ n: e.name || '', d: e.date || '', max: Number(e.max || 0), m: Number(S.data.grades[e.id][sid]) }));
+      .forEach(e => ex.push({ n: e.name || '', d: e.date || '', max: Number(e.max || 0), m: Number(S.data.grades[e.id][sid]) }));
     const notes = [];
     Object.keys(S.data.feedback || {}).forEach(eid => {
       const f = fbOf(eid, sid); if (!f || (!f.err && !f.hw)) return;
@@ -5933,11 +6040,15 @@ const Parent = {
     const box = (S.data.absNotes || {})[sid] || {};
     Object.keys(box).forEach(d => abs.push({ d: d, n: box[d] }));
     abs.sort((a, b) => (a.d < b.d ? 1 : -1));
-    return { v: 2, at: new Date().toISOString(),
+    const from = (att[0] || {}).d || (ex[0] || {}).d || '';
+    const to = (att[att.length - 1] || {}).d || (ex[ex.length - 1] || {}).d || '';
+    return { v: 3, at: new Date().toISOString(),
       sid: sid, name: s.name || '', stage: s.stage || '', group: g.name || '', gid: s.groupId || '',
       tname: st.teacherName || 'أحمد فتحي', tphone: st.phone || '',
+      period: { from: from, to: to, year: (typeof currentYearLabel === 'function' ? currentYearLabel() : '') },
+      n: { att: att.length, ex: ex.length, notes: notes.length, abs: abs.length },
       tot: { present: t.present, absent: t.absent, late: t.late, rate: t.rate, total: t.total },
-      att: att, ex: ex, notes: notes.slice(0, 25), abs: abs.slice(0, 25) };
+      att: att, ex: ex, notes: notes, abs: abs };
   },
   async put(sid, token){
     const snap = this.snapshot(sid);
@@ -6659,6 +6770,36 @@ function openStudentForm(id){
 }
 
 /* ---------------- نموذج الحصة/المجموعة ---------------- */
+/* نافذة «حصة مش محسوبة»: يوم واحد بس، وبتختفي من المواعيد بعد ما تخلص */
+function openExtraForm(gid){
+  if (!S.data.groups.length){ toast('أضف حصة (مجموعة) أولًا', 'warn'); return; }
+  const t = today();
+  const g0 = (gid && groupOf(gid)) || groupOf(S.ui.att.groupId) || groupsSorted()[0] || null;
+  const g = g0 || S.data.groups[0];
+  const cur = extraOf(t, g.id) || {};
+  const ss = studentsOfGroup(g.id).length;
+  Modal.open({
+    title: 'حصة مش محسوبة (إضافية)',
+    sub: 'حصة ليوم واحد بس — مش هتتضاف للجدول الأسبوعي',
+    size: 'lg',
+    body: `
+      <div class="field"><label>الحصة <span class="req">*</span></label>
+        <select class="inp" id="xGroup">
+          ${groupsSorted().map(x => `<option value="${x.id}" ${x.id === g.id ? 'selected' : ''}>${esc(x.name)} — ${AR_DAYS[x.day]} ${timeRange(x)} · ${studentsOfGroup(x.id).length} طالب</option>`).join('')}
+        </select></div>
+      <div class="frow-3">
+        <div class="field"><label>اليوم <span class="req">*</span></label><input class="inp" type="date" id="xDate" value="${t}"></div>
+        <div class="field"><label>من الساعة</label><input class="inp" type="time" id="xFrom" value="${cur.from || g.from || ''}"></div>
+        <div class="field"><label>إلى الساعة</label><input class="inp" type="time" id="xTo" value="${cur.to || g.to || ''}"></div>
+      </div>
+      <div class="field"><label>ملاحظة (اختياري)</label>
+        <input class="inp" id="xNote" placeholder="مثال: حصة تعويض"></div>
+      <div class="help">الحصة دي بتظهر في المواعيد وفي شاشة الحضور لحد ما تخلص، وبعد كده بتتشال لوحدها من المواعيد — بس الحضور بيفضل مسجّل عند الطلبة وفي كل التقارير.
+      عدد طلابها دلوقتي: <b>${ar(ss)}</b> طالب · حصة واحدة بس مسموح بيها في نفس الوقت.</div>`,
+    footer: `<button class="btn ghost sp" data-close="__ID__">إلغاء</button>
+      <button class="btn pri" data-act="extraSave">${icon('save')} إضافة الحصة</button>`
+  });
+}
 function openGroupForm(id){
   const g = id ? groupOf(id) : null;
   const cur = g || { name:'', stage:(S.ui.grpFilter.stage || ''), day: 6, from:'16:00', to:'18:00', payMode:'monthly', level:'', note:'' };
@@ -7268,6 +7409,7 @@ function go(view, extra){
   if (!VIEW_LIST.includes(view)) view = 'dashboard';
   S.view = view;
   if (extra && extra.groupId) S.ui.att.groupId = extra.groupId;
+  if (extra && extra.date) S.ui.att.date = extra.date;
   if (view === 'attendance' && !S.ui.att.groupId && S.data.groups[0]) S.ui.att.groupId = S.data.groups[0].id;
   if (view === 'attendance') attDraft = null;
   closeDrawer(); render();
@@ -7561,6 +7703,36 @@ document.addEventListener('click', function(e){
 
     /* --- الطلاب --- */
     case 'addStudent': openStudentForm(); break;
+    case 'addExtra': Modal.closeAll(); setTimeout(() => openExtraForm(id), 120); break;
+    case 'attExtra': go('attendance', { groupId: id, date: el.dataset.date || '' }); break;
+    case 'extraDone': {
+      const date = el.dataset.date || '';
+      extraClose(date, id); commit();
+      toast('اتشالت من المواعيد — الحضور اللي اتسجّل فيها فاضل زي ما هو عند الطلبة', 'ok');
+      render(); break;
+    }
+    case 'extraSave': {
+      const gv = $('#xGroup'), dv = $('#xDate'), fv = $('#xFrom'), tv = $('#xTo'), nv = $('#xNote');
+      const gid2 = gv ? gv.value : '', date = dv ? dv.value : today();
+      const from = fv ? fv.value : '', to = tv ? tv.value : '', note = nv ? nv.value.trim() : '';
+      const g2 = groupOf(gid2);
+      if (!g2){ toast('اختر الحصة', 'warn'); break; }
+      if (!parseISO(date)){ toast('حدّد اليوم', 'warn'); break; }
+      if (String(date) < today()){ toast('اليوم لازم يكون النهارده أو بعده — الحصص القديمة بتتسجّل من شاشة الحضور عادي', 'warn'); break; }
+      if (Number(g2.day) === parseISO(date).getDay()){ toast('اليوم ده الحصة أساسًا في الجدول — الحصة المش محسوبة بتبقى في يوم تاني', 'warn'); break; }
+      const clash = extraConflict(date, from, to);
+      if (clash){ toast('في حصة تانية في نفس الوقت: ' + clash + ' — اختار وقت مختلف', 'warn'); break; }
+      extrasAll()[extraKey(date, gid2)] = {
+        date: date, groupId: gid2, from: from, to: to, note: note, done: 0,
+        createdAt: ((extraOf(date, gid2) || {}).createdAt) || new Date().toISOString(),
+        savedAt: new Date().toISOString(), rev: (((extraOf(date, gid2) || {}).rev) || 0) + 1
+      };
+      commit();
+      toast('اتضافت حصة مش محسوبة — سجّل حضورها من شاشة الحضور', 'ok');
+      Modal.closeAll();
+      setTimeout(() => go('attendance', { groupId: gid2, date: date }), 250);
+      break;
+    }
     case 'editStudent': Modal.closeAll(); setTimeout(() => openStudentForm(id), 120); break;
     case 'profile': Modal.closeAll(); setTimeout(() => openProfile(id), 120); break;
     case 'delStudent': {
@@ -8299,15 +8471,30 @@ const PMode = {
     try{ document.title = 'متابعة ' + (r.name || '') + ' — ' + (r.tname || 'منصة المستر'); }catch(e){}
     const rate = Math.max(0, Math.min(100, Number(tot.rate) || 0));
     const rcol = rate >= 75 ? 'var(--ok)' : rate >= 50 ? 'var(--warn)' : 'var(--bad)';
-    const last = att.slice(-14).reverse();
     const avg = ex.length ? Math.round(ex.reduce((a, e) => a + (e.max ? (Number(e.m) / Number(e.max)) * 100 : 0), 0) / ex.length) : null;
-    const exs = ex.slice(-12).reverse();
+
+    /* كل البيانات من أول السنة/الترم لآخر تسجيل — مقسّمة على شهور (الأحدث الأول) */
+    const byMonth = arr => {
+      const out = [];
+      arr.slice().sort((a, b) => (a.d < b.d ? 1 : a.d > b.d ? -1 : 0)).forEach(x => {
+        const k = String(x.d || '').slice(0, 7);
+        if (!out.length || out[out.length - 1].k !== k) out.push({ k: k, items: [] });
+        out[out.length - 1].items.push(x);
+      });
+      return out;
+    };
+    const mHead = (k, n, tag) => `<div class="pm-month"><span>${k ? monthName(k) : 'بدون تاريخ'}</span><i></i>` +
+      `<span class="pm-tag gray">${n} ${tag}</span></div>`;
+    const attM = byMonth(att), exM = byMonth(ex), noteM = byMonth(notes), absM = byMonth(abs);
+    const per = r.period || {};
     this.node.innerHTML = this.header() + `
       <div class="pm-kid"><div class="n">${esc(r.name || '')}</div>
-        <div class="s">${esc(r.stage || '')}${r.group ? ' · ' + esc(r.group) : ''}</div></div>
+        <div class="s">${esc(r.stage || '')}${r.group ? ' · ' + esc(r.group) : ''}</div>
+        ${per.from ? `<div class="small muted" style="margin-top:5px">كل البيانات من ${this.pmDate(per.from)} لـ ${this.pmDate(per.to)}${per.year ? ' · العام الدراسي ' + esc(per.year) : ''}</div>` : ''}</div>
 
       <div class="pm-card">
-        <h3>${icon('check')} الحضور</h3>
+        <h3>${icon('check')} الحضور
+          <span style="flex:1"></span><span class="badge b-gray">${att.length} حصة</span></h3>
         <div class="pm-rate">
           <div class="pm-num" style="color:${rcol}">${rate}%</div>
           <div style="flex:1">
@@ -8320,34 +8507,38 @@ const PMode = {
           <span class="pm-chip bad">غاب ${tot.absent || 0}</span>
           <span class="pm-chip warn">تأخر ${tot.late || 0}</span>
         </div>
-        ${last.length ? `<div style="margin-top:12px">${last.map(a => `<div class="pm-row">
+        ${attM.length ? `<div style="margin-top:10px">${attM.map(m => mHead(m.k, m.items.length, 'تسجيل') +
+          m.items.map(a => `<div class="pm-row">
             <span class="pm-chip ${TON[a.s] || ''}">${LAB[a.s] || esc(a.s || '')}</span>
-            <span style="flex:1"></span><span class="d">${this.pmDate(a.d)}</span></div>`).join('')}</div>`
+            ${a.x ? '<span class="pm-tag">حصة إضافية</span>' : ''}
+            <span style="flex:1"></span><span class="d">${this.pmDate(a.d)}</span></div>`).join('')).join('')}</div>`
           : '<div class="pm-empty">لسه مفيش حضور مسجّل</div>'}
       </div>
 
       <div class="pm-card">
         <h3>${icon('award')} الدرجات
           <span style="flex:1"></span>${avg != null ? `<span class="badge ${avg >= 75 ? 'b-ok' : avg >= 50 ? 'b-warn' : 'b-bad'}">المتوسط ${avg}%</span>` : ''}</h3>
-        ${exs.length ? exs.map(e => {
+        ${exM.length ? exM.map(m => mHead(m.k, m.items.length, 'امتحان') + m.items.map(e => {
           const pc = e.max ? Math.round((Number(e.m) / Number(e.max)) * 100) : null;
           const cl = pc == null ? '' : pc >= 75 ? 'ok' : pc >= 50 ? 'warn' : 'bad';
           return `<div class="pm-row"><div><div class="t">${esc(e.n || 'امتحان')}</div>
             <div class="d">${this.pmDate(e.d)}</div></div><span style="flex:1"></span>
             <span class="pm-g ${cl}">${esc(String(e.m))}${e.max ? ' / ' + esc(String(e.max)) : ''}</span>
             ${pc != null ? `<span class="pm-chip ${cl === 'ok' ? 'ok' : cl === 'bad' ? 'bad' : 'warn'}">${pc}%</span>` : ''}</div>`;
-        }).join('') : '<div class="pm-empty">لسه مفيش درجات مسجّلة</div>'}
+        }).join('')).join('') : '<div class="pm-empty">لسه مفيش درجات مسجّلة</div>'}
       </div>
 
       <div class="pm-card">
-        <h3>${icon('book')} ملاحظات المستر</h3>
-        ${notes.length ? notes.slice(0, 10).map(n => `<div class="pm-note">
+        <h3>${icon('book')} ملاحظات المستر
+          <span style="flex:1"></span><span class="badge b-gray">${notes.length + abs.length} ملاحظة</span></h3>
+        ${noteM.length ? noteM.map(m => mHead(m.k, m.items.length, 'ملاحظة') + m.items.map(n => `<div class="pm-note">
             <b>${esc(n.n || 'امتحان')} · ${this.pmDate(n.d)}</b>
             ${n.err ? '<div>🔻 الأخطاء: ' + esc(n.err) + '</div>' : ''}
-            ${n.hw ? '<div>📘 الواجب: ' + esc(n.hw) + '</div>' : ''}</div>`).join('')
+            ${n.hw ? '<div>📘 الواجب: ' + esc(n.hw) + '</div>' : ''}</div>`).join('')).join('')
           : '<div class="pm-empty">مفيش ملاحظات لحد الآن</div>'}
-        ${abs.length ? `<div style="margin-top:10px"><b class="small">ملاحظات الغياب</b>
-          ${abs.slice(0, 8).map(a => `<div class="pm-row"><span class="d">${this.pmDate(a.d)}</span><span style="flex:1"></span><span>${esc(a.n)}</span></div>`).join('')}</div>` : ''}
+        ${absM.length ? `<div style="margin-top:12px"><b class="small">ملاحظات الغياب</b>
+          ${absM.map(m => mHead(m.k, m.items.length, 'ملاحظة') + m.items.map(a => `<div class="pm-row">
+            <span class="d">${this.pmDate(a.d)}</span><span style="flex:1"></span><span>${esc(a.n)}</span></div>`).join('')).join('')}</div>` : ''}
       </div>
 
       <div class="pm-btns">
