@@ -512,6 +512,112 @@ body.pmode #pview{display:block;max-width:720px;margin:0 auto;padding:16px 14px 
 .pm-spin{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--brand);border-radius:50%;margin:0 auto 14px;animation:pmspin .9s linear infinite}
 @keyframes pmspin{to{transform:rotate(360deg)}}
 .pm-alert{background:var(--bad-bg);color:var(--bad);border-radius:14px;padding:14px;line-height:1.95;font-size:13.5px}
+/* ============ بوابة الطالب المنفصلة ============ */
+body.learnmode{background:var(--bg);min-height:100vh}
+body.learnmode .shell,body.learnmode #pview,body.learnmode #jview,body.learnmode #printArea,body.learnmode .fab{display:none!important}
+#learnview{display:none}
+body.learnmode #learnview{display:block;max-width:1260px;margin:0 auto;padding:18px 16px 34px;min-height:100vh}
+#learnview,#learnview *{box-sizing:border-box}
+#learnview svg{width:18px;height:18px;flex:0 0 18px}
+.lp-brand{display:flex;align-items:center;gap:10px;padding:4px 2px 16px;border-bottom:1px solid var(--line)}
+.lp-brand-icon{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:var(--brand);color:#171717;font-weight:900;font-size:16px;letter-spacing:-1px}
+.lp-brand>div:nth-child(2) b,.lp-brand>div:nth-child(2) span{display:block}
+.lp-brand>div:nth-child(2) b{font-size:15px;font-weight:900}
+.lp-brand>div:nth-child(2) span{font-size:11.5px;color:var(--muted);margin-top:2px}
+.lp-sp{flex:1}
+.lp-lock{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:11.5px;padding:6px 9px;border:1px solid var(--line);border-radius:99px}
+.lp-lock svg{width:15px!important;height:15px!important}
+.lp-main{max-width:500px;margin:30px auto 0}
+.lp-hero{text-align:center;margin:0 auto 16px;max-width:440px}
+.lp-mark{width:60px;height:60px;margin:0 auto 12px;border-radius:20px;background:var(--brand-soft);color:var(--brand-3);display:grid;place-items:center}
+.lp-mark svg{width:30px!important;height:30px!important}
+.lp-hero h1{font-size:24px;font-weight:900;margin:0 0 7px}
+.lp-hero p,.lp-copy{color:var(--muted);font-size:13px;line-height:1.9;margin:0}
+.lp-card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:17px;box-shadow:var(--shadow)}
+.lp-invite-note{display:flex;align-items:flex-start;gap:8px;background:var(--info-bg);color:var(--info);padding:10px 11px;border-radius:12px;font-size:12px;line-height:1.8;margin-bottom:13px}
+.lp-invite-note svg{width:16px!important;height:16px!important;margin-top:2px}
+.lp-field{display:block;margin:12px 0}
+.lp-field span{display:block;font-size:12.5px;font-weight:800;margin-bottom:6px}
+.lp-field input,.lp-answer-text{width:100%;min-height:44px;border:1px solid var(--line);border-radius:11px;background:var(--bg);color:var(--ink);padding:10px 12px;font:inherit;outline:none}
+.lp-field input:focus,.lp-answer-text:focus{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-soft)}
+.lp-btn{width:100%;min-height:46px;display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--brand);border-radius:12px;background:var(--brand);color:#181818;font-weight:900;font-size:14px;cursor:pointer;margin-top:12px;padding:10px 14px}
+.lp-btn:hover{filter:brightness(1.04)}.lp-btn:disabled{opacity:.6;cursor:wait}
+.lp-btn.secondary{background:var(--card);border-color:var(--line);color:var(--ink)}
+.lp-switch{text-align:center;font-size:12.5px;color:var(--muted);margin-top:14px}
+.lp-switch button,.lp-text-btn{border:0;background:transparent;color:var(--ink);font:inherit;font-weight:800;text-decoration:underline;cursor:pointer;padding:4px}
+.lp-safe{display:flex;align-items:center;justify-content:center;gap:7px;color:var(--muted);font-size:11.5px;line-height:1.8;text-align:center;margin-top:14px}
+.lp-safe svg{width:15px!important;height:15px!important;color:var(--ok)}
+.lp-alert{padding:10px 12px;border-radius:11px;background:var(--bad-bg);color:var(--bad);font-size:12.5px;line-height:1.85;margin:10px 0}
+.lp-verify-email{font:700 14px ui-monospace,monospace;text-align:center;background:var(--line-2);padding:11px;border-radius:11px;margin:12px 0}
+.lp-state{text-align:center;padding:24px 18px}
+.lp-state h1{font-size:21px;font-weight:900;margin:12px 0 5px}
+.lp-state p{color:var(--muted);font-size:13px;line-height:1.9;margin:0 auto;max-width:390px}
+.lp-state-icon{width:58px;height:58px;margin:auto;border-radius:50%;display:grid;place-items:center;background:var(--brand-soft);color:var(--brand-3)}
+.lp-state-icon svg{width:28px!important;height:28px!important}
+.lp-state-actions{max-width:320px;margin:12px auto 0}
+.lp-spinner{display:block;width:24px;height:24px;border:3px solid var(--line);border-top-color:var(--brand-3);border-radius:50%;animation:pmspin .8s linear infinite}
+.lp-footer{text-align:center;color:var(--muted);font-size:11px;padding:18px 0 0}
+.lp-welcome{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:17px 2px 19px}
+.lp-welcome h1{font-size:23px;font-weight:900;margin:1px 0 3px}
+.lp-welcome p{font-size:12px;color:var(--muted);direction:ltr;text-align:right;margin:0}
+.lp-kicker{display:block;font-size:11.5px;color:var(--muted);font-weight:800;margin-bottom:4px}
+.lp-layout{display:grid;grid-template-columns:minmax(210px,270px) minmax(0,1fr);gap:16px;align-items:start}
+.lp-courses{position:sticky;top:12px}
+.lp-section-title{font-size:14px;font-weight:900;margin:0 0 8px}
+.lp-course-card{width:100%;display:flex;align-items:center;gap:9px;text-align:right;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:13px;padding:11px;margin-bottom:8px;cursor:pointer;box-shadow:var(--shadow)}
+.lp-course-card.on{border-color:var(--brand);box-shadow:0 0 0 2px var(--brand-soft)}
+.lp-course-card.locked{opacity:.63;cursor:not-allowed}
+.lp-course-icon{width:31px;height:31px;display:grid;place-items:center;border-radius:10px;background:var(--line-2);color:var(--brand-3);flex:0 0 31px}
+.lp-course-icon svg{width:17px!important;height:17px!important}
+.lp-course-text{min-width:0;flex:1}.lp-course-text b,.lp-course-text span{display:block;white-space:normal}
+.lp-course-text b{font-size:12.5px;font-weight:900}.lp-course-text span{font-size:10.5px;line-height:1.6;color:var(--muted);margin-top:2px}
+.lp-course-count{font-size:10.5px;font-weight:900;white-space:nowrap;color:var(--muted)}
+.lp-main-content{min-width:0}
+.lp-course-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin:0 0 12px}
+.lp-course-head h2{font-size:21px;font-weight:900;margin:0}
+.lp-course-head p{font-size:12.5px;line-height:1.8;color:var(--muted);margin:4px 0 0}
+.lp-deadline{display:flex;align-items:center;gap:6px;padding:7px 10px;border-radius:10px;background:var(--warn-bg);color:var(--warn);font-size:11.5px;white-space:nowrap}
+.lp-deadline svg{width:15px!important;height:15px!important}
+.lp-two-col{display:grid;grid-template-columns:minmax(170px,230px) minmax(0,1fr);gap:12px;align-items:start}
+.lp-course-list{display:flex;flex-direction:column;gap:7px}
+.lp-video-row{width:100%;display:flex;align-items:center;gap:8px;text-align:right;background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:9px;cursor:pointer}
+.lp-video-row.selected{border-color:var(--brand);background:var(--brand-soft)}.lp-video-row.done .lp-video-num{background:var(--ok-bg);color:var(--ok)}
+.lp-video-row.locked{opacity:.55;cursor:not-allowed}
+.lp-video-num{width:27px;height:27px;border-radius:9px;background:var(--line-2);display:grid;place-items:center;flex:0 0 27px;font-size:11px;font-weight:900}
+.lp-video-num svg{width:15px!important;height:15px!important}
+.lp-video-label{min-width:0}.lp-video-label b,.lp-video-label span{display:block}
+.lp-video-label b{font-size:11.5px;font-weight:900;line-height:1.5}.lp-video-label span{font-size:10px;color:var(--muted);margin-top:2px}
+.lp-video-area{min-width:0}.lp-player-top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px}
+.lp-external{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);text-decoration:none;white-space:nowrap}
+.lp-external:hover{color:var(--ink);text-decoration:underline}.lp-external svg{width:14px!important;height:14px!important}
+.lp-player{width:100%;aspect-ratio:16/9;border-radius:13px;overflow:hidden;background:#08090b;display:flex;align-items:center;justify-content:center}
+.lp-player iframe{width:100%;height:100%;border:0}.lp-player-placeholder{display:flex;flex-direction:column;align-items:center;gap:10px;color:#e9e9e9;font-size:12px}
+.lp-player-error{color:#fff;text-align:center;padding:24px;font-size:13px;line-height:1.8}
+.lp-progress-meta{display:flex;justify-content:space-between;color:var(--muted);font-size:10.5px;margin-top:10px}
+.lp-progress{height:8px;background:var(--line-2);border-radius:99px;overflow:hidden;margin-top:5px}.lp-progress i{display:block;height:100%;border-radius:99px;background:var(--ok);transition:width .25s}
+.lp-video-note{font-size:12px;line-height:1.9;background:var(--line-2);padding:9px 10px;border-radius:10px;margin-top:10px}
+.lp-watch-note,.lp-result{display:flex;align-items:flex-start;gap:7px;padding:9px 10px;border-radius:10px;font-size:11.5px;line-height:1.8;margin-top:10px;background:var(--info-bg);color:var(--info)}
+.lp-watch-note svg,.lp-result svg{width:16px!important;height:16px!important;margin-top:1px}
+.lp-result.success{background:var(--ok-bg);color:var(--ok)}.lp-result.wait{background:var(--warn-bg);color:var(--warn)}.lp-result.fail{background:var(--bad-bg);color:var(--bad)}
+.lp-complete-panel{aspect-ratio:16/9;background:var(--ok-bg);color:var(--ok);border-radius:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+.lp-complete-panel svg{width:36px!important;height:36px!important}.lp-complete-panel b{font-size:17px}.lp-complete-panel small{font-size:12px}
+.lp-quiz{margin-top:11px}.lp-card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
+.lp-card-head h2{font-size:17px;font-weight:900;margin:0}.lp-pill{font-size:10.5px;font-weight:800;padding:5px 8px;background:var(--brand-soft);border-radius:99px}
+.lp-question{border:0;border-top:1px solid var(--line);padding:11px 0 0;margin:12px 0 0;min-width:0}
+.lp-question legend{font-size:13px;font-weight:900;line-height:1.8;padding:0 0 5px}.lp-question legend small{font-size:10px;color:var(--muted);font-weight:600}
+.lp-option{display:flex;align-items:center;gap:8px;padding:8px 9px;border:1px solid var(--line);border-radius:10px;margin:6px 0;font-size:12px;cursor:pointer}
+.lp-option input{accent-color:var(--brand-3);width:16px;height:16px}.lp-answer-text{min-height:75px;resize:vertical}
+.lp-empty{text-align:center;padding:28px 16px}.lp-empty>span{display:grid;place-items:center;margin:0 auto 10px;width:48px;height:48px;border-radius:16px;background:var(--line-2);color:var(--muted)}
+.lp-empty h2{font-size:16px;font-weight:900}.lp-empty p{font-size:12px;line-height:1.8;color:var(--muted)}
+.lv-admin-row{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px dashed var(--line);flex-wrap:wrap}
+.lv-admin-row:last-child{border-bottom:0}.lv-order{width:26px;height:26px;display:grid;place-items:center;border-radius:8px;background:var(--brand-soft);font-size:11px;font-weight:900;flex:0 0 26px}
+.lv-admin-main{flex:1;min-width:150px}.lv-admin-main b,.lv-admin-main span{display:block}.lv-admin-main b{font-size:12.5px}.lv-admin-main span{font-size:10.5px;color:var(--muted);margin-top:2px}
+.lv-q{border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:11px;margin:8px 0}.lv-q .field{margin-top:9px}
+.lv-request{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px dashed var(--line);flex-wrap:wrap}.lv-request:last-child{border-bottom:0}.lv-request-main{flex:1;min-width:170px}.lv-request-main b,.lv-request-main span{display:block}.lv-request-main b{font-size:13px}.lv-request-main span{font-size:11px;color:var(--muted);margin-top:3px}
+.lv-report-student{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:8px 0}.lv-progress-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 0;border-bottom:1px dashed var(--line)}.lv-progress-row:last-child{border-bottom:0}.lv-progress-row>b{min-width:110px;flex:1;font-size:12px}
+.lv-review-q{padding:9px 0;border-bottom:1px dashed var(--line)}.lv-review-q b{font-size:12.5px}.lv-review-q .small{margin-top:4px;line-height:1.8;word-break:break-word}.lv-url{display:block;direction:ltr;text-align:left;word-break:break-all;padding:9px 11px;background:var(--bg);border-radius:9px}
+@media(max-width:850px){#learnview{padding:12px}.lp-layout{grid-template-columns:1fr}.lp-courses{position:static;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.lp-section-title{grid-column:1/-1}.lp-course-card{margin:0}.lp-two-col{grid-template-columns:1fr}.lp-course-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.lp-main{margin-top:20px}.lp-hero h1{font-size:21px}.lp-card{padding:13px}.lp-welcome h1{font-size:19px}.lp-course-head{display:block}.lp-deadline{display:inline-flex;margin-top:8px}.lp-courses{grid-template-columns:1fr}.lp-two-col{gap:9px}.lp-course-list{grid-template-columns:1fr}.lp-video-row{padding:8px}.lp-lock{font-size:0}.lp-lock svg{margin:0}.lp-brand{padding-bottom:11px}}
 </style>
 <script>/* اللوجو: صورة المنصة كما هي بدون أي تعديل (logo.jpg ثم logo.png ثم شعار بديل) */
 window.AF_LOGO_KEY='mostar_logo';
@@ -572,6 +678,13 @@ window.AF_logoNext=function(img){
   <symbol id="i-list" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
   <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
   <symbol id="i-share" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v3"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 11v5M12 7h.01"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></symbol>
+  <symbol id="i-logout" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 17l5-5-5-5M15 12H3"/><path d="M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7"/></symbol>
+  <symbol id="i-external" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3h7v7M10 14 21 3"/><path d="M19 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h6"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5a1 1 0 0 1 1.5-.86l11 7.5a1 1 0 0 1 0 1.72l-11 7.5A1 1 0 0 1 7 19.5z"/></symbol>
 </defs></svg>
 
 <div class="shell">
@@ -599,6 +712,7 @@ window.AF_logoNext=function(img){
       <a data-view="groups"><svg><use href="#i-layers"/></svg><span>المجموعات والحصص</span></a>
       <a data-view="attendance"><svg><use href="#i-check-square"/></svg><span>الحضور والغياب</span></a>
       <a data-view="exams"><svg><use href="#i-award"/></svg><span>الامتحانات والدرجات</span></a>
+      <a data-view="learning"><svg><use href="#i-cap"/></svg><span>الفيديوهات والاختبارات</span></a>
       <div class="nlabel">المتابعة</div>
       <a data-view="reports"><svg><use href="#i-pdf"/></svg><span>التقارير و PDF</span></a>
       <a data-view="help"><svg><use href="#i-book"/></svg><span>دليل الاستخدام</span></a>
@@ -813,6 +927,8 @@ function defaultData(){
     feedback: {}, absNotes: {}, msgSent: {}, ptokens: {},
     /* الحصص الإضافية (مش محسوبة): حصة ليوم واحد مش من الجدول الأسبوعي */
     extras: {},
+    /* سلاسل الفيديو: المحتوى + الجمهور + خريطة تعيين الطالب (بدون ملفات فيديو) */
+    learningCourses: {}, learningAudience: {}, learningAssignments: {},
     members: {}, invites: {}, requests: {}
   };
 }
@@ -852,7 +968,7 @@ function platformBase(){
   }catch(e){}
   return PLATFORM_URL_DEFAULT;
 }
-const APP_V = 'v2.14';
+const APP_V = 'v2.15';
 const ERR_KEY = 'mostar_errlog';
 const SAFE_KEY = 'mostar_safe';      // نسخة محلية خفية — لو المتصفح مسح بياناته نرجّعها في ثانية
 let SAFE_AT = 0, SAFE_SIG = '';
@@ -924,7 +1040,7 @@ function migrate(d){
   out.groups = (out.groups || []).map(g => Object.assign({ id: uid('g'), name:'', stage:'', day: 6, from:'16:00', to:'18:00', payMode:'monthly', level:'', note:'' }, g));
   out.students = (out.students || []).map(s => Object.assign({
     id: uid('s'), code:'', name:'', stage:'', studySystem:'', type:'', level:'', groupId:'',
-    payMode:'monthly', phone:'', parentPhone:'', guardian:'', joinDate: today(), status:'active', notes:''
+    payMode:'monthly', phone:'', parentPhone:'', guardian:'', email:'', joinDate: today(), status:'active', notes:''
   }, s));
   out.exams = (out.exams || []).map(e => Object.assign({ id: uid('e'), name:'', stage:'', groupId:'', date: today(), max: 20, hw:'', note:'' }, e));
   out.grades = out.grades || {};
@@ -932,6 +1048,9 @@ function migrate(d){
   out.feedback = out.feedback || {};
   out.absNotes = out.absNotes || {};
   out.extras = out.extras || {};
+  out.learningCourses = out.learningCourses || {};
+  out.learningAudience = out.learningAudience || {};
+  out.learningAssignments = out.learningAssignments || {};
   out.msgSent = out.msgSent || {};
   out.meta.secrev = out.meta.secrev || {};
   out.meta.attrev = out.meta.attrev || {};
@@ -994,6 +1113,7 @@ function commit(opts){
   S.data.meta.rev = (S.data.meta.rev || 0) + 1;
   S.data.meta.updatedAt = new Date().toISOString();
   dirty.main = true;
+  try{ if (typeof Learning !== 'undefined') Learning.rebuildAssignments(); }catch(e){}
   saveLocal();
   if (!opts.silent) render();
   Cloud.push();
@@ -1045,6 +1165,45 @@ const FB_RULES_RTDB = `{
             ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher')"
           }
         },
+        "learning": {
+          "accounts": {
+            "$uid": {
+              ".read": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid).exists() || auth.uid == $uid)",
+              ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher')"
+            }
+          },
+          "invites": {
+            "$token": {
+              ".read": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid).exists() || !data.child('used').val() || data.child('claimedBy').val() == auth.uid)",
+              ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher')",
+              "claimedBy": {
+                ".write": "auth != null && auth.token.email_verified == true && auth.token.email == root.child('platforms/'+$code+'/learning/invites/'+$token+'/email').val() && auth.uid == newData.val() && !data.exists() && !root.child('platforms/'+$code+'/learning/accounts/'+auth.uid).exists() && root.child('platforms/'+$code+'/learning/invites/'+$token+'/used').val() != true"
+              }
+            }
+          },
+          "requests": {
+            ".read": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid).exists()",
+            "$uid": {
+              ".read": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid).exists() || auth.uid == $uid)",
+              ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher' || (auth.uid == $uid && auth.token.email_verified == true && auth.token.email == newData.child('email').val() && !data.exists() && !root.child('platforms/'+$code+'/learning/accounts/'+auth.uid).exists() && newData.child('status').val() == 'pending' && newData.child('uid').val() == auth.uid && root.child('platforms/'+$code+'/learning/invites/'+newData.child('inviteToken').val()+'/studentId').val() == newData.child('studentId').val() && root.child('platforms/'+$code+'/learning/invites/'+newData.child('inviteToken').val()+'/email').val() == newData.child('email').val() && root.child('platforms/'+$code+'/learning/invites/'+newData.child('inviteToken').val()+'/claimedBy').val() == auth.uid && root.child('platforms/'+$code+'/learning/invites/'+newData.child('inviteToken').val()+'/used').val() != true))"
+            }
+          },
+          "courseProgress": {
+            "$courseId": {
+              ".read": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid).exists()",
+              "$sid": {
+                ".read": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid).exists() || (auth.token.email_verified == true && root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/status').val() == 'active' && root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/studentId').val() == $sid && root.child('platforms/'+$code+'/sec/learningAssignments/v/'+$sid+'/'+$courseId).val() == true))",
+                ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher' || (auth.token.email_verified == true && root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/status').val() == 'active' && root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/studentId').val() == $sid && root.child('platforms/'+$code+'/sec/learningAssignments/v/'+$sid+'/'+$courseId).val() == true))"
+              }
+            }
+          },
+          "parentProgress": {
+            "$token": {
+              ".read": "auth != null",
+              ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher' || (auth.token.email_verified == true && root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/status').val() == 'active' && root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/studentId').val() == root.child('platforms/'+$code+'/parents/'+$token+'/sid').val()))"
+            }
+          }
+        },
         "meta": { ".read": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid).exists()", ".write": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid).exists()" },
         "main": { ".read": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid).exists()", ".write": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid).exists()" },
         "attendance": { ".read": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid).exists()", ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher')" },
@@ -1056,7 +1215,12 @@ const FB_RULES_RTDB = `{
         "sec": {
           ".read": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid).exists()",
           "$sk": {
-            ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || ($sk != 'settings' && $sk != 'members' && $sk != 'invites' && $sk != 'requests' && root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher'))"
+            ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || ($sk != 'settings' && $sk != 'members' && $sk != 'invites' && $sk != 'requests' && root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher'))",
+            "$wrap": {
+              "$id": {
+                ".read": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid).exists() || (auth.token.email_verified == true && $sk == 'learningAssignments' && $wrap == 'v' && $id == root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/studentId').val() && root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/status').val() == 'active') || ($sk == 'learningCourses' && $wrap == 'v' && auth.token.email_verified == true && root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/status').val() == 'active' && root.child('platforms/'+$code+'/sec/learningAssignments/v/'+root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/studentId').val()+'/'+$id).val() == true))"
+              }
+            }
           }
         },
         "att": {
@@ -1776,7 +1940,7 @@ const Cloud = {
      فاللي يتغير بس هو اللي بيتنقل، والتحديث بيوصل لحظيًا من غير
      ما المستر يعمل ريفريش أو يدوس "تنزيل".
      ========================================================== */
-  secKeys(){ return ['settings','groups','students','exams','grades','feedback','absNotes','msgSent','ptokens','members','invites','requests','extras']; },
+  secKeys(){ return ['settings','groups','students','exams','grades','feedback','absNotes','msgSent','ptokens','members','invites','requests','extras','learningCourses','learningAudience','learningAssignments']; },
   /* أرقام النسخ لازم تكون موحّدة بين كل الأجهزة.
      زمان كل جهاز كان بيعد من عنده (1، 2، 3…) وكل جهاز بيكتب أرقامه فوق التاني،
      فالجهاز يشوف رقم أقل من رقمه يفتكر إن مفيش جديد وما ينزّلش.
@@ -3729,7 +3893,8 @@ function openAuthWizard(){
 
       <div class="field"><label>1) فعّل الدخول الصامت في فايربيز ${hasKey ? '<span class="badge b-ok">تم ✅</span>' : '<span class="badge b-warn">مطلوب</span>'}</label>
         <div class="small muted" style="margin-bottom:8px;line-height:1.9">من كونسول فايربيز ← Authentication ← Sign-in method ← فعّل <b>Anonymous</b> ← Save (دقيقة واحدة).</div>
-        <button class="btn sm" data-act="authConsolePage">${icon('link')} افتح صفحة التفعيل</button></div>
+        <button class="btn sm" data-act="authConsolePage">${icon('link')} افتح صفحة التفعيل</button>
+        <div class="small muted" style="margin-top:8px;line-height:1.9">ولحسابات الطلبة بإيميل حقيقي: فعّل كمان <b>Email/Password</b> من نفس صفحة Sign-in method، ثم اضغط Save.</div></div>
 
       <div class="field" style="margin-top:14px"><label>2) الصق كود الإعدادات هنا ${on ? '<span class="badge b-ok">تم ✅</span>' : '<span class="badge b-warn">مطلوب</span>'}</label>
         <div class="small muted" style="margin-bottom:8px;line-height:1.9">من كونسول فايربيز ← ⚙️ Project settings ← Your apps ← تطبيق الويب ← انسخ <code>firebaseConfig</code> كله والصقه (أو الصق المفتاح لوحده).</div>
@@ -4428,6 +4593,7 @@ const TITLES = {
   groups:    ['المجموعات والحصص','مواعيد الحصص الأسبوعية وتوزيع الطلاب'],
   attendance:['الحضور والغياب','تسجيل حضور كل حصة وتقارير الانتظام'],
   exams:     ['الامتحانات والدرجات','إنشاء امتحان لمرحلة ومجموعة وتسجيل الدرجات'],
+  learning:  ['الفيديوهات والاختبارات','سلاسل تعليمية ومتابعة مشاهدة الطلبة'],
   help:      ['دليل الاستخدام','كل حاجة تشرح نفسها خطوة بخطوة'],
   reports:   ['التقارير و PDF','تقارير المتابعة جاهزة للطباعة والحفظ PDF'],
   settings:  ['الإعدادات','بيانات المنصة والمراحل والربط والتثبيت']
@@ -5572,7 +5738,7 @@ function confirmDialog(title, msg, okLabel, cb, danger){
    ============================================================ */
 const ROLE_INFO = {
   owner:   { ar:'المالك',  chip:'b-brand', ic:'star',  note:'صلاحيات كاملة — إنت' },
-  teacher: { ar:'مدرس',    chip:'b-info',  ic:'users', note:'حضور · درجات · ملاحظات · طلاب' },
+  teacher: { ar:'مدرس',    chip:'b-info',  ic:'users', note:'حضور · درجات · ملاحظات · طلاب · فيديوهات واختبارات' },
   parent:  { ar:'ولي أمر', chip:'b-gray',  ic:'eye',   note:'يشوف ابنه بس — قراءة فقط' },
   pending: { ar:'بانتظار الموافقة', chip:'b-warn', ic:'clock', note:'طلبك عند المستر' },
   guest:   { ar:'جهاز غير مسجّل', chip:'b-warn', ic:'alert', note:'محتاج تسجيل دخول' }
@@ -5580,7 +5746,7 @@ const ROLE_INFO = {
 /* الأقسام اللي المالك بس يقدر يرفعها على السحابة (نفس قواعد فايربيز) */
 const OWNER_SECTIONS = ['settings','members','invites','requests'];
 /* الأعمال اللي المالك بس يقدر يعملها */
-const OWNER_ONLY = ['delStudent','delGroup','delExam','delExamAll','trashOpen','trashRestore','trashEmpty','trashRestoreAsk',
+const OWNER_ONLY = ['delStudent','delGroup','delExam','delExamAll','delLearningVideo','delLearningCourse','trashOpen','trashRestore','trashEmpty','trashRestoreAsk',
   'undoOpen','undoLast','ycOpen','ycDo','ycArchive','snapRestoreAsk','snapshotNow',
   'deployOpen','deployZip','deployShell','deployCopy','deployTry','standaloneSave',
   'saveSettings','logoPick','logoClear','logoFile','membersOpen','memberInvite','memberRevoke',
@@ -5800,7 +5966,7 @@ const Roles = {
   },
   renderNow(){
     const info = this.info(), m = this.members(), u = this.uid();
-    const yes = ['يسجّل حضور وغياب','يدخّل درجات الامتحانات','يكتب ملاحظات الأخطاء والواجب','يضيف ويعدّل الطلاب والحصص','يصدّر ويطبع التقارير','يبعت رسالة ولي أمر على واتساب'];
+    const yes = ['يسجّل حضور وغياب','يدخّل درجات الامتحانات','يكتب ملاحظات الأخطاء والواجب','يضيف ويعدّل الطلاب والحصص','يضيف فيديوهات وسلاسل واختبارات','يراجع إجابات الطلبة ومتابعة المشاهدة','يصدّر ويطبع التقارير','يبعت رسالة ولي أمر على واتساب'];
     const no  = ['يحذف أي حاجة (ولا يشوف سلة المحذوفات)','يرجّع أو يسترجع نسخة قديمة','يقفل السنة أو ياخد نسخة احتياطية','يغيّر إعدادات المنصة أو اللوجو','يضيف أو يشيل مدرسين','ينشر المنصة أو يغيّر السيرفر'];
     const rows = Object.keys(m).map(k => {
       const x = m[k] || {}, inf = this.info(x.role), isMe = k === u;
@@ -6011,11 +6177,12 @@ const Parent = {
   hash(o){ let h = 5381; const t = JSON.stringify(o || ''); for (let i = 0; i < t.length; i++) h = ((h * 33) ^ t.charCodeAt(i)) >>> 0; return h.toString(36); },
   base(){ try{ return platformBase(); }catch(e){ return PLATFORM_URL_DEFAULT; } },
   link(token){
-    let code = FB_DEFAULT.code || FB_DEFAULT.projectId;
-    try{ code = Cloud.cfgNow().code || code; }catch(e){}
-    let k = '';
-    try{ k = Cloud.authKeyOf() || ''; }catch(e){ k = ''; }
-    return this.base() + '?p=' + encodeURIComponent(token) + '&c=' + encodeURIComponent(code) + (k ? '&k=' + encodeURIComponent(k) : '');
+    const cfg = Cloud.cfgNow() || FB_DEFAULT;
+    const code = cfg.code || cfg.projectId || FB_DEFAULT.code;
+    const pid = cfg.projectId || FB_DEFAULT.projectId;
+    const db = String(cfg.dbUrl || FB_DEFAULT.dbUrl || '').replace(/\/+$/,'');
+    const k = Cloud.authKeyOf(cfg) || '';
+    return this.base() + '?p=' + encodeURIComponent(token) + '&c=' + encodeURIComponent(code) + '&pid=' + encodeURIComponent(pid) + '&db=' + encodeURIComponent(db) + (k ? '&k=' + encodeURIComponent(k) : '');
   },
   /* صورة مختصرة لبيانات الطالب — دي اللي ولي الأمر بيقراها (ملف صغير جدًا وبيتحدّث لوحده) */
   snapshot(sid){
@@ -6672,7 +6839,7 @@ function openStudentForm(id){
   const gid = s ? s.groupId : (S.ui.stuFilter.groupId || '');
   const g = groupOf(gid);
   const st = s || { name:'', code: nextCode(), stage:'', studySystem:'', type:'', level:'', groupId: gid, payMode: (g && g.payMode) || 'monthly',
-    phone:'', parentPhone:'', guardian:'', joinDate: today(), status:'active', notes:'' };
+    phone:'', parentPhone:'', guardian:'', email:'', joinDate: today(), status:'active', notes:'' };
   const sysList = studySystemsFor(st.stage);
   Modal.open({
     title: id ? 'تعديل بيانات الطالب' : 'إضافة طالب جديد',
@@ -6712,6 +6879,9 @@ function openStudentForm(id){
         <div class="field"><label>هاتف ولي الأمر</label><input class="inp" id="fPPhone" value="${esc(st.parentPhone)}" placeholder="01xxxxxxxxx"></div>
         <div class="field"><label>اسم ولي الأمر</label><input class="inp" id="fGuardian" value="${esc(st.guardian)}"></div>
       </div>
+      <div class="field"><label>إيميل الطالب (لحساب بوابة الفيديوهات)</label>
+        <input class="inp" id="fEmail" type="email" value="${esc(st.email || '')}" placeholder="student@example.com" style="direction:ltr;text-align:left">
+        <span class="hint">بيستخدمه الطالب للدخول للبوابة — مش بيظهر للطلاب التانيين.</span></div>
       <div class="frow-3">
         <div class="field"><label>تاريخ الانضمام</label><input class="inp" type="date" id="fJoin" value="${st.joinDate || today()}"></div>
         <div class="field"><label>حالة الطالب</label><select class="inp" id="fStatus">
@@ -6758,7 +6928,7 @@ function openStudentForm(id){
           name: name, code: $('#fCode', body).value.trim(), stage: stageEl.value, studySystem: $('#fSys', body).value,
           type: $('#fType', body).value, level: $('#fLevel', body).value, groupId: $('#fGroup', body).value,
           payMode: $('#fPay', body).value, phone: $('#fPhone', body).value.trim(), parentPhone: $('#fPPhone', body).value.trim(),
-          guardian: $('#fGuardian', body).value.trim(), joinDate: $('#fJoin', body).value || today(),
+          guardian: $('#fGuardian', body).value.trim(), email: ($('#fEmail', body).value || '').trim().toLowerCase(), joinDate: $('#fJoin', body).value || today(),
           status: $('#fStatus', body).value, notes: $('#fNotes', body).value.trim()
         };
         if (id){ Object.assign(student(id), data); toast('تم تحديث بيانات ' + name, 'ok'); }
@@ -7100,6 +7270,7 @@ function openProfile(id){
         <button class="btn pri sm" data-act="pdfStudent" data-id="${s.id}">${icon('pdf')} تقرير PDF</button>
         <button class="btn sm" data-act="waCompose" data-id="${s.id}">${icon('whatsapp')} رسالة لولي الأمر</button>
         <button class="btn sm" data-act="waCompose" data-id="${s.id}" data-kind="student">${icon('user')} رسالة للطالب</button>
+        <button class="btn sm pri" data-act="learnInvite" data-id="${s.id}">${icon('cap')} دعوة بوابة الطالب</button>
         <button class="btn sm" data-act="editStudent" data-id="${s.id}">${icon('edit')} تعديل</button>
         <button class="btn sm" data-act="assign" data-id="${s.id}">${icon('link')} تحديد حصة</button>
         ${s.stage ? `<button class="btn sm ghost" data-act="filterStage" data-id="${esc(s.stage)}">${icon('users')} طلاب ${esc(s.stage)}</button>` : ''}
@@ -7404,7 +7575,7 @@ function render(){
   if (rid){ const el = document.getElementById(rid);
     if (el){ try{ el.focus(); if (rs != null && el.setSelectionRange) el.setSelectionRange(rs, re); }catch(e){} } }
 }
-const VIEW_LIST = ['dashboard','alerts','students','groups','attendance','exams','reports','help','settings'];
+const VIEW_LIST = ['dashboard','alerts','students','groups','attendance','exams','learning','reports','help','settings'];
 function go(view, extra){
   if (!VIEW_LIST.includes(view)) view = 'dashboard';
   S.view = view;
@@ -7860,6 +8031,37 @@ document.addEventListener('click', function(e){
     }
     case 'pdfExam': pdfExam(id); break;
 
+    /* --- بوابة الفيديوهات والاختبارات --- */
+    case 'learnCourseNew': Learning.openCourseEditor(''); break;
+    case 'learnCourseEdit': Learning.openCourseEditor(id); break;
+    case 'learnCourseSave': Learning.saveCourseDraft(); break;
+    case 'learnVideoNew': Learning.openVideoEditor(el.dataset.course, ''); break;
+    case 'learnVideoEdit': Learning.openVideoEditor(el.dataset.course, el.dataset.video); break;
+    case 'learnVideoUp': Learning.moveVideo(el.dataset.course, Number(el.dataset.index), -1); break;
+    case 'learnVideoDown': Learning.moveVideo(el.dataset.course, Number(el.dataset.index), 1); break;
+    case 'learnInvite': Learning.inviteOpen(id); break;
+    case 'learnInviteMake': Learning.inviteMake(id); break;
+    case 'learnRequestsRefresh': Learning.refreshRequests(true); break;
+    case 'learnRequestApprove': Learning.approveRequest(id); break;
+    case 'learnRequestReject': confirmDialog('رفض طلب حساب الطالب','متأكد من رفض طلب الدخول؟ سيحتاج الطالب دعوة جديدة لو أراد التسجيل لاحقًا.','رفض',()=>Learning.rejectRequest(id),true); break;
+    case 'learnReport': Learning.report(id); break;
+    case 'learnReview': Learning.review(el.dataset.course,el.dataset.sid,el.dataset.video); break;
+    case 'learnReviewPass': Learning.reviewSave(el.dataset.course,el.dataset.sid,el.dataset.video,true,false); break;
+    case 'learnReviewRetry': Learning.reviewSave(el.dataset.course,el.dataset.sid,el.dataset.video,false,true); break;
+    case 'delLearningVideo': {
+      const c=Learning.course(el.dataset.course); if(!c)break;
+      confirmDialog('حذف فيديو من السلسلة','هيتشال الفيديو من ترتيب السلسلة. بيانات التقدم السابقة لن تُحذف. متابعة؟','حذف',()=>{
+        c.videos=(c.videos||[]).filter(v=>v.id!==el.dataset.video);c.updatedAt=new Date().toISOString();commit();Modal.closeAll();toast('تم حذف الفيديو من السلسلة','ok');
+      },true); break;
+    }
+    case 'delLearningCourse': {
+      const dependents=Object.values(Learning.courses()).filter(c=>c&&c.prerequisiteId===id);
+      if(dependents.length){toast('لا يمكن حذف السلسلة؛ فيه سلاسل تانية معتمدة عليها. عدّل اعتمادها الأول.','warn');break;}
+      confirmDialog('حذف سلسلة تعليمية','هيتم حذف السلسلة من التعيينات. سجلات التقدم السابقة تفضل محفوظة. متابعة؟','حذف',()=>{
+        delete Learning.courses()[id];delete Learning.audiences()[id];Learning.rebuildAssignments();commit();Modal.closeAll();toast('تم حذف السلسلة','ok');
+      },true); break;
+    }
+
     /* --- التقارير --- */
     case 'repKind': S.ui.rep.kind = id; render(); break;
     case 'runReport': render(); toast('تم تحديث المعاينة', 'info'); break;
@@ -8106,7 +8308,7 @@ document.addEventListener('click', function(e){
     case 'authWizard': openAuthWizard(); break;
     case 'authCopyRules': copyText(Cloud.mode() === 'rtdb' ? FB_RULES_RTDB : FB_RULES, 'تم نسخ القواعد المحكمة ✅ الصقها في تبويب Rules واضغط Publish ثم اضغط «اتأكد إنها مؤمّنة»'); break;
     case 'authRulesPage': try{ window.open(rulesConsoleUrl(S.fb.cfg || Cloud.merged()), '_blank', 'noopener'); toast('الصق القواعد واضغط Publish', 'info', 'السحابة'); }catch(e){ toast('افتح كونسول فايربيز ← Realtime Database ← Rules', 'info'); } break;
-    case 'authConsolePage': try{ window.open(authConsoleUrl((S.fb.cfg || Cloud.merged()).projectId), '_blank', 'noopener'); toast('اضغط على Anonymous ← فعّله ← Save', 'info', 'السحابة'); }catch(e){ toast('افتح كونسول فايربيز ← Authentication', 'info'); } break;
+    case 'authConsolePage': try{ window.open(authConsoleUrl((S.fb.cfg || Cloud.merged()).projectId), '_blank', 'noopener'); toast('فعّل Anonymous للأجهزة الإدارية، وEmail/Password لبوابة الطلبة، ثم اضغط Save', 'info', 'السحابة'); }catch(e){ toast('افتح كونسول فايربيز ← Authentication', 'info'); } break;
     case 'authSave': {
       const txt = ($('#authPaste') && $('#authPaste').value) || '';
       const key = Cloud.parseCfg(txt).apiKey || (txt.match(/AIza[0-9A-Za-z_\-]{30,}/) || [])[0];
@@ -8338,7 +8540,7 @@ window.addEventListener('resize', throttle(() => {
    • مفيش أي كتابة ولا تعديل — قراءة بس، وبتتحدّث لوحدها
    ============================================================ */
 const PMode = {
-  token:'', code:'', key:'', rec:null, es:null, timer:null, busy:false,
+  token:'', code:'', key:'', pid:'', db:'', rec:null, videoProgress:{}, es:null, timer:null, busy:false,
   lsGet(k){ try{ return localStorage.getItem(k) || ''; }catch(e){ return ''; } },
   qp(n){ try{ return (new URLSearchParams(String(location.search || ''))).get(n) || ''; }catch(e){ return ''; } },
   fromUrl(){
@@ -8361,16 +8563,21 @@ const PMode = {
       localStorage.setItem('mostar_ptok', token);
       const c = this.qp('c'); if (c) localStorage.setItem('mostar_pcode', c);
       const k = this.qp('k'); if (k) localStorage.setItem('mostar_pkey', k);
+      if (this.pid) localStorage.setItem('mostar_ppid', this.pid);
+      if (this.db) localStorage.setItem('mostar_pdb', this.db);
     }catch(e){}
   },
   forget(){
-    try{ localStorage.removeItem('mostar_ptok'); localStorage.removeItem('mostar_pcode'); localStorage.removeItem('mostar_pkey'); }catch(e){}
+    try{ localStorage.removeItem('mostar_ptok'); localStorage.removeItem('mostar_pcode'); localStorage.removeItem('mostar_pkey'); localStorage.removeItem('mostar_ppid'); localStorage.removeItem('mostar_pdb'); }catch(e){}
     try{ const u = String(location.href).split('?')[0]; location.replace(u); }catch(e){ try{ location.reload(); }catch(err){} }
   },
   async start(){
     const token = this.fromUrl(); if (!token) return false;
     this.token = token;
     this.code = this.qp('c') || this.lsGet('mostar_pcode') || FB_DEFAULT.code || FB_DEFAULT.projectId;
+    this.pid = this.qp('pid') || this.lsGet('mostar_ppid') || this.code;
+    const pdef = FB_PROJECTS.filter(p => p.projectId === this.pid || p.code === this.code)[0] || FB_DEFAULT;
+    this.db = this.qp('db') || this.lsGet('mostar_pdb') || pdef.dbUrl || FB_DEFAULT.dbUrl;
     this.key = this.qp('k') || this.lsGet('mostar_pkey') || '';
     this.remember(token);
     try{
@@ -8383,8 +8590,8 @@ const PMode = {
     document.body.appendChild(this.node);
     this.loading('بنجهّز لك متابعة ابنك...');
     try{
-      const pid = this.code;
-      Cloud._active = Object.assign({}, FB_DEFAULT, { projectId: pid, code: pid, authDomain: pid + '.firebaseapp.com', dbUrl: FB_DEFAULT.dbUrl, apiKey: this.key || '' });
+      const pid = this.pid || this.code;
+      Cloud._active = Object.assign({}, FB_DEFAULT, { projectId: pid, code: this.code || pid, authDomain: pid + '.firebaseapp.com', dbUrl: this.db || FB_DEFAULT.dbUrl, apiKey: this.key || '' });
       Cloud._key = null;
       if (this.key){ try{ Cloud.saveKeyFor(pid, this.key); }catch(e){} }
     }catch(e){}
@@ -8404,7 +8611,12 @@ const PMode = {
     try{ rec = await Cloud.rtdb('GET', Cloud.rootPath() + '/parents/' + this.token, null, false, '?t=' + Date.now()); }
     catch(e){ err = (e && e.message) || 'مشكلة في الاتصال'; }
     this.busy = false;
-    if (rec && typeof rec === 'object'){ this.rec = rec; this.render(); return; }
+    if (rec && typeof rec === 'object'){
+      this.rec = rec;
+      try{ this.videoProgress = await Cloud.rtdb('GET', Cloud.rootPath() + '/learning/parentProgress/' + this.token, null, false, '?t=' + Date.now()) || {}; }
+      catch(e){ this.videoProgress = this.videoProgress || {}; }
+      this.render(); return;
+    }
     if (this.rec) return;                       // عندنا نسخة قديمة → نفضل عليها
     if (err) this.fail(err); else this.gone();
   },
@@ -8472,6 +8684,13 @@ const PMode = {
     const rate = Math.max(0, Math.min(100, Number(tot.rate) || 0));
     const rcol = rate >= 75 ? 'var(--ok)' : rate >= 50 ? 'var(--warn)' : 'var(--bad)';
     const avg = ex.length ? Math.round(ex.reduce((a, e) => a + (e.max ? (Number(e.m) / Number(e.max)) * 100 : 0), 0) / ex.length) : null;
+    const learnGroups = Object.keys(this.videoProgress || {}).map(cid => {
+      const byVideo = this.videoProgress[cid] || {};
+      const items = Object.keys(byVideo).map(vid => byVideo[vid] || {}).filter(x => x && (x.title || x.courseName));
+      return { cid:cid, items:items };
+    }).filter(g => g.items.length);
+    const learnStatus = st => ({ complete:'مكتمل', pendingReview:'بانتظار مراجعة الإجابة', review:'مراجعة المستر', retry:'يحتاج إعادة الاختبار', watching:'قيد المشاهدة', readyQuiz:'المشاهدة مكتملة — الاختبار متاح' }[st] || 'لم يبدأ');
+    const learnCard = `<div class="pm-card"><h3>${icon('cap')} فيديوهات واختبارات الطالب<span style="flex:1"></span><span class="badge b-gray">${learnGroups.reduce((n,g)=>n+g.items.length,0)} فيديو</span></h3>${learnGroups.length ? learnGroups.map(g => `<div class="pm-month"><span>${esc(g.items[0].courseName || 'سلسلة تعليمية')}</span><i></i></div>${g.items.map(v => `<div class="pm-row"><div style="min-width:0"><div class="t">${esc(v.title || 'فيديو')}</div><div class="d">${learnStatus(v.status)} · ${Math.floor(Number(v.watchedPct||0))}% مشاهدة · ${Number(v.attempts||0)} محاولة${v.deadline?' · الموعد '+this.pmDate(v.deadline):''}</div></div><span style="flex:1"></span>${v.score != null ? `<span class="pm-g ${v.passed?'ok':''}">${Number(v.score)} / ${Number(v.max||0)}</span>` : ''}</div>`).join('')}`).join('') : '<div class="pm-empty">لا يوجد تقدم في الفيديوهات بعد</div>'}<div class="small muted" style="margin-top:7px">يعرض التقدم والدرجات فقط — إجابات الاختبارات التفصيلية خاصة بالطالب والمستر.</div></div>`;
 
     /* كل البيانات من أول السنة/الترم لآخر تسجيل — مقسّمة على شهور (الأحدث الأول) */
     const byMonth = arr => {
@@ -8541,6 +8760,8 @@ const PMode = {
             <span class="d">${this.pmDate(a.d)}</span><span style="flex:1"></span><span>${esc(a.n)}</span></div>`).join('')).join('')}</div>` : ''}
       </div>
 
+      ${learnCard}
+
       <div class="pm-btns">
         ${r.tphone ? `<a class="btn pri" target="_blank" rel="noopener" href="${waLink(r.tphone, 'السلام عليكم أ. ' + (r.tname || '') + '، بخصوص ' + (r.name || '') + ' — ')}">${icon('whatsapp')} كلّم المستر</a>` : ''}
         <button class="btn" data-pm="reload">${icon('refresh')} تحديث</button>
@@ -8589,7 +8810,744 @@ const PMode = {
   }
 };
 
+/* ==========================================================
+   بوابة الفيديوهات — إدارة السلاسل، الدعوات، والتقارير
+   ========================================================== */
+const Learning = {
+  requests:{}, requestError:'', _reqAt:0, _reqPromise:null, _reqTimer:null, _progress:{}, courseDraft:null, videoDraft:null,
+  courses(){ if (!S.data.learningCourses || typeof S.data.learningCourses !== 'object') S.data.learningCourses = {}; return S.data.learningCourses; },
+  audiences(){ if (!S.data.learningAudience || typeof S.data.learningAudience !== 'object') S.data.learningAudience = {}; return S.data.learningAudience; },
+  assignments(){ if (!S.data.learningAssignments || typeof S.data.learningAssignments !== 'object') S.data.learningAssignments = {}; return S.data.learningAssignments; },
+  course(id){ return this.courses()[id] || null; },
+  clone(x){ return JSON.parse(JSON.stringify(x || {})); },
+  youtubeId(url){
+    const s = String(url || '').trim();
+    if (/^[\w-]{11}$/.test(s)) return s;
+    try{
+      const u = new URL(s);
+      const h = u.hostname.toLowerCase().replace(/^www\./,'');
+      let id = '';
+      if (h === 'youtu.be') id = u.pathname.split('/').filter(Boolean)[0] || '';
+      else if (h === 'youtube.com' || h === 'm.youtube.com' || h === 'youtube-nocookie.com'){
+        id = u.searchParams.get('v') || '';
+        if (!id){ const m = /^\/(?:embed|shorts|live)\/([^/?]+)/.exec(u.pathname); if (m) id = m[1]; }
+      }
+      return /^[\w-]{11}$/.test(id) ? id : '';
+    }catch(e){ return ''; }
+  },
+  rebuildAssignments(){
+    const courses = this.courses(), audiences = this.audiences(), out = {};
+    const students = (S.data.students || []).filter(s => s && s.id && s.status !== 'stopped');
+    const addWithPrereq = (sid, cid, seen) => {
+      if (!cid || seen.has(cid)) return;
+      seen.add(cid);
+      const c = courses[cid]; if (!c || c.archived) return;
+      (out[sid] = out[sid] || {})[cid] = true;
+      if (c.prerequisiteId) addWithPrereq(sid, c.prerequisiteId, seen);
+    };
+    students.forEach(st => {
+      Object.keys(courses).forEach(cid => {
+        const c = courses[cid]; if (!c || c.archived) return;
+        const a = audiences[cid] || {};
+        const groups = Array.isArray(a.groupIds) ? a.groupIds : [];
+        const ids = Array.isArray(a.studentIds) ? a.studentIds : [];
+        if (a.all || ids.indexOf(st.id) >= 0 || (st.groupId && groups.indexOf(st.groupId) >= 0)) addWithPrereq(st.id, cid, new Set());
+      });
+    });
+    S.data.learningAssignments = out;
+    return out;
+  },
+  assignedStudents(cid){
+    const ids = Object.keys(this.assignments()).filter(sid => this.assignments()[sid] && this.assignments()[sid][cid]);
+    return ids.map(sid => student(sid)).filter(Boolean).sort((a,b) => String(a.name||'').localeCompare(String(b.name||''),'ar'));
+  },
+  audienceText(cid){
+    const a = this.audiences()[cid] || {};
+    if (a.all) return 'كل الطلاب النشطين';
+    const parts = [];
+    const gs = (a.groupIds || []).map(id => groupOf(id)).filter(Boolean).map(g => g.name);
+    if (gs.length) parts.push(gs.join('، '));
+    const n = (a.studentIds || []).filter(id => student(id)).length;
+    if (n) parts.push(n + ' طالب محدد');
+    return parts.join(' + ') || 'لسه مفيش جمهور محدد';
+  },
+  inviteLink(token,email){
+    const cfg = Cloud.cfgNow() || FB_DEFAULT;
+    const code = cfg.code || cfg.projectId || FB_DEFAULT.code;
+    const project = cfg.projectId || FB_DEFAULT.projectId;
+    const db = String(cfg.dbUrl || FB_DEFAULT.dbUrl || '').replace(/\/+$/,'');
+    const key = Cloud.authKeyOf(cfg) || '';
+    return platformBase() + '?learn=' + encodeURIComponent(token) + '&c=' + encodeURIComponent(code) + '&p=' + encodeURIComponent(project) + '&db=' + encodeURIComponent(db) + (email ? '&e=' + encodeURIComponent(email) : '') + (key ? '&k=' + encodeURIComponent(key) : '');
+  },
+  inviteOpen(sid){
+    const s = student(sid); if (!s) return;
+    Modal.open({ title:'دعوة الطالب لبوابة الفيديوهات', sub:s.name, size:'md',
+      body:`<div class="help info" style="line-height:1.95;margin-bottom:12px">الطالب هينشئ حسابًا بإيميله، وطلب الدخول يفضل معلّق لحد ما المالك أو المدرس يراجعه. الحساب ده للبوابة التعليمية فقط.</div>
+        <div class="field"><label>إيميل الطالب <span class="req">*</span></label>
+          <input class="inp" id="learnInviteEmail" type="email" value="${esc(s.email || '')}" placeholder="student@example.com" style="direction:ltr;text-align:left"></div>
+        <div class="small muted">هننشئ لولي الأمر رابط متابعة لو مش موجود، عشان تظهر حالة مشاهدة الفيديوهات في صفحة ابنه.</div>`,
+      footer:`<button class="btn" data-close>إلغاء</button><button class="btn pri" data-act="learnInviteMake" data-id="${esc(sid)}">${icon('link')} إنشاء رابط الدعوة</button>` });
+  },
+  async inviteMake(sid){
+    const s = student(sid); if (!s) return;
+    const email = (($('#learnInviteEmail') || {}).value || '').trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('اكتب إيميل صحيح للطالب', 'warn'); return; }
+    if (!Cloud.authKeyOf()) { try{ await Cloud.findAuthKey(); }catch(e){} }
+    if (!Cloud.authKeyOf()){ toast('مفتاح Firebase مش موجود — افتح الإعدادات ← أمّن البيانات الأول', 'bad', 'بوابة الطالب'); return; }
+    let parentToken = Parent.of(sid) || '';
+    if (!parentToken){ try{ parentToken = await Parent.ensure(sid, true); }catch(e){} }
+    const token = Parent.rnd();
+    const rec = { studentId:sid, studentName:s.name || '', groupId:s.groupId || '', email:email, parentToken:parentToken, createdAt:new Date().toISOString(), createdBy:Roles.uid(), used:false, claimedBy:'' };
+    try{ await Cloud.rtdb('PUT', Cloud.rootPath() + '/learning/invites/' + token, rec); }
+    catch(e){ toast('مش قادرين نحفظ الدعوة — اتأكد إن قواعد Firebase الجديدة منشورة', 'bad', 'بوابة الطالب'); return; }
+    s.email = email;
+    commit({ silent:true });
+    const link = this.inviteLink(token,email);
+    const msg = 'السلام عليكم ' + (String(s.name || '').split(' ')[0] || 'يا بطل') + '، ده رابط دخولك لبوابة الفيديوهات والاختبارات في منصة المستر. سجّل بالإيميل ' + email + ' واختار كلمة سر، وبعدها استنى موافقة المستر:\n' + link;
+    Modal.closeAll();
+    Modal.open({ title:'رابط دعوة الطالب جاهز ✅', sub:s.name + ' · ' + email, size:'md',
+      body:`<div class="help ok" style="line-height:1.95">ابعت الرابط للطالب. بعد ما يسجل، هيظهر طلبه في شاشة «الفيديوهات والاختبارات» للموافقة.</div>
+        <div class="field" style="margin-top:12px"><label>رابط التسجيل</label><code class="code lv-url">${esc(link)}</code></div>
+        <div class="small muted" style="line-height:1.9">الفيديوهات بتتخزن على YouTube غير مُدرج؛ المنصة تحفظ التقدم والاختبارات فقط.</div>`,
+      footer:`<button class="btn" data-act="copy" data-id="${esc(link)}">${icon('copy')} نسخ الرابط</button>
+        <button class="btn ghost" data-act="copy" data-id="${esc(msg)}">${icon('copy')} نسخ الرسالة</button>
+        ${(s.phone || s.parentPhone) ? `<a class="btn pri" target="_blank" rel="noopener" href="${waLink(s.phone || s.parentPhone,msg)}">${icon('whatsapp')} واتساب</a>` : ''}
+        <button class="btn ghost" data-close>إغلاق</button>` });
+  },
+  async refreshRequests(force){
+    if (this._reqPromise) return this._reqPromise;
+    if (!force && Date.now() - this._reqAt < 10000) return this.requests;
+    if (S.fb.status !== 'live') return this.requests;
+    this._reqPromise = (async () => {
+      try{
+        const d = await Cloud.rtdb('GET', Cloud.rootPath() + '/learning/requests');
+        this.requests = d && typeof d === 'object' ? d : {};
+        this.requestError = '';
+        this._reqAt = Date.now();
+      }catch(e){ this.requestError = e.message || 'فشل الاتصال'; }
+      finally{ this._reqPromise = null; }
+      if (S.view === 'learning') render();
+      return this.requests;
+    })();
+    return this._reqPromise;
+  },
+  afterRender(){
+    if (S.view !== 'learning') return;
+    if (!this._reqTimer) this._reqTimer = setInterval(() => { if (S.view === 'learning') this.refreshRequests(false); }, 12000);
+    if (Date.now() - this._reqAt > 10000) this.refreshRequests(false);
+  },
+  pendingRequests(){ return Object.keys(this.requests || {}).map(uid => ({ uid:uid, request:this.requests[uid] || {} })).filter(x => x.request.status === 'pending'); },
+  async approveRequest(uid){
+    const r = (this.requests || {})[uid]; if (!r || r.status !== 'pending') return;
+    const s = student(r.studentId); if (!s){ toast('ملف الطالب المرتبط بالدعوة مش موجود — راجع الطلب', 'bad'); return; }
+    try{
+      let inv = await Cloud.rtdb('GET', Cloud.rootPath() + '/learning/invites/' + r.inviteToken);
+      if (!inv || inv.studentId !== r.studentId || inv.claimedBy !== uid || inv.used === true) throw new Error('الدعوة مش مطابقة أو اتستخدمت قبل كده');
+      let parentToken = inv.parentToken || Parent.of(r.studentId) || '';
+      if (!parentToken){ try{ parentToken = await Parent.ensure(r.studentId, true); }catch(e){} }
+      const account = { studentId:r.studentId, studentName:s.name || inv.studentName || '', status:'active', email:r.email || inv.email || '', parentToken:parentToken,
+        createdAt:r.at || new Date().toISOString(), approvedAt:new Date().toISOString(), approvedBy:Roles.uid() };
+      await Cloud.rtdb('PUT', Cloud.rootPath() + '/learning/accounts/' + uid, account);
+      await Cloud.rtdb('PUT', Cloud.rootPath() + '/learning/requests/' + uid, Object.assign({}, r, { status:'approved', reviewedAt:new Date().toISOString(), reviewedBy:Roles.uid() }));
+      await Cloud.rtdb('PUT', Cloud.rootPath() + '/learning/invites/' + r.inviteToken + '/used', true);
+      s.learningUid = uid; if (r.email) s.email = r.email;
+      commit({ silent:true });
+      toast('اتوافق على طلب ' + s.name + ' ✅', 'ok', 'بوابة الطالب');
+      await this.refreshRequests(true);
+    }catch(e){ toast('مش قادرين نوافق دلوقتي: ' + (e.message || ''), 'bad', 'بوابة الطالب'); }
+  },
+  async rejectRequest(uid){
+    const r = (this.requests || {})[uid]; if (!r || r.status !== 'pending') return;
+    try{
+      await Cloud.rtdb('PUT', Cloud.rootPath() + '/learning/requests/' + uid, Object.assign({}, r, { status:'rejected', reviewedAt:new Date().toISOString(), reviewedBy:Roles.uid() }));
+      if (r.inviteToken) await Cloud.rtdb('PUT', Cloud.rootPath() + '/learning/invites/' + r.inviteToken + '/used', true);
+      toast('اترفض طلب حساب الطالب', 'ok', 'بوابة الطالب');
+      await this.refreshRequests(true);
+    }catch(e){ toast('مش قادرين نرفض الطلب — اتأكد من النت', 'bad', 'بوابة الطالب'); }
+  },
+  openCourseEditor(id){
+    const old = id ? this.course(id) : null;
+    this.courseDraft = old ? this.clone(old) : { id:uid('lc'), name:'', description:'', prerequisiteId:'', videos:[], createdAt:new Date().toISOString(), archived:false };
+    this.audienceDraft = this.clone(this.audiences()[this.courseDraft.id] || { all:false, groupIds:[], studentIds:[] });
+    this.renderCourseEditor();
+  },
+  captureCourseDraft(){
+    const b = this.courseDraft; if (!b) return;
+    const name = $('#lcName'), desc = $('#lcDesc'), pre = $('#lcPrereq'), all = $('#lcAll'), gs = $('#lcGroups'), ss = $('#lcStudents');
+    if (name) b.name = name.value.trim();
+    if (desc) b.description = desc.value.trim();
+    if (pre) b.prerequisiteId = pre.value || '';
+    if (all) this.audienceDraft.all = !!all.checked;
+    if (gs) this.audienceDraft.groupIds = Array.from(gs.selectedOptions).map(x => x.value);
+    if (ss) this.audienceDraft.studentIds = Array.from(ss.selectedOptions).map(x => x.value);
+  },
+  dependsOn(courseId, targetId, seen){
+    if (!courseId || courseId === targetId) return courseId === targetId;
+    seen = seen || new Set(); if (seen.has(courseId)) return false; seen.add(courseId);
+    const c = this.course(courseId); return !!(c && c.prerequisiteId && (c.prerequisiteId === targetId || this.dependsOn(c.prerequisiteId, targetId, seen)));
+  },
+  renderCourseEditor(){
+    const d = this.courseDraft; if (!d) return;
+    const a = this.audienceDraft || {};
+    const pre = Object.values(this.courses()).filter(c => c && c.id !== d.id && !this.dependsOn(c.id,d.id));
+    const videos = Array.isArray(d.videos) ? d.videos : [];
+    Modal.open({ title:d.name ? 'تعديل سلسلة فيديوهات' : 'سلسلة فيديوهات جديدة', sub:'الفيديو يفضل على YouTube؛ خزّن رابطه هنا فقط', size:'lg',
+      body:`<div class="frow">
+          <div class="field"><label>اسم السلسلة <span class="req">*</span></label><input class="inp" id="lcName" value="${esc(d.name || '')}" placeholder="مثال: الوحدة الأولى — الحركة"></div>
+          <div class="field"><label>تفتح بعد سلسلة (اختياري)</label><select class="inp" id="lcPrereq"><option value="">مستقلة</option>${pre.map(c => `<option value="${esc(c.id)}" ${d.prerequisiteId === c.id ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></div>
+        </div>
+        <div class="field"><label>وصف مختصر</label><textarea class="inp" id="lcDesc" rows="2" placeholder="محتوى السلسلة والهدف منها">${esc(d.description || '')}</textarea></div>
+        <div class="card mt"><div class="card-h"><h3>${icon('users')} الطلبة اللي هتظهر لهم</h3><span class="sp"></span><label class="small"><input type="checkbox" id="lcAll" ${a.all ? 'checked' : ''}> كل الطلاب النشطين</label></div>
+          <div class="card-b"><div class="frow">
+            <div class="field"><label>مجموعات محددة (اختياري)</label><select class="inp" id="lcGroups" multiple size="6">${groupsSorted().map(g => `<option value="${esc(g.id)}" ${(a.groupIds || []).indexOf(g.id) >= 0 ? 'selected' : ''}>${esc(g.name)} — ${esc(g.stage || '')}</option>`).join('')}</select><span class="hint">اختار أكتر من مجموعة باستخدام Ctrl/⌘.</span></div>
+            <div class="field"><label>طلبة محددون (اختياري)</label><select class="inp" id="lcStudents" multiple size="6">${sortBy(S.data.students.filter(s => s.status !== 'stopped'),s=>s.name).map(s => `<option value="${esc(s.id)}" ${(a.studentIds || []).indexOf(s.id) >= 0 ? 'selected' : ''}>${esc(s.name)} — ${esc(s.stage || '')}</option>`).join('')}</select><span class="hint">لو اخترت «كل الطلاب» هيتجاهل الاختيارات دي.</span></div>
+          </div></div></div>
+        <div class="card mt"><div class="card-h"><h3>${icon('cap')} فيديوهات السلسلة</h3><span class="badge b-gray">${videos.length} فيديو</span><span class="sp"></span><button class="btn sm pri" data-act="learnVideoNew" data-course="${esc(d.id)}">${icon('plus')} إضافة فيديو</button></div>
+          <div class="card-b">${videos.length ? videos.map((v,i) => `<div class="lv-admin-row"><div class="lv-order">${i+1}</div><div class="lv-admin-main"><b>${esc(v.title || 'فيديو بدون عنوان')}</b><span>${v.quiz && v.quiz.questions ? v.quiz.questions.length : 0} سؤال · ${v.deadline ? 'آخر موعد ' + esc(v.deadline) : 'من غير موعد نهائي'}</span></div>
+            <button class="btn sm" data-act="learnVideoEdit" data-course="${esc(d.id)}" data-video="${esc(v.id)}">${icon('edit')} تعديل</button>
+            ${i ? `<button class="btn icon sm ghost" data-act="learnVideoUp" data-course="${esc(d.id)}" data-index="${i}" title="ارفعه في الترتيب">↑</button>` : ''}
+            ${i < videos.length-1 ? `<button class="btn icon sm ghost" data-act="learnVideoDown" data-course="${esc(d.id)}" data-index="${i}" title="نزّله في الترتيب">↓</button>` : ''}
+            ${Roles.isOwner() ? `<button class="btn icon sm ghost" data-act="delLearningVideo" data-course="${esc(d.id)}" data-video="${esc(v.id)}" title="حذف الفيديو">${icon('trash')}</button>` : ''}</div>`).join('') : '<div class="help info">ابدأ بإضافة أول فيديو. لازم يكون لكل فيديو اختبار قصير بعد المشاهدة.</div>'}</div></div>
+        <div class="help warn" style="margin-top:12px;line-height:1.9">التعيين للسلسلة يشمل الفيديوهات كلها. كل فيديو بيفتح بالترتيب بعد مشاهدة الأجزاء المطلوبة والنجاح في الاختبار السابق. روابط YouTube غير المدرجة ممكن تتشارك؛ المشاهدة اللي تتحسب لازم تكون من المشغل داخل البوابة.</div>
+      <div class="help info" style="margin-top:9px;line-height:1.9">تنبيه فني: عشان الخدمة تفضل بلا تكلفة إضافية ومن غير وظائف سحابية، التصحيح الآلي وتتبع المشاهدة بيشتغلوا في متصفح الطالب؛ الاختبار ومفتاح إجابته مش اختبارًا سريًا أو مراقَبًا، وممكن طالب تقني يتحايل عليهما.</div>`,
+      footer:`${Roles.isOwner() ? `<button class="btn ghost" data-act="delLearningCourse" data-id="${esc(d.id)}">${icon('trash')} حذف السلسلة</button>` : ''}<span class="sp"></span><button class="btn" data-close>إلغاء</button><button class="btn pri" data-act="learnCourseSave" data-id="${esc(d.id)}">${icon('save')} حفظ السلسلة</button>` });
+  },
+  openVideoEditor(courseId, videoId){
+    this.captureCourseDraft();
+    const c = this.courseDraft; if (!c || c.id !== courseId) return;
+    const old = videoId ? (c.videos || []).find(v => v.id === videoId) : null;
+    this.videoDraft = old ? this.clone(old) : { id:uid('lv'), title:'', url:'', youtubeId:'', note:'', deadline:'', quiz:{ passPct:70, maxAttempts:3, questions:[] } };
+    if (!this.videoDraft.quiz) this.videoDraft.quiz = { passPct:70, maxAttempts:3, questions:[] };
+    if (!Array.isArray(this.videoDraft.quiz.questions)) this.videoDraft.quiz.questions = [];
+    this.renderVideoEditor();
+  },
+  questionHTML(q,i){
+    const type = q.type || 'choice', opts = Array.isArray(q.options) ? q.options : [];
+    const answer = Number(q.answer || 0);
+    return `<div class="lv-q" data-qid="${esc(q.id)}"><div class="flex wrap" style="gap:8px"><b>سؤال ${i+1}</b><span class="sp"></span>
+      <select class="inp" data-qfield="type" style="max-width:180px"><option value="choice" ${type==='choice'?'selected':''}>اختيار من متعدد</option><option value="tf" ${type==='tf'?'selected':''}>صح أو غلط</option><option value="text" ${type==='text'?'selected':''}>إجابة مكتوبة</option></select>
+      </div>
+      <div class="field"><label>نص السؤال</label><textarea class="inp" rows="2" data-qfield="question" placeholder="اكتب السؤال">${esc(q.question || '')}</textarea></div>
+      ${type === 'choice' ? `<div class="frow"><div class="field"><label>الاختيارات — كل اختيار في سطر</label><textarea class="inp" rows="4" data-qfield="options">${esc(opts.join('\n'))}</textarea></div><div class="field"><label>الإجابة الصحيحة</label><select class="inp" data-qfield="answer">${opts.map((o,j) => `<option value="${j}" ${j===answer?'selected':''}>${esc(o || ('اختيار '+(j+1)))}</option>`).join('')}</select></div></div>` : type === 'tf' ? `<div class="field"><label>الإجابة الصحيحة</label><select class="inp" data-qfield="answer"><option value="0" ${answer===0?'selected':''}>صح</option><option value="1" ${answer===1?'selected':''}>غلط</option></select></div>` : `<div class="help info">الإجابة المكتوبة يراجعها المستر يدويًا قبل فتح الفيديو التالي.</div>`}
+      <div class="field" style="max-width:170px"><label>درجة السؤال</label><input class="inp" type="number" min="1" max="100" data-qfield="points" value="${Number(q.points || 1)}"></div></div>`;
+  },
+  renderQuestions(){
+    const q = (this.videoDraft && this.videoDraft.quiz && this.videoDraft.quiz.questions) || [];
+    const box = $('#lvQuestions'); if (!box) return;
+    box.innerHTML = q.length ? q.map((x,i) => this.questionHTML(x,i)).join('') : '<div class="help info">لسه مفيش أسئلة — أضف سؤال اختيار/صح وغلط أو سؤالًا مكتوبًا.</div>';
+  },
+  renderVideoEditor(){
+    const v = this.videoDraft; if (!v) return;
+    const q = v.quiz || {};
+    Modal.open({ title:v.title ? 'تعديل فيديو واختباره' : 'إضافة فيديو واختباره', sub:'استخدم رابط YouTube غير مُدرج', size:'lg',
+      body:`<div class="frow"><div class="field"><label>عنوان الفيديو <span class="req">*</span></label><input class="inp" id="lvTitle" value="${esc(v.title || '')}" placeholder="مثال: شرح قانون نيوتن الأول"></div>
+        <div class="field"><label>رابط YouTube غير مُدرج <span class="req">*</span></label><input class="inp" id="lvUrl" value="${esc(v.url || '')}" placeholder="https://youtu.be/..." style="direction:ltr;text-align:left"></div></div>
+        <div class="frow"><div class="field"><label>ملاحظة للطالب (اختياري)</label><textarea class="inp" id="lvNote" rows="2">${esc(v.note || '')}</textarea></div><div class="field"><label>آخر موعد (اختياري)</label><input class="inp" id="lvDeadline" type="date" value="${esc(v.deadline || '')}"></div></div>
+        <div class="frow-3"><div class="field"><label>درجة النجاح %</label><input class="inp" id="lvPass" type="number" min="1" max="100" value="${Number(q.passPct || 70)}"></div><div class="field"><label>عدد المحاولات قبل مراجعة المستر</label><input class="inp" id="lvAttempts" type="number" min="1" max="20" value="${Number(q.maxAttempts || 3)}"></div><div class="help info" style="align-self:center">الأسئلة الآلية تتصحح فورًا؛ الإجابة المكتوبة تحتاج مراجعة المستر.</div></div>
+        <div class="card mt"><div class="card-h"><h3>${icon('award')} أسئلة الاختبار</h3><span class="badge b-gray" id="lvQCount">${q.questions ? q.questions.length : 0} سؤال</span><span class="sp"></span><button class="btn sm pri" id="lvAddQ">${icon('plus')} إضافة سؤال</button></div><div class="card-b" id="lvQuestions"></div></div>
+        <div class="small muted" style="margin-top:10px;line-height:1.9">الاختبارات للتأكد من المتابعة التعليمية؛ لا تُستخدم كاختبار مراقَب أو لمنع تسجيل الشاشة.</div>`,
+      footer:`<button class="btn" data-close>إلغاء</button><button class="btn pri" id="lvSave">${icon('save')} حفظ الفيديو</button>`,
+      onMount:(body) => {
+        this.renderQuestions();
+        const list = $('#lvQuestions', body);
+        if (list){
+          list.oninput = e => this.captureQuestionField(e.target, false);
+          list.onchange = e => this.captureQuestionField(e.target, true);
+        }
+        const add = $('#lvAddQ', body); if (add) add.onclick = () => { this.videoDraft.quiz.questions.push({ id:uid('lq'), type:'choice', question:'', options:['',''], answer:0, points:1 }); this.renderQuestions(); $('#lvQCount',body).textContent=this.videoDraft.quiz.questions.length+' سؤال'; };
+        const save = $('#lvSave', body); if (save) save.onclick = () => this.saveVideoDraft();
+      }
+    });
+  },
+  captureQuestionField(el, changed){
+    const row = el && el.closest('[data-qid]'); if (!row || !this.videoDraft) return;
+    const q = (this.videoDraft.quiz.questions || []).find(x => x.id === row.dataset.qid); if (!q) return;
+    const f = el.dataset.qfield;
+    if (f === 'question') q.question = el.value.trim();
+    else if (f === 'options'){
+      q.options = el.value.split('\n').map(x => x.trim()).filter(Boolean);
+      if (q.answer >= q.options.length) q.answer = Math.max(0,q.options.length-1);
+      if (changed) this.renderQuestions();
+    } else if (f === 'points') q.points = Math.max(1,Number(el.value)||1);
+    else if (f === 'answer') q.answer = Number(el.value)||0;
+    else if (f === 'type'){
+      q.type = el.value;
+      if (q.type === 'tf'){ q.options=['صح','غلط']; q.answer=Number(q.answer)||0; }
+      if (q.type === 'text'){ q.options=[]; q.answer=''; }
+      if (q.type === 'choice' && (!q.options || q.options.length < 2)){ q.options=['','']; q.answer=0; }
+      if (changed) this.renderQuestions();
+    }
+  },
+  saveVideoDraft(){
+    const v = this.videoDraft; if (!v) return;
+    v.title = (($('#lvTitle')||{}).value || '').trim();
+    v.url = (($('#lvUrl')||{}).value || '').trim();
+    v.youtubeId = this.youtubeId(v.url);
+    v.note = (($('#lvNote')||{}).value || '').trim();
+    v.deadline = (($('#lvDeadline')||{}).value || '').trim();
+    v.quiz = v.quiz || { questions:[] };
+    v.quiz.passPct = clamp(Number(($('#lvPass')||{}).value)||70,1,100);
+    v.quiz.maxAttempts = clamp(Number(($('#lvAttempts')||{}).value)||3,1,20);
+    const rows = $$('#lvQuestions [data-qid]');
+    rows.forEach(row => {
+      const q = v.quiz.questions.find(x => x.id === row.dataset.qid); if (!q) return;
+      const text = $('[data-qfield="question"]',row), pts = $('[data-qfield="points"]',row), type = $('[data-qfield="type"]',row);
+      if (text) q.question = text.value.trim(); if (pts) q.points = Math.max(1,Number(pts.value)||1); if (type) q.type=type.value;
+      const opts = $('[data-qfield="options"]',row), ans = $('[data-qfield="answer"]',row);
+      if (opts) q.options=opts.value.split('\n').map(x=>x.trim()).filter(Boolean);
+      if (ans) q.answer=q.type==='text' ? '' : Number(ans.value)||0;
+      if (q.type==='tf'){ q.options=['صح','غلط']; q.answer=Number(q.answer)||0; }
+    });
+    if (!v.title){ toast('اكتب عنوان الفيديو', 'warn'); return; }
+    if (!v.youtubeId){ toast('الرابط مش رابط YouTube صحيح — استخدم youtube.com أو youtu.be', 'warn'); return; }
+    if (!v.quiz.questions.length){ toast('أضف سؤالًا واحدًا على الأقل للاختبار', 'warn'); return; }
+    for (const q of v.quiz.questions){
+      if (!q.question){ toast('اكتب نص كل سؤال', 'warn'); return; }
+      if (q.type==='choice' && (!q.options || q.options.filter(Boolean).length<2)){ toast('سؤال الاختيار محتاج اختيارين على الأقل', 'warn'); return; }
+      if (q.type==='choice' && (q.answer<0 || q.answer>=q.options.length)){ toast('حدّد الإجابة الصحيحة لكل سؤال اختيار', 'warn'); return; }
+    }
+    v.updatedAt = new Date().toISOString();
+    const c = this.courseDraft, idx = c.videos.findIndex(x => x.id === v.id);
+    if (idx >= 0) c.videos[idx] = this.clone(v); else c.videos.push(this.clone(v));
+    Modal.closeAll(); this.renderCourseEditor();
+  },
+  saveCourseDraft(){
+    this.captureCourseDraft();
+    const c = this.courseDraft; if (!c) return;
+    if (!c.name){ toast('اكتب اسم السلسلة', 'warn'); return; }
+    const a = this.audienceDraft || {};
+    if (!a.all && !(a.groupIds||[]).length && !(a.studentIds||[]).length){ toast('اختار الطلبة أو المجموعات اللي هتظهر لهم السلسلة', 'warn'); return; }
+    if (c.prerequisiteId && (c.prerequisiteId === c.id || this.dependsOn(c.prerequisiteId,c.id))){ toast('اختيار السلسلة السابقة هيعمل ترتيب دائري — اختار سلسلة تانية', 'warn'); return; }
+    c.updatedAt = new Date().toISOString();
+    this.courses()[c.id] = this.clone(c);
+    this.audiences()[c.id] = { all:!!a.all, groupIds:Array.from(new Set(a.groupIds||[])), studentIds:Array.from(new Set(a.studentIds||[])) };
+    this.rebuildAssignments();
+    this.courseDraft = null; this.audienceDraft = null;
+    commit(); Modal.closeAll(); toast('اتحفظت السلسلة والجمهور ✅', 'ok', 'الفيديوهات');
+  },
+  moveVideo(courseId,index,delta){
+    this.captureCourseDraft(); const c=this.courseDraft; if(!c || c.id!==courseId) return;
+    const n=index+delta; if(n<0 || n>=c.videos.length) return;
+    const a=c.videos; [a[index],a[n]]=[a[n],a[index]]; this.renderCourseEditor();
+  },
+  async report(courseId){
+    const c=this.course(courseId); if(!c) return;
+    let progress={};
+    try{ progress=await Cloud.rtdb('GET',Cloud.rootPath()+'/learning/courseProgress/'+courseId) || {}; }
+    catch(e){ toast('مش قادرين نقرأ تقرير المشاهدة — راجع قواعد Firebase الجديدة', 'bad', 'التقارير'); return; }
+    this._progress[courseId]=progress;
+    const ss=this.assignedStudents(courseId), vids=c.videos||[];
+    const rows=ss.map(st=>{
+      const byVideo=progress[st.id]||{};
+      const summary=vids.map(v=>{const p=byVideo[v.id]||{}; const label=p.status==='complete'?'مكتمل':p.status==='pendingReview'?'مراجعة مطلوبة':p.status==='review'?'مراجعة المحاولات':p.status==='retry'?'إعادة الاختبار':p.status==='readyQuiz'?'اختبار متاح':p.watchedPct?'بيشاهد':'ما بدأش';const last=p.attempts&&p.attempts.length?p.attempts[p.attempts.length-1]:null;return `<div class="lv-progress-row"><b>${esc(v.title)}</b><span class="badge ${p.status==='complete'?'b-ok':p.status==='pendingReview'||p.status==='review'?'b-warn':'b-gray'}">${label}</span><span class="small muted">${Math.floor(Number(p.watchedPct||0))}% مشاهدة${p.attempts&&p.attempts.length?' · '+p.attempts.length+' محاولة':''}${last?' · الدرجة '+Number(last.score||0)+'/'+Number(last.max||0):''}</span>${p.attempts&&p.attempts.length&&['pendingReview','review'].indexOf(p.status)>=0?`<button class="btn sm pri" data-act="learnReview" data-course="${esc(courseId)}" data-sid="${esc(st.id)}" data-video="${esc(v.id)}">${icon('eye')} مراجعة</button>`:''}</div>`;}).join('');
+      return `<div class="lv-report-student"><div class="flex wrap"><b>${esc(st.name)}</b><span class="small muted">${esc(st.stage||'')}${st.groupId?' · '+esc(groupName(st.groupId)):''}</span><span class="sp"></span><span class="small muted">${vids.filter(v=>(byVideo[v.id]||{}).status==='complete').length}/${vids.length} فيديو مكتمل</span></div>${summary||'<div class="small muted">لا توجد فيديوهات بعد</div>'}</div>`;
+    }).join('');
+    Modal.open({title:'متابعة السلسلة: '+c.name,sub:ss.length+' طالب · '+vids.length+' فيديو',size:'lg',body:rows||'<div class="help info">مفيش طلاب متعيّنين للسلسلة.</div>',footer:`<button class="btn" data-close>إغلاق</button>`});
+  },
+  async review(courseId,sid,videoId){
+    const c=this.course(courseId), st=student(sid), v=c&&(c.videos||[]).find(x=>x.id===videoId); if(!c||!st||!v) return;
+    let p=((this._progress[courseId]||{})[sid]||{})[videoId];
+    if(!p){try{p=await Cloud.rtdb('GET',Cloud.rootPath()+'/learning/courseProgress/'+courseId+'/'+sid+'/'+videoId);}catch(e){}}
+    if(!p) return;
+    const last=(p.attempts||[]).slice(-1)[0]||{}, qs=(v.quiz&&v.quiz.questions)||[];
+    const answers=last.answers||{};
+    const details=qs.map((q,i)=>`<div class="lv-review-q"><b>${i+1}. ${esc(q.question)}</b><div class="small muted">إجابة الطالب: ${esc(String(answers[q.id] == null?'—':(q.type==='choice'?(q.options||[])[Number(answers[q.id])]||'—':q.type==='tf'?(Number(answers[q.id])===0?'صح':'غلط'):answers[q.id])))}</div></div>`).join('');
+    Modal.open({title:'مراجعة اختبار '+st.name,sub:v.title,size:'md',body:`<div class="help info" style="margin-bottom:10px">نتيجة التصحيح الآلي: ${Number(last.score||0)} من ${Number(last.max||0)}${last.pct!=null?' · '+Math.round(last.pct)+'%':''}</div>${details}<div class="field"><label>درجة الأسئلة المكتوبة / الدرجة النهائية</label><input class="inp" id="lrScore" type="number" min="0" max="${Math.max(1,qs.reduce((n,x)=>n+Number(x.points||1),0))}" value="${Number(last.score||0)}"></div><div class="field"><label>ملاحظة للطالب (اختياري)</label><input class="inp" id="lrNote" placeholder="ملاحظة التصحيح"></div>`,footer:`<button class="btn ghost" data-close>إغلاق</button><button class="btn" data-act="learnReviewRetry" data-course="${esc(courseId)}" data-sid="${esc(sid)}" data-video="${esc(videoId)}">السماح بمحاولة أخرى</button><button class="btn pri" data-act="learnReviewPass" data-course="${esc(courseId)}" data-sid="${esc(sid)}" data-video="${esc(videoId)}">${icon('check')} اعتماد النجاح</button>`});
+  },
+  async reviewSave(courseId,sid,videoId,pass,retry){
+    const c=this.course(courseId), v=c&&(c.videos||[]).find(x=>x.id===videoId); if(!v) return;
+    let p=((this._progress[courseId]||{})[sid]||{})[videoId];
+    if(!p){try{p=await Cloud.rtdb('GET',Cloud.rootPath()+'/learning/courseProgress/'+courseId+'/'+sid+'/'+videoId);}catch(e){}}
+    if(!p) return;
+    const at=(p.attempts||[]).slice(-1)[0]; if(!at) return;
+    if(retry){p.extraAttempts=Number(p.extraAttempts||0)+1;p.status='retry';p.passed=false;at.review={decision:'retry',note:(($('#lrNote')||{}).value||'').trim(),at:new Date().toISOString(),by:Roles.uid()};}
+    else {
+      const score=Number((($('#lrScore')||{}).value)||0), max=Math.max(1,(v.quiz.questions||[]).reduce((n,q)=>n+Number(q.points||1),0));
+      at.score=clamp(score,0,max);at.max=max;at.pct=Math.round(at.score/max*100);at.review={decision:pass?'passed':'failed',note:(($('#lrNote')||{}).value||'').trim(),at:new Date().toISOString(),by:Roles.uid()};
+      p.passed=!!pass;p.status=pass?'complete':'retry';if(pass)p.completedAt=new Date().toISOString();else p.completedAt='';
+    }
+    p.updatedAt=new Date().toISOString();
+    try{
+      await Cloud.rtdb('PUT',Cloud.rootPath()+'/learning/courseProgress/'+courseId+'/'+sid+'/'+videoId,p);
+      if(this._progress[courseId]){this._progress[courseId][sid]=this._progress[courseId][sid]||{};this._progress[courseId][sid][videoId]=p;}
+      await this.syncParentSummary(sid,courseId,v,p);
+      Modal.closeAll(); toast(retry?'اتفتحت محاولة جديدة للطالب':'اتسجل قرار المراجعة', 'ok', 'بوابة الطالب');
+      this.report(courseId);
+    }catch(e){toast('مش قادرين نحفظ المراجعة — اتأكد من النت', 'bad', 'بوابة الطالب');}
+  },
+  async syncParentSummary(sid,courseId,v,p){
+    const s=student(sid);if(!s)return;
+    let token=Parent.of(sid);if(!token){try{token=await Parent.ensure(sid,true);}catch(e){}}
+    if(!token)return;
+    const c=this.course(courseId)||{};
+    const summary={courseId:courseId,courseName:c.name||'',videoId:v.id,title:v.title||'',status:p.status||'',watchedPct:Math.floor(Number(p.watchedPct||0)),attempts:(p.attempts||[]).length,score:(p.attempts||[]).length?Number((p.attempts||[]).slice(-1)[0].score||0):null,max:(p.attempts||[]).length?Number((p.attempts||[]).slice(-1)[0].max||0):null,passed:!!p.passed,deadline:v.deadline||'',updatedAt:p.updatedAt||new Date().toISOString()};
+    try{await Cloud.rtdb('PUT',Cloud.rootPath()+'/learning/parentProgress/'+token+'/'+courseId+'/'+v.id,summary);}catch(e){}
+  }
+};
+
+Views.learning = function(){
+  const courses=Object.values(Learning.courses()).filter(c=>c&&!c.archived).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'ar'));
+  const pending=Learning.pendingRequests();
+  const requests=pending.length?`<div class="card mt"><div class="card-h"><h3>${icon('bell')} طلبات حسابات الطلبة</h3><span class="badge b-warn">${pending.length} طلب</span><span class="sp"></span><button class="btn sm" data-act="learnRequestsRefresh">${icon('refresh')} تحديث</button></div><div class="card-b">${pending.map(x=>{const r=x.request,st=student(r.studentId);return `<div class="lv-request"><div class="lv-request-main"><b>${esc(st?st.name:(r.name||'طالب جديد'))}</b><span>${esc(r.email||'')} · ${esc(st?groupName(st.groupId):'')} · ${r.at?esc(String(r.at).slice(0,10)):''}</span></div><button class="btn sm pri" data-act="learnRequestApprove" data-id="${esc(x.uid)}">${icon('check')} قبول</button><button class="btn sm ghost" data-act="learnRequestReject" data-id="${esc(x.uid)}">${icon('x')} رفض</button></div>`}).join('')}</div></div>`:'';
+  const cards=courses.length?`<div class="grid g-2 mt">${courses.map(c=>`<div class="card"><div class="card-h"><h3>${icon('cap')} ${esc(c.name||'سلسلة بدون اسم')}</h3><span class="badge b-gray">${(c.videos||[]).length} فيديو</span></div><div class="card-b"><p class="small muted">${esc(c.description||'مفيش وصف')}</p><div class="small muted" style="margin:7px 0 12px">الجمهور: ${esc(Learning.audienceText(c.id))}${c.prerequisiteId?' · تفتح بعد: '+esc((Learning.course(c.prerequisiteId)||{}).name||'سلسلة سابقة'):''}</div><div class="btn-row"><button class="btn sm" data-act="learnCourseEdit" data-id="${esc(c.id)}">${icon('edit')} تعديل السلسلة</button><button class="btn sm pri" data-act="learnReport" data-id="${esc(c.id)}">${icon('chart')} متابعة الطلبة</button></div></div></div>`).join('')}</div>`:`<div class="card mt"><div class="card-b">${emptyState('لسه مفيش سلاسل فيديوهات','اعمل سلسلة، أضف فيديوهات YouTube غير مدرجة، وحدد الطلبة والاختبارات.',`<button class="btn pri" data-act="learnCourseNew">${icon('plus')} إنشاء أول سلسلة</button>`)}</div></div>`;
+  const err=Learning.requestError?`<div class="help warn mt">تعذّر تحميل طلبات الطلبة: ${esc(Learning.requestError)} — تأكد من نشر قواعد Firebase المحدّثة.</div>`:'';
+  return pageHead('الفيديوهات والاختبارات','سلاسل فيديوهات تعليمية · اختبار بعد كل فيديو · فتح تدريجي حسب الإنجاز',`<button class="btn pri" data-act="learnCourseNew">${icon('plus')} سلسلة جديدة</button>`)+
+    `<div class="help brand" style="line-height:1.95">ارفع الفيديو على YouTube كـ<b>غير مُدرج</b>، والصق رابطه هنا. الملفات نفسها لا تُرفع إلى Firebase؛ المنصة تحفظ بيانات الأسئلة والتقدم فقط. الطالب يدخل من رابط خاص بحسابه، ومشاهدة الأجزاء تُحتسب من المشغل داخل بوابته.</div>${err}${requests}${cards}`;
+};
+Views.after_learning = function(){ Learning.afterRender(); };
+
+/* ==========================================================
+   بوابة الطالب — Firebase Auth مستقل عن جلسة المالك
+   ========================================================== */
+const LearningPortal = {
+  token:'', apiKey:'', projectId:'', code:'', dbUrl:'', root:'', uid:'', idToken:'', refreshToken:'', expiresAt:0,
+  email:'', displayName:'', password:'', invite:null, account:null, request:null,
+  assignments:[], courses:{}, progress:{}, mode:'login', error:'', busy:false, rootEl:null,
+  selectedCourse:'', selectedVideo:'', player:null, playerVideo:'', playerTimer:null, lastTime:null,
+  writeChain:Promise.resolve(),
+  start(token){
+    this.token=token || '';
+    const q=new URLSearchParams(location.search);
+    this.code=q.get('c') || (FB_DEFAULT && FB_DEFAULT.code) || '';
+    this.projectId=q.get('p') || this.code || (FB_DEFAULT && FB_DEFAULT.projectId) || '';
+    const pr=FB_PROJECTS.filter(x=>x.projectId===this.projectId || x.code===this.code)[0] || FB_DEFAULT;
+    this.projectId=pr.projectId; this.code=this.code || pr.code || pr.projectId;
+    this.dbUrl=(q.get('db') || pr.dbUrl || '').replace(/\/+$/,'');
+    this.apiKey=q.get('k') || '';
+    if(!this.apiKey){try{this.apiKey=Cloud.authKeyOf({projectId:this.projectId})||'';}catch(e){}}
+    if(!this.apiKey){try{this.apiKey=localStorage.getItem('mostar_key_'+this.projectId)||'';if(this.apiKey&&this.apiKey[0]==='"')this.apiKey=JSON.parse(this.apiKey);}catch(e){}}
+    this.root='platforms/'+encodeURIComponent(this.code);
+    document.body.classList.add('learnmode');
+    document.title='بوابة الطالب التعليمية · منصة المستر';
+    document.documentElement.dataset.theme=document.documentElement.dataset.theme||'light';
+    this.rootEl=document.getElementById('learnview');
+    if(!this.rootEl){this.rootEl=document.createElement('div');this.rootEl.id='learnview';document.body.appendChild(this.rootEl);}
+    this.restore();
+    if(!this.email&&q.get('e'))this.email=q.get('e').trim().toLowerCase();
+    this.rootEl.addEventListener('click',e=>{const b=e.target.closest('[data-lp-act]');if(!b)return;const a=b.dataset.lpAct;this.action(a,b);});
+    this.rootEl.addEventListener('submit',e=>{if(e.target.id==='lpAuthForm'){e.preventDefault();this.submitAuth(e.target);}else if(e.target.id==='lpQuizForm'){e.preventDefault();this.submitQuiz(e.target);}});
+    if(!this.apiKey){this.error='رابط الدعوة ناقص مفتاح Firebase. اطلب من المستر إنشاء رابط دعوة جديد.';this.mode='error';this.render();return;}
+    if(!this.dbUrl){this.error='رابط قاعدة البيانات غير موجود في الدعوة.';this.mode='error';this.render();return;}
+    if(this.idToken && this.refreshToken){this.continueAuth(true).catch(e=>{this.error=e.message||'تعذر التحقق من الحساب';this.mode='login';this.clearSession();this.render();});}
+    else this.render();
+  },
+  sessionKey(){return 'mostar_learning_session_'+this.code+'_'+this.token;},
+  restore(){
+    try{const d=JSON.parse(sessionStorage.getItem(this.sessionKey())||'null');if(d){this.uid=d.uid||'';this.idToken=d.idToken||'';this.refreshToken=d.refreshToken||'';this.expiresAt=Number(d.expiresAt||0);this.email=d.email||'';this.displayName=d.displayName||'';}}catch(e){}
+  },
+  persist(){
+    try{sessionStorage.setItem(this.sessionKey(),JSON.stringify({uid:this.uid,idToken:this.idToken,refreshToken:this.refreshToken,expiresAt:this.expiresAt,email:this.email,displayName:this.displayName}));}catch(e){}
+  },
+  clearSession(){
+    try{sessionStorage.removeItem(this.sessionKey());}catch(e){}
+    this.uid='';this.idToken='';this.refreshToken='';this.expiresAt=0;this.email='';this.displayName='';this.password='';this.account=null;this.request=null;this.invite=null;this.courses={};this.progress={};this.assignments=[];
+    this.destroyPlayer();
+  },
+  async authRequest(name,body){
+    const url='https://identitytoolkit.googleapis.com/v1/'+name+'?key='+encodeURIComponent(this.apiKey);
+    let res;try{res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}catch(e){throw new Error('تعذر الاتصال بخدمة تسجيل الدخول؛ راجع الإنترنت.');}
+    let d={};try{d=await res.json();}catch(e){}
+    if(!res.ok){const code=d&&d.error&&d.error.message||'AUTH_FAILED';const map={EMAIL_EXISTS:'الإيميل مسجل بالفعل — استخدم «تسجيل الدخول».',INVALID_PASSWORD:'كلمة السر غير صحيحة.',EMAIL_NOT_FOUND:'الإيميل أو كلمة السر غير صحيحة.',INVALID_LOGIN_CREDENTIALS:'الإيميل أو كلمة السر غير صحيحة.',WEAK_PASSWORD:'كلمة السر لازم تكون 6 أحرف على الأقل.',INVALID_EMAIL:'صيغة الإيميل غير صحيحة.',OPERATION_NOT_ALLOWED:'تسجيل الإيميل وكلمة السر غير مفعّل في Firebase Authentication.',TOO_MANY_ATTEMPTS_TRY_LATER:'محاولات كتير؛ استنى شوية وجرب تاني.'};throw new Error(map[code]||('تعذر تسجيل الدخول: '+code));}
+    return d;
+  },
+  saveAuthResult(d){
+    this.uid=d.localId||d.user_id||this.uid;this.idToken=d.idToken||d.access_token||this.idToken;this.refreshToken=d.refreshToken||this.refreshToken;
+    this.expiresAt=Date.now()+Math.max(60,Number(d.expiresIn||3600)-60)*1000;this.email=(d.email||this.email||'').toLowerCase();this.persist();
+  },
+  async refreshIdToken(){
+    if(!this.refreshToken)throw new Error('انتهت جلسة الدخول — سجّل دخولك من جديد.');
+    const url='https://securetoken.googleapis.com/v1/token?key='+encodeURIComponent(this.apiKey);
+    let res;try{res=await fetch(url,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:'grant_type=refresh_token&refresh_token='+encodeURIComponent(this.refreshToken)});}catch(e){throw new Error('تعذر تحديث جلسة الدخول؛ راجع الإنترنت.');}
+    const d=await res.json().catch(()=>({}));if(!res.ok)throw new Error('انتهت جلسة الدخول — سجّل دخولك من جديد.');
+    this.saveAuthResult(d);return this.idToken;
+  },
+  async ensureToken(){if(!this.idToken||Date.now()>this.expiresAt-15000)return this.refreshIdToken();return this.idToken;},
+  async rtdb(method,path,body){
+    const idt=await this.ensureToken();
+    const u=this.dbUrl+'/'+path+'.json?auth='+encodeURIComponent(idt);
+    let res;try{res=await fetch(u,{method,cache:'no-store',headers:body===undefined?undefined:{'Content-Type':'application/json'},body:body===undefined?undefined:JSON.stringify(body)});}catch(e){throw new Error('مفيش اتصال بقاعدة البيانات — راجع الإنترنت.');}
+    const txt=await res.text();let d=null;try{d=txt?JSON.parse(txt):null;}catch(e){}
+    if(!res.ok){const raw=(d&&d.error)||('HTTP '+res.status);if(res.status===401){this.idToken='';this.expiresAt=0;this.persist();}throw new Error(res.status===403?'قواعد Firebase رفضت الطلب. لازم نشر قواعد بوابة الطالب الجديدة.':(String(raw).slice(0,220)));}
+    return d;
+  },
+  async lookupUser(){
+    const d=await this.authRequest('accounts:lookup',{idToken:await this.ensureToken()});
+    const user=(d.users||[])[0]||{};this.uid=user.localId||this.uid;this.email=(user.email||this.email||'').toLowerCase();this.displayName=this.displayName||user.displayName||'';this.persist();return user;
+  },
+  async sendVerification(){
+    try{await this.authRequest('accounts:sendOobCode',{requestType:'VERIFY_EMAIL',idToken:await this.ensureToken()});return true;}catch(e){this.error=e.message;return false;}
+  },
+  async submitAuth(form){
+    if(this.busy)return;
+    const email=(form.querySelector('#lpEmail').value||'').trim().toLowerCase();
+    const pass=form.querySelector('#lpPassword').value||'';
+    const name=(form.querySelector('#lpName')&&form.querySelector('#lpName').value||'').trim();
+    if(!email||!pass){this.error='اكتب الإيميل وكلمة السر.';this.render();return;}
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){this.error='اكتب إيميل صحيح.';this.render();return;}
+    if(pass.length<6){this.error='كلمة السر لازم تكون 6 أحرف على الأقل.';this.render();return;}
+    if(this.mode==='signup'&&!name){this.error='اكتب اسم الطالب.';this.render();return;}
+    this.busy=true;this.error='';this.render();
+    try{
+      this.password=pass;this.email=email;this.displayName=name||this.displayName;
+      const d=await this.authRequest(this.mode==='signup'?'accounts:signUp':'accounts:signInWithPassword',{email,password:pass,returnSecureToken:true});
+      this.saveAuthResult(d);
+      if(this.mode==='signup'){
+        const sent=await this.sendVerification();this.mode='verify';this.error=sent?'أنشأنا الحساب وأرسلنا رسالة تحقق إلى '+email+'. افتح الرسالة واضغط رابط التحقق، ثم ارجع واضغط «تحققت من الإيميل».':'أنشأنا الحساب، لكن تعذر إرسال رسالة التحقق: '+this.error+' — جرّب إعادة إرسالها.';
+      } else await this.continueAuth(false);
+    }catch(e){this.error=e.message||'حصل خطأ أثناء تسجيل الدخول.';}
+    this.busy=false;this.render();
+  },
+  async continueAuth(silent){
+    if(!this.idToken)return;
+    const u=await this.lookupUser();
+    if(!u.emailVerified){
+      this.mode='verify';
+      if(!silent){const sent=await this.sendVerification();this.error=sent?'الإيميل محتاج تأكيد قبل إرسال طلب الحساب. راجع صندوق الوارد أو الرسائل غير المرغوب فيها.':'تعذر إرسال رسالة التحقق: '+this.error;}
+      else this.error='فعّل الإيميل من رسالة Firebase، ثم ارجع وسجّل الدخول مرة أخرى.';
+      this.render();return;
+    }
+    await this.prepareRequest();
+  },
+  async verifyAgain(){
+    if(this.busy)return;this.busy=true;this.error='';this.render();
+    try{
+      if(!this.password){this.mode='login';this.error='سجّل دخولك مرة أخرى بعد تفعيل الإيميل.';}
+      else {
+        const d=await this.authRequest('accounts:signInWithPassword',{email:this.email,password:this.password,returnSecureToken:true});this.saveAuthResult(d);
+        const u=await this.lookupUser();
+        if(!u.emailVerified){const sent=await this.sendVerification();this.error=sent?'لسه الإيميل مش متأكد — افتح رسالة التحقق الأول.':'تعذر إرسال رسالة التحقق: '+this.error;}
+        else await this.prepareRequest();
+      }
+    }catch(e){this.error=e.message||'تعذر التحقق.';}
+    this.busy=false;this.render();
+  },
+  async prepareRequest(){
+    if(!this.uid)throw new Error('مش قادرين نحدد الحساب — سجّل دخولك من جديد.');
+    const account=await this.rtdb('GET',this.root+'/learning/accounts/'+encodeURIComponent(this.uid));
+    if(account&&account.status==='active'){
+      if(String(account.email||'').toLowerCase()!==this.email)throw new Error('الإيميل مش مطابق للحساب المعتمد.');
+      this.account=account;await this.loadLearning();return;
+    }
+    const old=await this.rtdb('GET',this.root+'/learning/requests/'+encodeURIComponent(this.uid));
+    if(old&&old.status==='pending'){this.request=old;this.mode='pending';this.error='';return;}
+    if(old&&old.status==='rejected'){this.request=old;this.mode='rejected';this.error='';return;}
+    const inv=await this.rtdb('GET',this.root+'/learning/invites/'+encodeURIComponent(this.token));
+    if(!inv||!inv.studentId)throw new Error('رابط الدعوة غير صالح أو انتهت صلاحيته. اطلب رابطًا جديدًا من المستر.');
+    if(String(inv.email||'').toLowerCase()!==this.email)throw new Error('هذا الرابط مخصص لإيميل مختلف. سجّل بالإيميل المكتوب في الدعوة.');
+    if(inv.used===true&&inv.claimedBy!==this.uid)throw new Error('رابط الدعوة مستخدم بالفعل — اطلب من المستر دعوة جديدة.');
+    if(inv.claimedBy&&inv.claimedBy!==this.uid)throw new Error('تم حجز الدعوة لحساب آخر — تواصل مع المستر.');
+    this.invite=inv;
+    if(!inv.claimedBy)await this.rtdb('PUT',this.root+'/learning/invites/'+encodeURIComponent(this.token)+'/claimedBy',this.uid);
+    const req={uid:this.uid,studentId:inv.studentId,email:this.email,inviteToken:this.token,status:'pending',at:new Date().toISOString(),name:inv.studentName||this.displayName||''};
+    await this.rtdb('PUT',this.root+'/learning/requests/'+encodeURIComponent(this.uid),req);
+    this.request=req;this.mode='pending';this.error='';
+  },
+  async loadLearning(){
+    this.mode='loading';this.render();
+    const sid=this.account.studentId;
+    const assigned=await this.rtdb('GET',this.root+'/sec/learningAssignments/v/'+encodeURIComponent(sid));
+    const ids=Object.keys(assigned||{}).filter(id=>assigned[id]===true);
+    this.assignments=ids;
+    const courses={};
+    for(const id of ids){
+      try{const c=await this.rtdb('GET',this.root+'/sec/learningCourses/v/'+encodeURIComponent(id));if(c&&c.id)courses[id]=c;}catch(e){}
+    }
+    this.courses=courses;this.progress={};
+    for(const id of Object.keys(courses)){
+      try{const p=await this.rtdb('GET',this.root+'/learning/courseProgress/'+encodeURIComponent(id)+'/'+encodeURIComponent(sid));this.progress[id]=p&&typeof p==='object'?p:{};}catch(e){this.progress[id]={};}
+    }
+    const first=Object.keys(courses)[0];
+    this.mode='home';
+    if(this.selectedCourse&&!courses[this.selectedCourse])this.selectedCourse='';
+    if(!this.selectedCourse&&first)this.selectedCourse=first;
+    this.render();
+  },
+  assignedCourseComplete(cid){
+    const c=this.courses[cid];if(!c||!Array.isArray(c.videos)||!c.videos.length)return false;
+    return c.videos.every(v=>(this.progress[cid]||{})[v.id]&&this.progress[cid][v.id].status==='complete');
+  },
+  courseUnlocked(c){return !c.prerequisiteId||this.assignedCourseComplete(c.prerequisiteId);},
+  videoUnlocked(c,index){if(index<=0)return this.courseUnlocked(c);const prev=c.videos[index-1];return this.courseUnlocked(c)&&(this.progress[c.id]||{})[prev.id]&&(this.progress[c.id]||{})[prev.id].status==='complete';},
+  progressFor(cid,vid){const by=this.progress[cid]||{};return by[vid]||{status:'',watchedPct:0,watchedSeconds:0,ranges:[],attempts:[]};},
+  selectCourse(cid){this.destroyPlayer();this.selectedCourse=cid;this.selectedVideo='';this.render();},
+  selectVideo(vid){this.destroyPlayer();this.selectedVideo=vid;this.render();},
+  courseCompleteCount(c){return (c.videos||[]).filter(v=>this.progressFor(c.id,v.id).status==='complete').length;},
+  render(){
+    if(!this.rootEl)return;
+    this.destroyPlayer();
+    if(this.mode==='home'){this.renderHome();return;}
+    if(this.mode==='pending'||this.mode==='rejected'||this.mode==='loading'){this.renderState();return;}
+    if(this.mode==='verify'){this.renderVerify();return;}
+    if(this.mode==='error'){this.rootEl.innerHTML=this.shell(`<div class="lp-card"><div class="lp-alert">${esc(this.error||'خطأ غير معروف')}</div><button class="lp-btn" data-lp-act="goLogin">رجوع لتسجيل الدخول</button></div>`);return;}
+    this.renderAuth();
+  },
+  shell(inner){return `<header class="lp-brand"><div class="lp-brand-icon">AF</div><div><b>منصة المستر</b><span>بوابة الطالب التعليمية</span></div><span class="lp-sp"></span><span class="lp-lock">${icon('lock')} حساب طالب</span></header><main class="lp-main">${inner}</main><footer class="lp-footer">بوابة مستقلة للفيديوهات والاختبارات · بيانات الدخول لا تفتح لوحة الإدارة</footer>`;},
+  renderAuth(){
+    const signup=this.mode==='signup';
+    const inside=this.error?`<div class="lp-alert">${esc(this.error)}</div>`:'';
+    const name=signup?`<label class="lp-field"><span>اسم الطالب</span><input id="lpName" type="text" maxlength="100" autocomplete="name" required value="${esc(this.displayName||'')}"></label>`:'';
+    this.rootEl.innerHTML=this.shell(`<section class="lp-hero"><span class="lp-mark">${icon('cap')}</span><h1>${signup?'إنشاء حساب الطالب':'تسجيل دخول الطالب'}</h1><p>استخدم الإيميل وكلمة السر للدخول إلى الفيديوهات والاختبارات المعيّنة لك.</p></section><section class="lp-card"><div class="lp-invite-note">${icon('info')} الرابط صالح لتسجيل الطالب المرتبط به فقط، وبعد التسجيل ينتظر الحساب موافقة المستر.</div>${inside}<form id="lpAuthForm" novalidate>${name}<label class="lp-field"><span>الإيميل</span><input id="lpEmail" type="email" autocomplete="email" required value="${esc(this.email)}" placeholder="student@example.com" dir="ltr"></label><label class="lp-field"><span>كلمة السر</span><input id="lpPassword" type="password" autocomplete="${signup?'new-password':'current-password'}" required minlength="6" placeholder="6 أحرف على الأقل"></label><button class="lp-btn" type="submit" ${this.busy?'disabled':''}>${this.busy?'جارٍ التحقق…':signup?'إنشاء الحساب':'دخول'}</button></form><div class="lp-switch">${signup?'عندك حساب بالفعل؟':'أول مرة؟'} <button data-lp-act="setMode" data-mode="${signup?'login':'signup'}">${signup?'سجّل دخولك':'أنشئ حسابًا'}</button></div></section><div class="lp-safe">${icon('shield')} ولي الأمر والمدرس يشاهدان ملخص التقدم فقط؛ إجابات الاختبار التفصيلية لا تظهر لولي الأمر.</div>`);
+  },
+  renderVerify(){
+    this.rootEl.innerHTML=this.shell(`<section class="lp-hero"><span class="lp-mark">${icon('mail')}</span><h1>تأكيد الإيميل</h1><p>لازم تتأكد إن الإيميل بتاعك حقيقي قبل إرسال طلب الحساب.</p></section><section class="lp-card">${this.error?`<div class="lp-alert">${esc(this.error)}</div>`:''}<div class="lp-verify-email" dir="ltr">${esc(this.email)}</div><p class="lp-copy">افتح رسالة Firebase واضغط رابط التحقق. لو مش لاقيها، راجع البريد غير المرغوب فيه، وبعدها ارجع واضغط الزر.</p><button class="lp-btn" data-lp-act="verifyAgain" ${this.busy?'disabled':''}>${this.busy?'جارٍ الفحص…':'تحققت من الإيميل — متابعة'}</button><button class="lp-btn secondary" data-lp-act="resendVerify">إعادة إرسال رسالة التحقق</button><button class="lp-text-btn" data-lp-act="logout">استخدام إيميل آخر</button></section>`);
+  },
+  renderState(){
+    const pending=this.mode==='pending', rejected=this.mode==='rejected', loading=this.mode==='loading';
+    const title=loading?'بنجهّز بوابتك…':pending?'طلبك وصل للمستر ✅':'طلب الدخول لم تتم الموافقة عليه';
+    const msg=loading?'لحظات ونحمّل السلاسل والاختبارات المعيّنة لك.':pending?'حسابك مرتبط بملفك وبياناته آمنة. هتقدر تدخل أول ما يوافق المستر أو المدرس المعتمد.':'كلّم المستر لو محتاج دعوة جديدة أو حابب تعرف سبب الرفض.';
+    this.rootEl.innerHTML=this.shell(`<section class="lp-card lp-state"><div class="lp-state-icon">${loading?'<i class="lp-spinner"></i>':pending?icon('clock'):icon('alert')}</div><h1>${title}</h1><p>${msg}</p>${this.error?`<div class="lp-alert">${esc(this.error)}</div>`:''}<div class="lp-state-actions">${pending?`<button class="lp-btn secondary" data-lp-act="checkApproval">تحقق من الموافقة</button>`:''}<button class="lp-text-btn" data-lp-act="logout">تسجيل الخروج</button></div></section>`);
+  },
+  renderHome(){
+    const courses=Object.values(this.courses).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'ar'));
+    const active=this.courses[this.selectedCourse]||courses[0]||null;
+    if(active&&!this.selectedCourse)this.selectedCourse=active.id;
+    const list=courses.map(c=>{const unlocked=this.courseUnlocked(c),done=this.courseCompleteCount(c),total=(c.videos||[]).length;return `<button class="lp-course-card ${this.selectedCourse===c.id?'on':''} ${unlocked?'':'locked'}" data-lp-act="selectCourse" data-id="${esc(c.id)}" ${unlocked?'':'disabled'}><span class="lp-course-icon">${unlocked?icon('book'):icon('lock')}</span><span class="lp-course-text"><b>${esc(c.name||'سلسلة تعليمية')}</b><span>${done} من ${total} فيديو مكتمل${c.prerequisiteId?' · '+(unlocked?'متاحة بعد اجتياز السابقة':'مقفولة لحد إكمال السلسلة السابقة'):''}</span></span><span class="lp-course-count">${done}/${total}</span></button>`;}).join('');
+    let content='';
+    if(!courses.length) content=`<section class="lp-card lp-empty"><span>${icon('cap')}</span><h2>مفيش سلاسل معيّنة لحسابك حاليًا</h2><p>لو المفروض تظهر لك سلسلة، تواصل مع المستر.</p></section>`;
+    else if(!active) content='<section class="lp-card lp-empty"><p>أكمل السلسلة السابقة عشان تفتح السلسلة التالية.</p></section>';
+    else content=this.renderCourse(active);
+    this.rootEl.innerHTML=this.shell(`<div class="lp-welcome"><div><span class="lp-kicker">أهلاً بيك</span><h1>${esc(this.account&&this.account.studentName||this.displayName||'طالب')}</h1><p>${esc(this.email)} · بوابة الفيديوهات والاختبارات</p></div><button class="lp-text-btn" data-lp-act="logout">${icon('logout')} خروج</button></div><div class="lp-layout"><aside class="lp-courses"><div class="lp-section-title">سلاسلك التعليمية</div>${list||'<div class="lp-card"><div class="lp-muted">لا توجد سلاسل معيّنة</div></div>'}</aside><section class="lp-main-content">${content}</section></div><div class="lp-safe">${icon('shield')} التقدم يُسجّل من المشغل المضمّن. فتح الفيديو على YouTube خارجيًا مسموح، لكنه لا يُحتسب ضمن المشاهدة.</div>`);
+    if(active)this.initPlayer(active);
+  },
+  renderCourse(c){
+    const videos=c.videos||[];
+    if(!this.courseUnlocked(c))return `<section class="lp-card lp-empty"><span>${icon('lock')}</span><h2>السلسلة لسه مقفولة</h2><p>اجتز السلسلة السابقة عشان تفتحها.</p></section>`;
+    if(!videos.length)return '<section class="lp-card lp-empty"><p>المستر هيضيف فيديوهات السلسلة قريبًا.</p></section>';
+    let ix=videos.findIndex(v=>v.id===this.selectedVideo);if(ix<0)ix=videos.findIndex((v,i)=>this.videoUnlocked(c,i)&&this.progressFor(c.id,v.id).status!=='complete');if(ix<0)ix=videos.length-1;this.selectedVideo=videos[ix].id;
+    const v=videos[ix],p=this.progressFor(c.id,v.id),quiz=v.quiz||{},qs=quiz.questions||[];
+    const rows=videos.map((x,i)=>{const pr=this.progressFor(c.id,x.id), unlocked=this.videoUnlocked(c,i),done=pr.status==='complete',selected=x.id===v.id;return `<button class="lp-video-row ${selected?'selected':''} ${done?'done':''} ${unlocked?'':'locked'}" data-lp-act="selectVideo" data-id="${esc(x.id)}" ${unlocked?'':'disabled'}><span class="lp-video-num">${done?icon('check'):unlocked?(i+1):icon('lock')}</span><span class="lp-video-label"><b>${esc(x.title||'فيديو '+(i+1))}</b><span>${done?'مكتمل':pr.status==='pendingReview'?'في انتظار مراجعة':pr.status==='review'?'مراجعة المستر':Math.floor(pr.watchedPct||0)+'% مشاهدة'}${x.deadline?' · موعد '+esc(x.deadline):''}</span></span></button>`;}).join('');
+    const isDone=p.status==='complete', watched=Number(p.watchedPct||0)>=99.5||p.watchedComplete===true, pending=p.status==='pendingReview'||p.status==='review';
+    const quizHTML=watched&&!isDone&&!pending?`<div class="lp-card lp-quiz"><div class="lp-card-head"><div><span class="lp-kicker">الاختبار</span><h2>اختبر فهمك</h2></div><span class="lp-pill">درجة النجاح ${Number(quiz.passPct||70)}%</span></div><form id="lpQuizForm" data-course="${esc(c.id)}" data-video="${esc(v.id)}">${qs.map((q,i)=>`<fieldset class="lp-question"><legend>${i+1}. ${esc(q.question)} <small>(${Number(q.points||1)} درجة)</small></legend>${q.type==='text'?`<textarea class="lp-answer-text" name="${esc(q.id)}" rows="3" placeholder="اكتب إجابتك" required></textarea>`:(q.type==='tf'?['صح','غلط']:(q.options||[])).map((o,j)=>`<label class="lp-option"><input type="radio" name="${esc(q.id)}" value="${j}" required><span>${esc(o)}</span></label>`).join('')}</fieldset>`).join('')}<button class="lp-btn" type="submit">إرسال الإجابات</button></form></div>`:'';
+    let status='';
+    if(isDone)status=`<div class="lp-result success">${icon('check')} اجتزت الاختبار — الفيديو التالي مفتوح ✅</div>`;
+    else if(pending)status=`<div class="lp-result wait">${icon('clock')} إجابتك وصلت للمستر. الفيديو التالي هيفتح بعد مراجعة الإجابة.</div>`;
+    else if(p.status==='retry')status=`<div class="lp-result fail">${icon('refresh')} محتاج تحاول تاني. ${p.attempts&&p.attempts.length?'المحاولات: '+p.attempts.length+' من '+(Number(quiz.maxAttempts||3)+Number(p.extraAttempts||0)):''}</div>`;
+    else if(watched)status=`<div class="lp-result success">${icon('check')} كملت مشاهدة كل أجزاء الفيديو — تقدر تبدأ الاختبار.</div>`;
+    else status=`<div class="lp-watch-note">${icon('play')} كمّل مشاهدة الفيديو من المشغل. تقدمك بيتحفظ تلقائيًا وتقدر ترجع تكمل بعدين.</div>`;
+    const pct=Math.floor(Number(p.watchedPct||0));
+    const playerHTML=isDone?`<div class="lp-complete-panel"><span>${icon('check')}</span><b>الفيديو مكتمل</b><small>نتيجتك: ${Number((p.attempts||[]).slice(-1)[0]?.score||0)} / ${Number((p.attempts||[]).slice(-1)[0]?.max||0)}</small></div>`:`<div class="lp-player" id="learningPlayer"><div class="lp-player-placeholder"><i class="lp-spinner"></i><span>بنحمّل مشغل YouTube…</span></div></div>`;
+    return `<section class="lp-course-head"><div><span class="lp-kicker">${esc(c.name||'سلسلة تعليمية')}</span><h2>${esc(v.title||'فيديو')}</h2>${c.description?`<p>${esc(c.description)}</p>`:''}</div>${v.deadline?`<div class="lp-deadline">${icon('calendar')} آخر موعد: ${esc(v.deadline)}</div>`:''}</section><div class="lp-two-col"><div class="lp-course-list">${rows}</div><div class="lp-video-area"><section class="lp-card"><div class="lp-player-top"><span class="lp-kicker">الفيديو ${ix+1} من ${videos.length}</span><a class="lp-external" target="_blank" rel="noopener noreferrer" href="${esc(v.url||('https://www.youtube.com/watch?v='+v.youtubeId))}">${icon('external')} فتح YouTube خارجيًا</a></div>${playerHTML}<div class="lp-progress-meta"><span>${pct}% من المشاهدة</span><span id="lp-watch-time">${Math.floor(Number(p.watchedSeconds||0))} ثانية</span></div><div class="lp-progress"><i id="lp-progress-fill" style="width:${Math.min(100,pct)}%"></i></div>${v.note?`<div class="lp-video-note">${esc(v.note)}</div>`:''}${status}</section>${quizHTML}</div></div>`;
+  },
+  action(act,b){
+    if(act==='setMode'){this.error='';this.mode=b.dataset.mode==='signup'?'signup':'login';this.render();return;}
+    if(act==='goLogin'){this.clearSession();this.mode='login';this.error='';this.render();return;}
+    if(act==='verifyAgain'){this.verifyAgain();return;}
+    if(act==='resendVerify'){this.sendVerification().then(ok=>{this.error=ok?'أرسلنا رسالة تحقق جديدة إلى '+this.email+'.':'تعذر إرسال الرسالة: '+(this.error||'حاول لاحقًا');this.render();});return;}
+    if(act==='logout'){this.clearSession();this.mode='login';this.error='';this.render();return;}
+    if(act==='checkApproval'){this.checkApproval();return;}
+    if(act==='selectCourse'){this.selectCourse(b.dataset.id);return;}
+    if(act==='selectVideo'){this.selectVideo(b.dataset.id);return;}
+  },
+  async checkApproval(){
+    this.busy=true;this.mode='loading';this.render();
+    try{await this.continueAuth(true);if(this.mode==='pending'){const req=await this.rtdb('GET',this.root+'/learning/requests/'+encodeURIComponent(this.uid));if(req&&req.status==='approved'){this.mode='loading';await this.prepareRequest();}}}
+    catch(e){this.error=e.message||'تعذر تحديث الحالة.';this.mode='pending';}
+    this.busy=false;this.render();
+  },
+  initPlayer(c){
+    if(!c)return;const v=(c.videos||[]).find(x=>x.id===this.selectedVideo);if(!v)return;
+    const ix=(c.videos||[]).findIndex(x=>x.id===v.id);if(!this.videoUnlocked(c,ix))return;
+    const p=this.progressFor(c.id,v.id);if(p.status==='complete')return;
+    this.playerVideo=v.youtubeId;this.lastTime=Number(p.lastTime||0);
+    const load=()=>{
+      const mount=()=>{
+        if(!window.YT||!YT.Player||!document.getElementById('learningPlayer'))return;
+        try{this.player=new YT.Player('learningPlayer',{videoId:v.youtubeId,playerVars:{playsinline:1,rel:0,modestbranding:1,origin:location.origin},events:{onReady:e=>this.playerReady(e,v,c),onStateChange:e=>this.playerState(e,v,c),onError:()=>this.playerFail()}});}catch(e){this.playerFail();}
+      };
+      if(window.YT&&YT.Player){mount();return;}
+      window.onYouTubeIframeAPIReady=mount;
+      let script=document.querySelector('script[data-learning-youtube]');if(!script){script=document.createElement('script');script.src='https://www.youtube.com/iframe_api';script.async=true;script.dataset.learningYoutube='1';script.onerror=()=>this.playerFail();document.head.appendChild(script);}
+    };
+    load();
+  },
+  playerReady(e,v,c){
+    if(!this.player)return;
+    const p=this.progressFor(c.id,v.id),dur=Number(this.player.getDuration()||0);if(dur){p.duration=dur;this.refreshWatchPct(c.id,v.id);}
+    if(this.lastTime>0&&this.lastTime<dur-1){try{this.player.seekTo(this.lastTime,true);}catch(e){}}
+    this.updatePlayerUi(c.id,v.id);
+  },
+  playerState(e,v,c){
+    if(e.data===YT.PlayerState.PLAYING){this.lastTime=Number(this.player.getCurrentTime()||0);if(this.playerTimer)clearInterval(this.playerTimer);this.playerTimer=setInterval(()=>this.sampleWatch(c.id,v),1000);}
+    else {this.sampleWatch(c.id,v);if(this.playerTimer){clearInterval(this.playerTimer);this.playerTimer=null;}this.queueProgress(c.id,v,false);}
+    if(e.data===YT.PlayerState.ENDED){this.sampleWatch(c.id,v);this.finishWatch(c.id,v);}
+  },
+  playerFail(){const box=this.rootEl&&this.rootEl.querySelector('.lp-player');if(box)box.innerHTML='<div class="lp-player-error">تعذّر تحميل مشغل YouTube. افتح الفيديو داخل البوابة بعد التأكد من اتصال الإنترنت.</div>';},
+  destroyPlayer(){
+    if(this.playerTimer){clearInterval(this.playerTimer);this.playerTimer=null;}
+    if(this.player){try{this.player.destroy();}catch(e){}this.player=null;}
+    this.playerVideo='';this.lastTime=null;
+  },
+  sampleWatch(cid,v){
+    if(!this.player)return;
+    let now,dur;try{now=Number(this.player.getCurrentTime());dur=Number(this.player.getDuration());}catch(e){return;}
+    if(!isFinite(now)||!isFinite(dur)||dur<=0)return;
+    const p=this.progressFor(cid,v.id);p.duration=dur;
+    const prev=this.lastTime;
+    if(prev!=null){const delta=now-prev;if(delta>0&&delta<=2.8){p.ranges=this.mergeRanges(p.ranges||[],[Math.max(0,prev),Math.min(dur,now)]);}}
+    this.lastTime=now;p.lastTime=now;p.updatedAt=new Date().toISOString();
+    this.refreshWatchPct(cid,v.id);this.updatePlayerUi(cid,v.id);
+    if(!this._lastProgressWrite||Date.now()-this._lastProgressWrite>5000){this._lastProgressWrite=Date.now();this.queueProgress(cid,v,false);}
+  },
+  mergeRanges(old,next){
+    const all=(old||[]).concat([next]).filter(r=>Array.isArray(r)&&Number(r[1])>Number(r[0])).map(r=>[Math.max(0,Number(r[0])),Number(r[1])]).sort((a,b)=>a[0]-b[0]);
+    const out=[];all.forEach(r=>{const last=out[out.length-1];if(last&&r[0]<=last[1]+.35)last[1]=Math.max(last[1],r[1]);else out.push(r);});return out;
+  },
+  refreshWatchPct(cid,vid){
+    const p=this.progressFor(cid,vid);const dur=Number(p.duration||0);const sec=(p.ranges||[]).reduce((n,r)=>n+Math.max(0,Number(r[1])-Number(r[0])),0);p.watchedSeconds=Math.min(dur||sec,sec);p.watchedPct=dur?Math.min(100,sec/dur*100):0;
+    if(dur>0&&sec>=dur*.995){p.watchedPct=100;p.watchedComplete=true;if(p.status!=='complete'&&p.status!=='pendingReview'&&p.status!=='review')p.status='readyQuiz';}
+  },
+  updatePlayerUi(cid,vid){
+    const p=this.progressFor(cid,vid);const f=this.rootEl&&this.rootEl.querySelector('#lp-progress-fill'),m=this.rootEl&&this.rootEl.querySelector('.lp-progress-meta span:first-child'),t=this.rootEl&&this.rootEl.querySelector('#lp-watch-time');
+    if(f)f.style.width=Math.min(100,Number(p.watchedPct||0))+'%';if(m)m.textContent=Math.floor(Number(p.watchedPct||0))+'% من المشاهدة';if(t)t.textContent=Math.floor(Number(p.watchedSeconds||0))+' ثانية';
+  },
+  finishWatch(cid,v){
+    this.refreshWatchPct(cid,v.id);const p=this.progressFor(cid,v.id);
+    if(p.watchedComplete){p.status='readyQuiz';this.queueProgress(cid,v,true);setTimeout(()=>{if(this.mode==='home'&&this.selectedVideo===v.id){this.destroyPlayer();this.renderHome();}},350);}
+    else {p.status='watching';this.queueProgress(cid,v,true);}
+  },
+  queueProgress(cid,v,flush){
+    const p=this.progressFor(cid,v.id);p.courseId=cid;p.videoId=v.id;p.updatedAt=new Date().toISOString();
+    const snap=JSON.parse(JSON.stringify(p));const sid=this.account&&this.account.studentId;if(!sid)return;
+    this.writeChain=this.writeChain.catch(()=>{}).then(async()=>{
+      await this.rtdb('PUT',this.root+'/learning/courseProgress/'+encodeURIComponent(cid)+'/'+encodeURIComponent(sid)+'/'+encodeURIComponent(v.id),snap);
+      this.progress[cid]=this.progress[cid]||{};this.progress[cid][v.id]=snap;
+      await this.parentSummary(cid,v,snap);
+    }).catch(e=>{this.syncError=e.message||'تعذر حفظ التقدم';});
+    if(flush)return this.writeChain;
+  },
+  async parentSummary(cid,v,p){
+    const token=this.account&&this.account.parentToken;if(!token)return;
+    const c=this.courses[cid]||{};const attempts=p.attempts||[],last=attempts[attempts.length-1]||{};
+    const row={courseId:cid,courseName:c.name||'',videoId:v.id,title:v.title||'',status:p.status||'',watchedPct:Math.floor(Number(p.watchedPct||0)),attempts:attempts.length,score:attempts.length?Number(last.score||0):null,max:attempts.length?Number(last.max||0):null,passed:!!p.passed,deadline:v.deadline||'',updatedAt:p.updatedAt||new Date().toISOString()};
+    try{await this.rtdb('PUT',this.root+'/learning/parentProgress/'+encodeURIComponent(token)+'/'+encodeURIComponent(cid)+'/'+encodeURIComponent(v.id),row);}catch(e){}
+  },
+  async submitQuiz(form){
+    if(this.busy)return;this.busy=true;
+    const cid=form.dataset.course,vid=form.dataset.video,c=this.courses[cid],v=c&&(c.videos||[]).find(x=>x.id===vid);if(!v){this.busy=false;return;}
+    const p=this.progressFor(cid,vid),quiz=v.quiz||{},qs=quiz.questions||[];
+    if(!p.watchedComplete&&Number(p.watchedPct||0)<99.5){this.busy=false;return;}
+    const answers={};let score=0,max=0,hasText=false;
+    for(const q of qs){
+      const pts=Math.max(1,Number(q.points||1));max+=pts;
+      if(q.type==='text'){const el=Array.from(form.elements).find(x=>x.name===q.id);const val=el?(el.value||'').trim():'';if(!val){this.busy=false;toast('جاوب على كل الأسئلة المكتوبة قبل الإرسال','warn');return;}answers[q.id]=val;hasText=true;}
+      else {const sel=Array.from(form.elements).find(x=>x.name===q.id&&x.checked);if(!sel){this.busy=false;toast('جاوب على كل الأسئلة قبل الإرسال','warn');return;}const ans=Number(sel.value);answers[q.id]=ans;if(ans===Number(q.answer))score+=pts;}
+    }
+    const attempts=Array.isArray(p.attempts)?p.attempts:[];const attemptNo=attempts.length+1;const pct=max?score/max*100:0;
+    const attempt={no:attemptNo,at:new Date().toISOString(),answers:answers,score:score,max:max,pct:Math.round(pct),manual:hasText,status:hasText?'pendingReview':(pct>=Number(quiz.passPct||70)?'passed':'failed')};
+    attempts.push(attempt);p.attempts=attempts;p.updatedAt=new Date().toISOString();p.lastTime=Number(p.duration||p.lastTime||0);
+    if(hasText){p.status='pendingReview';p.passed=false;}
+    else if(pct>=Number(quiz.passPct||70)){p.status='complete';p.passed=true;p.completedAt=new Date().toISOString();}
+    else if(attempts.length>=Number(quiz.maxAttempts||3)+Number(p.extraAttempts||0)){p.status='review';p.passed=false;}
+    else {p.status='retry';p.passed=false;}
+    this.progress[cid]=this.progress[cid]||{};this.progress[cid][vid]=p;
+    try{await this.queueProgress(cid,v,true);this.busy=false;this.renderHome();}
+    catch(e){this.busy=false;toast('تعذر حفظ الاختبار: '+(e.message||''),'bad');}
+  }
+};
+
 (function boot(){
+  // رابط الطالب له بوابة مستقلة — لا يمر على أي واجهة أو جلسة إدارية.
+  try{ const lt = new URLSearchParams(location.search || '').get('learn'); if (lt){ LearningPortal.start(lt); return; } }catch(e){}
   // لو الرابط رابط متابعة ولي أمر → شاشة المتابعة على طول (مفيش أي حاجة تانية)
   try{ if (PMode.fromUrl()){ PMode.start(); return; } }catch(e){}
   try{ if (JMode.fromUrl()){ JMode.start(); return; } }catch(e){}
