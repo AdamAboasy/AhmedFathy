@@ -971,7 +971,7 @@ function platformBase(){
   }catch(e){}
   return PLATFORM_URL_DEFAULT;
 }
-const APP_V = 'v2.16';
+const APP_V = 'v2.16.1';
 const ERR_KEY = 'mostar_errlog';
 const SAFE_KEY = 'mostar_safe';      // نسخة محلية خفية — لو المتصفح مسح بياناته نرجّعها في ثانية
 let SAFE_AT = 0, SAFE_SIG = '';
@@ -6311,6 +6311,7 @@ const Parent = {
     try{ await this.put(sid, token); }
     catch(e){ delete m[sid]; if (!quiet) toast('مش قادر أجهّز كود المتابعة — اتأكد من النت', 'bad', 'رابط المتابعة'); return ''; }
     try{ saveLocal(); }catch(e){}
+    try{ if(typeof Learning!=='undefined')Learning.syncParentProgressForStudent(sid).catch(()=>{}); }catch(e){}
     if (!quiet) toast('كود المتابعة اتجهّز ✅', 'ok', 'رابط المتابعة');
     return token;
   },
@@ -6334,6 +6335,7 @@ const Parent = {
     try{ await this.put(sid, token); }
     catch(e){ toast('مش قادر أرفع الرابط على فايربيز — اتأكد إن النت شغال', 'bad', 'رابط المتابعة'); return ''; }
     commit({ silent:true });
+    try{ if(typeof Learning!=='undefined')Learning.syncParentProgressForStudent(sid).catch(()=>{}); }catch(e){}
     toast('الرابط جاهز ✅ ابعته لولي الأمر', 'ok', 'رابط المتابعة');
     return token;
   },
@@ -6346,6 +6348,7 @@ const Parent = {
       if (old){ try{ await Cloud.rtdb('DELETE', Cloud.rootPath() + '/parents/' + old); }catch(e){} }
     }catch(e){ toast('مش قادر أرفع الرابط — جرّب تاني', 'bad', 'رابط المتابعة'); return; }
     commit({ silent:true });
+    try{ if(typeof Learning!=='undefined')Learning.syncParentProgressForStudent(sid).catch(()=>{}); }catch(e){}
     toast('اتعمل رابط جديد — القديم ما بقاش شغال', 'ok', 'رابط المتابعة');
   },
   msg(sid){
@@ -8589,7 +8592,7 @@ window.addEventListener('resize', throttle(() => {
    • مفيش أي كتابة ولا تعديل — قراءة بس، وبتتحدّث لوحدها
    ============================================================ */
 const PMode = {
-  token:'', code:'', key:'', pid:'', db:'', rec:null, videoProgress:{}, es:null, timer:null, busy:false,
+  token:'', code:'', key:'', pid:'', db:'', rec:null, videoProgress:{}, es:null, videoEs:null, timer:null, progressReloadTimer:null, busy:false,
   lsGet(k){ try{ return localStorage.getItem(k) || ''; }catch(e){ return ''; } },
   qp(n){ try{ return (new URLSearchParams(String(location.search || ''))).get(n) || ''; }catch(e){ return ''; } },
   fromUrl(){
@@ -8659,15 +8662,24 @@ const PMode = {
     let rec = null, err = '';
     try{ rec = await Cloud.rtdb('GET', Cloud.rootPath() + '/parents/' + this.token, null, false, '?t=' + Date.now()); }
     catch(e){ err = (e && e.message) || 'مشكلة في الاتصال'; }
-    this.busy = false;
     if (rec && typeof rec === 'object'){
       this.rec = rec;
       try{ this.videoProgress = await Cloud.rtdb('GET', Cloud.rootPath() + '/learning/parentProgress/' + this.token, null, false, '?t=' + Date.now()) || {}; }
       catch(e){ this.videoProgress = this.videoProgress || {}; }
+      this.busy = false;
       this.render(); return;
     }
+    this.busy = false;
     if (this.rec) return;                       // عندنا نسخة قديمة → نفضل عليها
     if (err) this.fail(err); else this.gone();
+  },
+  queueProgressReload(){
+    clearTimeout(this.progressReloadTimer);
+    this.progressReloadTimer=setTimeout(()=>{
+      this.progressReloadTimer=null;
+      if(this.busy){this.queueProgressReload();return;}
+      this.load();
+    },250);
   },
   header(){
     const r = this.rec || {};
@@ -8739,7 +8751,7 @@ const PMode = {
       return { cid:cid, items:items };
     }).filter(g => g.items.length);
     const learnStatus = st => ({ complete:'مكتمل', pendingReview:'بانتظار مراجعة الإجابة', review:'مراجعة المستر', retry:'يحتاج إعادة الاختبار', watching:'قيد المشاهدة', readyQuiz:'المشاهدة مكتملة — الاختبار متاح' }[st] || 'لم يبدأ');
-    const learnCard = `<div class="pm-card"><h3>${icon('cap')} فيديوهات واختبارات الطالب<span style="flex:1"></span><span class="badge b-gray">${learnGroups.reduce((n,g)=>n+g.items.length,0)} فيديو</span></h3>${learnGroups.length ? learnGroups.map(g => `<div class="pm-month"><span>${esc(g.items[0].courseName || 'سلسلة تعليمية')}</span><i></i></div>${g.items.map(v => `<div class="pm-row"><div style="min-width:0"><div class="t">${esc(v.title || 'فيديو')}</div><div class="d">${learnStatus(v.status)} · ${Math.floor(Number(v.watchedPct||0))}% مشاهدة · ${Number(v.attempts||0)} محاولة${v.deadline?' · الموعد '+this.pmDate(v.deadline):''}</div></div><span style="flex:1"></span>${v.score != null ? `<span class="pm-g ${v.passed?'ok':''}">${Number(v.score)} / ${Number(v.max||0)}</span>` : ''}</div>`).join('')}`).join('') : '<div class="pm-empty">لا يوجد تقدم في الفيديوهات بعد</div>'}<div class="small muted" style="margin-top:7px">يعرض التقدم والدرجات فقط — إجابات الاختبارات التفصيلية خاصة بالطالب والمستر.</div></div>`;
+    const learnCard = `<div class="pm-card"><h3>${icon('cap')} فيديوهات واختبارات الطالب<span style="flex:1"></span><span class="badge b-gray">${learnGroups.reduce((n,g)=>n+g.items.length,0)} فيديو</span></h3>${learnGroups.length ? learnGroups.map(g => `<div class="pm-month"><span>${esc(g.items[0].courseName || 'سلسلة تعليمية')}</span><i></i></div>${g.items.map(v => `<div class="pm-row"><div style="min-width:0"><div class="t">${esc(v.title || 'فيديو')}</div><div class="d">${learnStatus(v.status)} · ${Math.floor(Number(v.watchedPct||0))}% مشاهدة · ${Number(v.attempts||0)} محاولة${v.deadline?' · الموعد '+this.pmDate(v.deadline):''}</div></div><span style="flex:1"></span>${v.score != null ? `<span class="pm-g ${v.passed?'ok':''}">${Number(v.score)} / ${Number(v.max||0)}</span>` : ''}</div>`).join('')}`).join('') : '<div class="pm-empty">لا توجد فيديوهات معيّنة لهذا الطالب حتى الآن</div>'}<div class="small muted" style="margin-top:7px">يعرض الفيديوهات المعيّنة وحالة المشاهدة والدرجات فقط — إجابات الاختبارات التفصيلية خاصة بالطالب والمستر.</div></div>`;
 
     /* كل البيانات من أول السنة/الترم لآخر تسجيل — مقسّمة على شهور (الأحدث الأول) */
     const byMonth = arr => {
@@ -8838,12 +8850,23 @@ const PMode = {
           const on = ev => {
             let d = null; try{ d = JSON.parse(ev.data); }catch(e){ return; }
             if (!d || d.data == null || typeof d.data !== 'object') return;
-            self.rec = d.data; self.render();
+            self.rec = d.data; self.load();
           };
           es.addEventListener('put', on);
           es.addEventListener('patch', on);
           es.addEventListener('open', () => {});
           es.addEventListener('error', () => { if (!self.timer) self.poll(); });
+        }
+        if (tok){
+          let vurl = Cloud.dbUrl() + '/' + Cloud.rootPath() + '/learning/parentProgress/' + this.token + '.json?auth=' + encodeURIComponent(tok);
+          let ves = null;
+          try{ ves = new EventSource(vurl); }catch(e){ ves = null; }
+          if (ves){
+            self.videoEs = ves;
+            const onProgress = () => self.queueProgressReload();
+            ves.addEventListener('put', onProgress);
+            ves.addEventListener('patch', onProgress);
+          }
         }
       }
       self.poll();
@@ -8855,6 +8878,8 @@ const PMode = {
   },
   stop(){
     if (this.es){ try{ this.es.close(); }catch(e){} this.es = null; }
+    if (this.videoEs){ try{ this.videoEs.close(); }catch(e){} this.videoEs = null; }
+    clearTimeout(this.progressReloadTimer); this.progressReloadTimer = null;
     clearInterval(this.timer); this.timer = null;
   }
 };
@@ -8863,7 +8888,7 @@ const PMode = {
    بوابة الفيديوهات — إدارة السلاسل، الدعوات، والتقارير
    ========================================================== */
 const Learning = {
-  requests:{}, requestError:'', _reqAt:0, _reqPromise:null, _reqTimer:null, _progress:{}, courseDraft:null, videoDraft:null,
+  requests:{}, requestError:'', _reqAt:0, _reqPromise:null, _reqTimer:null, _progress:{}, _parentBackfillAt:0, _parentBackfillPromise:null, _parentBackfillDone:false, courseDraft:null, videoDraft:null,
   courses(){ if (!S.data.learningCourses || typeof S.data.learningCourses !== 'object') S.data.learningCourses = {}; return S.data.learningCourses; },
   audiences(){ if (!S.data.learningAudience || typeof S.data.learningAudience !== 'object') S.data.learningAudience = {}; return S.data.learningAudience; },
   assignments(){ if (!S.data.learningAssignments || typeof S.data.learningAssignments !== 'object') S.data.learningAssignments = {}; return S.data.learningAssignments; },
@@ -8885,6 +8910,7 @@ const Learning = {
     }catch(e){ return ''; }
   },
   rebuildAssignments(){
+    const previous = JSON.stringify(this.assignments());
     const courses = this.courses(), audiences = this.audiences(), out = {};
     const students = (S.data.students || []).filter(s => s && s.id && s.status !== 'stopped');
     const addWithPrereq = (sid, cid, seen) => {
@@ -8904,11 +8930,91 @@ const Learning = {
       });
     });
     S.data.learningAssignments = out;
+    if(previous!==JSON.stringify(out))this._parentBackfillDone=false;
     return out;
   },
   assignedStudents(cid){
     const ids = Object.keys(this.assignments()).filter(sid => this.assignments()[sid] && this.assignments()[sid][cid]);
     return ids.map(sid => student(sid)).filter(Boolean).sort((a,b) => String(a.name||'').localeCompare(String(b.name||''),'ar'));
+  },
+  async parentTokenForStudent(sid,provided){
+    let token=provided||Parent.of(sid);
+    const st=student(sid);
+    if(!token&&st&&st.learningUid){
+      try{const a=await Cloud.rtdb('GET',Cloud.rootPath()+'/learning/accounts/'+encodeURIComponent(st.learningUid));token=a&&a.parentToken||'';}catch(e){}
+    }
+    if(token&&!Parent.of(sid)){
+      Parent.map()[sid]={token:token,at:new Date().toISOString()};
+      try{saveLocal();}catch(e){}
+    }
+    return token||'';
+  },
+  parentProgressSeedRow(courseId,c,v,old){
+    const row=Object.assign({},old&&typeof old==='object'?old:{}), now=new Date().toISOString();
+    row.courseId=courseId;row.courseName=c.name||'';row.videoId=v.id;row.title=v.title||'';
+    if(!row.status)row.status='notStarted';
+    if(row.watchedPct==null)row.watchedPct=0;
+    if(row.attempts==null)row.attempts=0;
+    if(!Object.prototype.hasOwnProperty.call(row,'score'))row.score=null;
+    if(!Object.prototype.hasOwnProperty.call(row,'max'))row.max=null;
+    if(!Object.prototype.hasOwnProperty.call(row,'passed'))row.passed=false;
+    row.deadline=v.deadline||'';row.updatedAt=row.updatedAt||now;
+    return row;
+  },
+  needsParentProgressSeed(old,row){
+    if(!old||typeof old!=='object')return true;
+    return old.courseId!==row.courseId||old.courseName!==row.courseName||old.videoId!==row.videoId||old.title!==row.title||old.deadline!==row.deadline||!old.status||old.watchedPct==null||old.attempts==null||!Object.prototype.hasOwnProperty.call(old,'score')||!Object.prototype.hasOwnProperty.call(old,'max')||!Object.prototype.hasOwnProperty.call(old,'passed')||!old.updatedAt;
+  },
+  async syncParentRoster(courseId,studentIds,parentToken){
+    const c=this.course(courseId);if(!c||c.archived||S.fb.status!=='live')return 0;
+    const vids=(c.videos||[]).filter(v=>v&&v.id);if(!vids.length)return 0;
+    const ids=Array.isArray(studentIds)?Array.from(new Set(studentIds)):this.assignedStudents(courseId).map(st=>st.id);
+    let seeded=0;
+    for(const sid of ids){
+      const st=student(sid);if(!st||st.status==='stopped')continue;
+      const token=await this.parentTokenForStudent(sid,studentIds&&studentIds.length===1?parentToken:'');if(!token)continue;
+      const path=Cloud.rootPath()+'/learning/parentProgress/'+encodeURIComponent(token);
+      let records={};try{records=await Cloud.rtdb('GET',path)||{};}catch(e){continue;}
+      const oldCourse=records&&records[courseId]&&typeof records[courseId]==='object'?records[courseId]:{};
+      for(const v of vids){
+        const old=oldCourse[v.id],row=this.parentProgressSeedRow(courseId,c,v,old);if(!this.needsParentProgressSeed(old,row))continue;
+        try{await Cloud.rtdb('PUT',path+'/'+encodeURIComponent(courseId)+'/'+encodeURIComponent(v.id),row);seeded++;}catch(e){}
+      }
+    }
+    return seeded;
+  },
+  async syncParentProgressForStudent(sid,parentToken){
+    const cids=Object.keys(this.assignments()[sid]||{});let seeded=0;
+    for(const cid of cids)seeded+=await this.syncParentRoster(cid,[sid],parentToken||'');
+    return seeded;
+  },
+  async backfillParentProgress(){
+    if(S.fb.status!=='live'||this._parentBackfillDone)return 0;
+    if(this._parentBackfillPromise)return this._parentBackfillPromise;
+    this._parentBackfillAt=Date.now();
+    const assignments=this.rebuildAssignments(),queue=Object.keys(assignments);let failed=false,seeded=0;
+    this._parentBackfillPromise=(async()=>{
+      const worker=async()=>{
+        while(queue.length){
+          const sid=queue.shift(),st=student(sid),cids=Object.keys(assignments[sid]||{}).filter(cid=>{const c=this.course(cid);return !!(c&&!c.archived&&(c.videos||[]).some(v=>v&&v.id));});
+          if(!st||st.status==='stopped'||!cids.length)continue;
+          const token=await this.parentTokenForStudent(sid);if(!token)continue;
+          const path=Cloud.rootPath()+'/learning/parentProgress/'+encodeURIComponent(token);let records={};
+          try{records=await Cloud.rtdb('GET',path)||{};}catch(e){failed=true;continue;}
+          for(const cid of cids){
+            const c=this.course(cid),oldCourse=records&&records[cid]&&typeof records[cid]==='object'?records[cid]:{};
+            for(const v of (c.videos||[]).filter(x=>x&&x.id)){
+              const old=oldCourse[v.id],row=this.parentProgressSeedRow(cid,c,v,old);if(!this.needsParentProgressSeed(old,row))continue;
+              try{await Cloud.rtdb('PUT',path+'/'+encodeURIComponent(cid)+'/'+encodeURIComponent(v.id),row);seeded++;}catch(e){failed=true;}
+            }
+          }
+        }
+      };
+      await Promise.all(Array.from({length:Math.min(5,queue.length)},()=>worker()));
+      this._parentBackfillDone=!failed;
+      return seeded;
+    })().finally(()=>{this._parentBackfillPromise=null;});
+    return this._parentBackfillPromise;
   },
   audienceText(cid){
     const a = this.audiences()[cid] || {};
@@ -8982,8 +9088,13 @@ const Learning = {
   },
   afterRender(){
     if (S.view !== 'learning') return;
-    if (!this._reqTimer) this._reqTimer = setInterval(() => { if (S.view === 'learning') this.refreshRequests(false); }, 12000);
+    if (!this._reqTimer) this._reqTimer = setInterval(() => {
+      if (S.view !== 'learning') return;
+      this.refreshRequests(false);
+      if (S.fb.status === 'live' && !this._parentBackfillDone && !this._parentBackfillPromise && Date.now() - this._parentBackfillAt > 15000) this.backfillParentProgress();
+    }, 12000);
     if (Date.now() - this._reqAt > 10000) this.refreshRequests(false);
+    if (S.fb.status === 'live' && !this._parentBackfillDone && !this._parentBackfillPromise && Date.now() - this._parentBackfillAt > 15000) this.backfillParentProgress();
   },
   pendingRequests(){ return Object.keys(this.requests || {}).map(uid => ({ uid:uid, request:this.requests[uid] || {} })).filter(x => x.request.status === 'pending'); },
   async approveRequest(uid){
@@ -9001,6 +9112,7 @@ const Learning = {
       await Cloud.rtdb('PUT', Cloud.rootPath() + '/learning/invites/' + r.inviteToken + '/used', true);
       s.learningUid = uid; if (r.email) s.email = r.email;
       commit({ silent:true });
+      this.syncParentProgressForStudent(r.studentId,parentToken).catch(()=>{});
       toast('اتوافق على طلب ' + s.name + ' ✅', 'ok', 'بوابة الطالب');
       await this.refreshRequests(true);
     }catch(e){ toast('مش قادرين نوافق دلوقتي: ' + (e.message || ''), 'bad', 'بوابة الطالب'); }
@@ -9171,8 +9283,10 @@ const Learning = {
     this.courses()[c.id] = this.clone(c);
     this.audiences()[c.id] = { all:!!a.all, groupIds:Array.from(new Set(a.groupIds||[])), studentIds:Array.from(new Set(a.studentIds||[])) };
     this.rebuildAssignments();
+    const savedCourseId=c.id;
     this.courseDraft = null; this.audienceDraft = null;
     commit(); Modal.closeAll(); toast('اتحفظت السلسلة والجمهور ✅', 'ok', 'الفيديوهات');
+    if(S.fb.status==='live')this.syncParentRoster(savedCourseId).catch(()=>{});else this._parentBackfillDone=false;
   },
   moveVideo(courseId,index,delta){
     this.captureCourseDraft(); const c=this.courseDraft; if(!c || c.id!==courseId) return;
