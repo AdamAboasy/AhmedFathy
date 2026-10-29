@@ -8095,6 +8095,7 @@ document.addEventListener('click', function(e){
     case 'learnReviewRetry': Learning.reviewSave(el.dataset.course,el.dataset.sid,el.dataset.video,false,true); break;
     case 'liveCreate': Live.create(); break;
     case 'liveStart': Live.start(); break;
+    case 'liveManageAccounts': Modal.closeAll(); go('learning'); break;
     case 'liveJoinTeacher': Live.openRoom(id); break;
     case 'liveMuteAll': Live.muteAll(); break;
     case 'liveGrant': Live.grant(id,el.dataset.grant==='on'); break;
@@ -9403,19 +9404,37 @@ const Live = {
     const rows=active.length?active.map(s=>`<div class="live-admin-row"><div><b>${esc(s.title||'حصة مباشرة')}</b><span>${esc(s.groupName||'كل الطلاب')} · بدأت ${esc(String(s.startedAt||'').slice(11,16))}</span></div><span class="badge b-ok">مباشر</span><button class="btn sm pri" data-act="liveJoinTeacher" data-id="${esc(s.id)}">${icon('play')} دخول الغرفة</button><button class="btn sm bad" data-act="liveEnd" data-id="${esc(s.id)}">إنهاء</button></div>`).join(''):'<div class="small muted">مفيش حصة مباشرة دلوقتي.</div>';
     return `<section class="card mt"><div class="card-h"><h3>${icon('play')} حصص لايف</h3><span class="sp"></span><button class="btn pri sm" data-act="liveCreate">${icon('plus')} ابدأ حصة مباشرة</button></div><div class="card-b"><div class="help info" style="line-height:1.9;margin-bottom:10px">الاجتماع الصوتي/المرئي يمر عبر Jitsi Meet العام، وليس Firebase. الحسابات المعيّنة فقط ترى رابط الغرفة. الخدمة مجانية لكن لا يوجد ضمان لسعتها أو استمراريتها، ولا تحفظ المنصة تسجيلًا.</div>${rows}</div></section>`;
   },
+  targetsFor(groupId){
+    return (S.data.students||[]).filter(s=>s&&s.status==='active'&&(groupId==='*'||s.groupId===groupId));
+  },
+  linkedFor(groupId){ return this.targetsFor(groupId).filter(s=>String(s.learningUid||'').trim()); },
   create(){
     const gs=(S.data.groups||[]).filter(g=>g&&!g.archived);
     const options=['<option value="*">كل الطلاب النشطين</option>'].concat(gs.map(g=>`<option value="${esc(g.id)}">${esc(g.name)}</option>`)).join('');
-    Modal.open({title:'بدء حصة لايف',sub:'الطلاب المعتمدون في بوابة التعلم فقط',size:'md',body:`<div class="help info" style="line-height:1.9;margin-bottom:12px">هيبدأ الاجتماع على Jitsi. الطلاب يدخلوا بحساب بوابة التعلم، ويقدروا يرفعوا إيدهم ويرسلوا «فاهم / مش فاهم» وسؤالًا مكتوبًا.</div><div class="field"><label>عنوان الحصة</label><input class="inp" id="liveTitle" maxlength="100" value="حصة مباشرة · ${esc(fmtDate(today()))}" placeholder="مثال: مراجعة الدرس الثالث"></div><div class="field"><label>المجموعة</label><select class="inp" id="liveGroup">${options}</select></div><div class="small muted">الحسابات التي لم تتم الموافقة عليها لن يظهر لها رابط الدخول.</div>`,footer:`<button class="btn" data-close>إلغاء</button><button class="btn pri" data-act="liveStart">${icon('play')} ابدأ اللايف الآن</button>`});
+    Modal.open({title:'بدء حصة لايف',sub:'الطلاب المعتمدون في بوابة التعلم فقط',size:'md',body:`<div class="help info" style="line-height:1.9;margin-bottom:12px">هيبدأ الاجتماع على Jitsi. الطلاب يدخلوا بحساب بوابة التعلم، ويقدروا يرفعوا إيدهم ويرسلوا «فاهم / مش فاهم» وسؤالًا مكتوبًا.</div><div class="field"><label>عنوان الحصة</label><input class="inp" id="liveTitle" maxlength="100" value="حصة مباشرة · ${esc(fmtDate(today()))}" placeholder="مثال: مراجعة الدرس الثالث"></div><div class="field"><label>المجموعة</label><select class="inp" id="liveGroup">${options}</select></div><div id="liveAudienceInfo" class="help warn" style="line-height:1.9"></div><div class="small muted">الحسابات التي لم تتم الموافقة عليها لن يظهر لها رابط الدخول.</div>`,footer:`<button class="btn" data-close>إلغاء</button><button class="btn ghost" data-act="liveManageAccounts">${icon('cap')} إدارة حسابات الطلاب</button><button class="btn pri" data-act="liveStart">${icon('play')} ابدأ اللايف الآن</button>`,onMount:(modal)=>{
+      const sel=modal.querySelector('#liveGroup'),box=modal.querySelector('#liveAudienceInfo');
+      const update=()=>{
+        const targets=this.targetsFor(sel.value),linked=this.linkedFor(sel.value),missing=targets.length-linked.length;
+        if(!targets.length){box.className='help warn';box.innerHTML='لا يوجد طلاب نشطون في هذا الاختيار.';}
+        else if(!linked.length){box.className='help warn';box.innerHTML=`في الاختيار ${targets.length} طالب نشط، لكن لا يوجد حساب بوابة تعلّم معتمد. أنشئ دعوة لكل طالب من «إدارة حسابات الطلاب»، ثم وافق على طلبه بعد التسجيل وتأكيد الإيميل.`;}
+        else if(missing){box.className='help info';box.innerHTML=`جاهزون للايف: ${linked.length} من ${targets.length} طالب. ${missing} طالب بدون حساب معتمد لن يظهر له رابط الدخول.`;}
+        else{box.className='help ok';box.innerHTML=`كل الطلاب النشطين في الاختيار لديهم حساب بوابة معتمد (${linked.length}).`;}
+      };
+      sel.addEventListener('change',update);update();
+    }});
   },
   async start(){
     const title=(($('#liveTitle')||{}).value||'').trim()||'حصة مباشرة';
     const groupId=(($('#liveGroup')||{}).value||'*');
     const group=groupId==='*'?null:(S.data.groups||[]).find(g=>g.id===groupId);
-    const targets=(S.data.students||[]).filter(s=>s&&s.status!=='stopped'&&(groupId==='*'||s.groupId===groupId));
-    const linked=targets.filter(s=>s.learningUid), missing=targets.length-linked.length;
-    if(!linked.length){toast('لا يوجد طلاب لديهم حساب معتمد في بوابة التعلم ضمن الاختيار.','warn','حصص لايف');return;}
     if(S.fb.status!=='live'){toast('لازم تتصل Firebase وتنشر قواعد v2.16 الجديدة قبل بدء الحصة.','bad','حصص لايف');return;}
+    const targets=this.targetsFor(groupId),linked=targets.filter(s=>String(s.learningUid||'').trim()),missing=targets.length-linked.length;
+    if(!targets.length||!linked.length){
+      Modal.closeAll();
+      const noStudents=!targets.length;
+      Modal.open({title:noStudents?'لا يوجد طلاب نشطون':'لا توجد حسابات بوابة معتمدة',sub:group?group.name:'كل الطلاب النشطين',size:'md',body:noStudents?'<div class="help warn" style="line-height:1.9">مافيش طلاب حالتهم «نشط» في الاختيار ده. اختار مجموعة تانية أو فعّل الطلاب من شاشة الطلاب.</div>':`<div class="help warn" style="line-height:1.9">${targets.length} طالب نشط موجود في الاختيار، لكن ولا واحد عنده حساب معتمد في بوابة التعلم. اللايف يفتح فقط بعد إنشاء دعوة للطالب، وتأكيد إيميله، ثم موافقة المستر على طلبه. حسابات الإدارة وملفات الطلاب العادية لا تدخل غرفة اللايف.</div>`,footer:`<button class="btn" data-close>رجوع</button>${noStudents?'':`<button class="btn pri" data-act="liveManageAccounts">${icon('cap')} إدارة حسابات الطلاب</button>`}`});
+      return;
+    }
     const id='ls_'+Parent.rnd().slice(0,18), roomName='Mostar_'+Parent.rnd().replace(/[^A-Za-z0-9]/g,'');
     const rec={id:id,title:title,groupId:groupId==='*'?'':groupId,groupName:group?group.name:'كل الطلاب',roomName:roomName,status:'live',teacherName:S.data.settings.teacherName||'المستر',teacherUid:Roles.uid(),startedAt:new Date().toISOString(),createdAt:new Date().toISOString(),targetCount:linked.length};
     let sessionWritten=false;
