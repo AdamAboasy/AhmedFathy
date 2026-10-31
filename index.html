@@ -512,6 +512,13 @@ body.pmode #pview{display:block;max-width:720px;margin:0 auto;padding:16px 14px 
 .pm-spin{width:34px;height:34px;border:3px solid var(--line);border-top-color:var(--brand);border-radius:50%;margin:0 auto 14px;animation:pmspin .9s linear infinite}
 @keyframes pmspin{to{transform:rotate(360deg)}}
 .pm-alert{background:var(--bad-bg);color:var(--bad);border-radius:14px;padding:14px;line-height:1.95;font-size:13.5px}
+.pm-login{max-width:520px;margin:10vh auto 0;padding:22px;text-align:center;line-height:1.9}
+.pm-login h2{font-size:20px;margin:5px 0 8px}
+.pm-login p{color:var(--muted);font-size:13.5px;margin:0 0 16px}
+.pm-login-mark{width:48px;height:48px;border-radius:50%;display:grid;place-items:center;margin:0 auto 9px;background:#fff;border:1px solid var(--line);color:#4285f4;font:bold 26px Arial,sans-serif;box-shadow:var(--shadow)}
+.pm-login-btn{width:100%;justify-content:center;margin-top:10px;min-height:46px}
+.pm-google-g{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#fff;color:#4285f4;font:bold 15px Arial,sans-serif;margin-inline-end:8px}
+.pm-login-note{font-size:11.5px;color:var(--muted);line-height:1.8;margin-top:15px}
 /* ============ بوابة الطالب المنفصلة ============ */
 body.learnmode{background:var(--bg);min-height:100vh}
 body.learnmode .shell,body.learnmode #pview,body.learnmode #jview,body.learnmode #printArea,body.learnmode .fab{display:none!important}
@@ -971,7 +978,7 @@ function platformBase(){
   }catch(e){}
   return PLATFORM_URL_DEFAULT;
 }
-const APP_V = 'v2.16.1';
+const APP_V = 'v2.17.0';
 const ERR_KEY = 'mostar_errlog';
 const SAFE_KEY = 'mostar_safe';      // نسخة محلية خفية — لو المتصفح مسح بياناته نرجّعها في ثانية
 let SAFE_AT = 0, SAFE_SIG = '';
@@ -1043,7 +1050,7 @@ function migrate(d){
   out.groups = (out.groups || []).map(g => Object.assign({ id: uid('g'), name:'', stage:'', day: 6, from:'16:00', to:'18:00', payMode:'monthly', level:'', note:'' }, g));
   out.students = (out.students || []).map(s => Object.assign({
     id: uid('s'), code:'', name:'', stage:'', studySystem:'', type:'', level:'', groupId:'',
-    payMode:'monthly', phone:'', parentPhone:'', guardian:'', email:'', joinDate: today(), status:'active', notes:''
+    payMode:'monthly', phone:'', parentPhone:'', guardian:'', guardianEmail:'', email:'', joinDate: today(), status:'active', notes:''
   }, s));
   out.exams = (out.exams || []).map(e => Object.assign({ id: uid('e'), name:'', stage:'', groupId:'', date: today(), max: 20, hw:'', note:'' }, e));
   out.grades = out.grades || {};
@@ -1162,9 +1169,15 @@ const FB_RULES_RTDB = `{
             "used": { ".write": "auth != null && newData.child('uid').val() == auth.uid && (!data.exists() || data.child('uid').val() == auth.uid)" }
           }
         },
+        "parentAccess": {
+          "$token": {
+            ".read": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher')",
+            ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher')"
+          }
+        },
         "parents": {
           "$token": {
-            ".read": "auth != null",
+            ".read": "auth != null && auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && auth.token.email == root.child('platforms/'+$code+'/parentAccess/'+$token+'/email').val()",
             ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher')"
           }
         },
@@ -1202,8 +1215,8 @@ const FB_RULES_RTDB = `{
           },
           "parentProgress": {
             "$token": {
-              ".read": "auth != null",
-              ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher' || (auth.token.email_verified == true && root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/status').val() == 'active' && root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/studentId').val() == root.child('platforms/'+$code+'/parents/'+$token+'/sid').val()))"
+              ".read": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid).exists() || (auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && auth.token.email == root.child('platforms/'+$code+'/parentAccess/'+$token+'/email').val()))",
+              ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher' || (auth.token.email_verified == true && root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/status').val() == 'active' && root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/studentId').val() == root.child('platforms/'+$code+'/parentAccess/'+$token+'/sid').val()))"
             }
           },
           "liveAssignments": {
@@ -1281,15 +1294,8 @@ const FB_RULES_RTDB = `{
     }
   }
 }`;
-// نفس القواعد لو الدخول الصامت لسه مش مفعّل (مفتوحة — مؤقتة لحد ما تفعّله)
-const FB_RULES_RTDB_OPEN = `{
-  "rules": {
-    "platforms": {
-      ".read": true,
-      ".write": true
-    }
-  }
-}`;
+// لا توجد نسخة مفتوحة: فتح /platforms يتجاوز حماية تقارير أولياء الأمور.
+const FB_RULES_RTDB_OPEN = FB_RULES_RTDB;
 const FB_RULES = `rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -2845,7 +2851,7 @@ const Cloud = {
       ['نسخة أمان محلية', S.fb.restoredLocal ? ('✅ اترجعت لوحدها بعد ما المتصفح مسح الداتا (' + String(S.fb.restoredLocal).slice(0, 10) + ')') : '✅ موجودة على الجهاز · بتتحدّث لوحدها', S.fb.restoredLocal ? 'warn' : 'ok'],
       ['نسخة احتياطية حديثة', S.fb.bakOld === true ? '⚠️ آخر نسخة أقدم من أسبوع — دوس «نسخة احتياطية الآن»' : '✅ آخر نسخة حديثة', S.fb.bakOld === true ? 'warn' : 'ok'],
       ['حد فايربيز المجاني', bw.storeKB + ' كيلو من 1,048,576 كيلو تخزين · تنزيل الشهر ده ' + bw.down + ' ميجا من 10,240 ميجا — يعني مستهلك ' + Math.max(bw.storePct, bw.downPct).toFixed(3) + '% بس', 'ok'],
-      ['تأمين البيانات (بدون تسجيل دخول)', S.data.settings.auth === false ? '⏸️ مقفول بإيدك — البيانات مفتوحة لأي حد يعرف الرابط' : (S.fb.auth === 'on' ? '✅ الدخول الصامت شغال — كل طلب بياخد شهادة الجهاز' : (S.fb.auth === 'fail' ? ('⚠️ ' + (S.fb.authErr || 'محتاج خطوة')) : 'خطوة واحدة من الإعدادات ← «أمّن البيانات»')), S.fb.auth === 'on' ? 'ok' : 'warn'],
+      ['تأمين البيانات', S.data.settings.auth === false ? '⏸️ الدخول الصامت متوقف — مزامنة RTDB المحمية لن تعمل حتى تفعيله' : (S.fb.auth === 'on' ? '✅ دخول الجهاز الصامت شغال — وتقارير ولي الأمر مربوطة ببريد Google' : (S.fb.auth === 'fail' ? ('⚠️ ' + (S.fb.authErr || 'محتاج خطوة')) : 'خطوة واحدة من الإعدادات ← «أمّن البيانات»')), S.fb.auth === 'on' ? 'ok' : 'warn'],
       ['المرآة (نسخة على السيرفر التاني)', S.data.settings.fbMirror === false ? '⏸️ متوقفة بإيدك من الإعدادات' :
         (S.fb.quotaHit && S.fb.quotaHit.from === (this.mirrorCfg() || {}).projectId) ? '⏸️ السيرفر التاني وصل حده الشهر ده' :
         (S.fb.mirrorBad ? ('⚠️ فيه مشكلة: ' + (S.fb.mirrorErr || 'مش راد')) : ('✅ كل تعديل بيتكتب على السيرفرين' + (S.fb.mirrorAt ? ' · آخر نسخة ' + S.fb.mirrorAt.toLocaleTimeString('ar-EG',{hour:'2-digit',minute:'2-digit'}) : ''))),
@@ -3606,6 +3612,7 @@ const IMP_FIELDS = [
   { k:'level',       label:'المستوى',          aliases:['المستوى','مستوى','التقييم','level'] },
   { k:'phone',       label:'هاتف الطالب',       aliases:['هاتف','الهاتف','هاتف الطالب','موبايل','الموبايل','تليفون','phone','mobile','tel'] },
   { k:'parentPhone', label:'هاتف ولي الأمر',    aliases:['ولي الأمر','هاتف ولي الأمر','رقم ولي الأمر','هاتف الاب','رقم الاب','الأب','رقم الواتس','واتساب','parent','whatsapp'] },
+  { k:'guardianEmail',label:'بريد Google لولي الأمر', aliases:['بريد ولي الأمر','ايميل ولي الامر','إيميل ولي الأمر','جيميل ولي الأمر','gmail ولي الأمر','guardian email','parent email','guardianEmail'] },
   { k:'group',       label:'اسم الحصة/المجموعة', aliases:['الحصة','المجموعة','الجروب','اسم الحصة','الحصة/المجموعة','group','class name'] }
 ];
 function impNorm(x){
@@ -3833,6 +3840,7 @@ function runImport(){
     if (!name){ noName++; return; }
     const parentPhone = get('parentPhone').replace(/[^0-9+]/g, '');
     const phone = get('phone').replace(/[^0-9+]/g, '');
+    const guardianEmail = get('guardianEmail').toLowerCase();
     const groupName = get('group');
     let groupId = '';
     if (groupName){
@@ -3856,6 +3864,7 @@ function runImport(){
         if (get('level')) exist.level = addMeta('levels', get('level'));
         if (phone) exist.phone = phone;
         if (parentPhone) exist.parentPhone = parentPhone;
+        if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guardianEmail)) exist.guardianEmail = guardianEmail;
         if (groupId) exist.groupId = groupId;
         exist._t = Date.now();
         updated++; return;
@@ -3869,6 +3878,7 @@ function runImport(){
     if (get('level')) rec.level = addMeta('levels', get('level'));
     if (phone) rec.phone = phone;
     if (parentPhone) rec.parentPhone = parentPhone;
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guardianEmail)) rec.guardianEmail = guardianEmail;
     if (groupId) rec.groupId = groupId;
     rec._t = Date.now();
     S.data.students.push(rec);
@@ -3926,17 +3936,17 @@ function openAuthWizard(){
   const pid = cfg.projectId || FB_DEFAULT.projectId;
   const on = S.fb.auth === 'on';
   const hasKey = !!Cloud.authKeyOf();
-  Modal.open({ title:'تأمين بيانات المنصة', sub:'3 خطوات مرة واحدة — وخلاص مفيش حد يشوف بياناتك غير أجهزتك', size:'lg',
+  Modal.open({ title:'تأمين بيانات المنصة', sub:'دخول إداري صامت + تقارير ولي الأمر لبريد Google المطابق فقط', size:'lg',
     body: `<div class="help brand" style="margin-bottom:13px;line-height:1.9">
-        <b>ليه الخطوات دي؟</b> دلوقتي قواعد فايربيز «مفتوحة» — يعني أي حد يعرف رابط مشروعك يقدر يشوف (وممكن يعدّل) بيانات الطلاب.
-        اللي هنعمله: المنصة <b>تسجّل نفسها لوحدها</b> في فايربيز (من غير أي كلمة سر ولا شاشة دخول)، وبعدين نقفل القواعد على المسجّلين بس.
-        <b>إنت مش هتكتب أي حاجة في المنصة — بتنسخ من فايربيز والصق هنا وخلاص.</b>
+        <b>ليه الخطوات دي؟</b> لازم تكون قواعد RTDB محكمة؛ القواعد المفتوحة تسمح لأي شخص يعرف رابط المشروع بقراءة البيانات أو تعديلها.
+        المنصة تسجّل جهاز الإدارة صامتًا، أما تقرير ولي الأمر فلا يظهر إلا بعد تسجيل Google ومطابقة البريد من RTDB.
+        <b>لا تنشر قواعد مفتوحة ولا تستخدم خيارًا يفتح البيانات.</b>
       </div>
 
-      <div class="field"><label>1) فعّل الدخول الصامت في فايربيز ${hasKey ? '<span class="badge b-ok">تم ✅</span>' : '<span class="badge b-warn">مطلوب</span>'}</label>
-        <div class="small muted" style="margin-bottom:8px;line-height:1.9">من كونسول فايربيز ← Authentication ← Sign-in method ← فعّل <b>Anonymous</b> ← Save (دقيقة واحدة).</div>
+      <div class="field"><label>1) فعّل مزوّدي الدخول في Firebase Authentication</label>
+        <div class="small muted" style="margin-bottom:8px;line-height:1.9">من كونسول فايربيز ← Authentication ← Sign-in method: فعّل <b>Anonymous</b> للأجهزة الإدارية و<b>Google</b> لبوابة ولي الأمر. فعّل <b>Email/Password</b> أيضًا لحسابات الطلبة، ثم اضغط Save.</div>
         <button class="btn sm" data-act="authConsolePage">${icon('link')} افتح صفحة التفعيل</button>
-        <div class="small muted" style="margin-top:8px;line-height:1.9">ولحسابات الطلبة بإيميل حقيقي: فعّل كمان <b>Email/Password</b> من نفس صفحة Sign-in method، ثم اضغط Save.</div></div>
+        <div class="small muted" style="margin-top:8px;line-height:1.9">ومن Authentication ← Settings ← Authorized domains، أضف نطاق المنصة المنشورة.</div></div>
 
       <div class="field" style="margin-top:14px"><label>2) الصق كود الإعدادات هنا ${on ? '<span class="badge b-ok">تم ✅</span>' : '<span class="badge b-warn">مطلوب</span>'}</label>
         <div class="small muted" style="margin-bottom:8px;line-height:1.9">من كونسول فايربيز ← ⚙️ Project settings ← Your apps ← تطبيق الويب ← انسخ <code>firebaseConfig</code> كله والصقه (أو الصق المفتاح لوحده).</div>
@@ -3961,12 +3971,12 @@ function openAuthWizard(){
         </div></div>
 
       <div class="help info" style="margin-top:14px;line-height:1.95">
-        <b>القواعد دي بقت بتحمي حسب الدور:</b> المالك كل حاجة · المدرس (حضور · درجات · ملاحظات · طلاب) وممنوع من الإعدادات والنسخ والحذف ·
-        ولي أمر يشوف <b>صفحة ابنه بس</b> · وأي جهاز جديد مايشوفش أي حاجة غير صفحة تسجيل الدخول.
-        ودي الحماية الحقيقية: <b>فايربيز نفسها هي اللي بترفض الطلب</b>، مش الواجهة بس.
+        <b>القواعد بتحمي حسب الدور:</b> دخول الأجهزة الإدارية يظل صامتًا · المدرس بصلاحياته الحالية ·
+        ولي الأمر لا يقرأ التقرير أو ملخص الفيديو إلا إذا كان Google account موثّقًا وبريده مطابقًا لبريد ملف الطالب.
+        الحماية الحقيقية من RTDB نفسها، ولا يسمح هذا الإصدار بقواعد مفتوحة.
       </div>
       <div class="field" style="margin-top:14px"><label>3) انسخ القواعد والصقها في Rules ${on ? '' : '<span class="badge b-gray">بعد الخطوة اللي فوق</span>'}</label>
-        <div class="small muted" style="margin-bottom:8px;line-height:1.9">كل حاجة مقفولة إلا لأعضاء المنصة. <b>متنساش تضغط Publish</b> بعد اللصق — ولو أي حاجة اتعطّلت، تحت فيه زر <b>«وقّف التأمين»</b> بيرجّع كل حاجة زي الأول في ثانية.</div>
+        <div class="small muted" style="margin-bottom:8px;line-height:1.9">بيانات الإدارة مقفولة على أعضاء المنصة، وتقارير أولياء الأمور مقفولة على البريد المطابق. <b>متنساش تضغط Publish</b> بعد اللصق؛ لا تستخدم قواعد مفتوحة كحل مؤقت.</div>
         <pre class="code" style="direction:ltr;text-align:left;font-size:11.5px;line-height:1.6;white-space:pre-wrap;margin:0 0 9px">${esc(FB_RULES_RTDB)}</pre>
         <div class="btn-row">
           <button class="btn pri" data-act="authCopyRules">${icon('copy')} انسخ القواعد</button>
@@ -3975,8 +3985,7 @@ function openAuthWizard(){
         </div></div>
 
       <div class="help" style="margin-top:14px;line-height:1.9">
-        <b>ملاحظة مطمّنة:</b> لو حصل أي حاجة وإنت مش قادر توصل للبيانات، افتح «الإعدادات ← وقّف التأمين» والمنصة ترجع تشتغل زي الأول في ثانية —
-        بياناتك على فايربيز مش هتتأثر، والشكل مش هيتغير خالص: بتفتح المنصة وتلاقي شغلك زي ما هو.
+        <b>مهم:</b> لو المزامنة توقفت بعد نشر القواعد، راجع مزوّد Anonymous ومفتاح Firebase وقواعد RTDB على المشروع المحدد. لا تفتح القواعد؛ قواعد الإصدار تمنع الوصول العام لحماية تقرير ولي الأمر.
       </div>`,
     footer: `<button class="btn ghost" data-act="authSignOut">مسح شهادة الجهاز وإعادة المحاولة</button><button class="btn" data-close>إغلاق</button>` });
 }
@@ -4670,12 +4679,12 @@ const GUIDE = [
   { t:'المزامنة بين الأجهزة', ic:'cloud', items:[
     { q:'إزاي أظبط المنصة على جهاز جديد؟', a:'افتح رابط المنصة على الجهاز الجديد — <b>مفيش أي حاجة تكتبها</b>. البيانات بتنزل لوحدها، وأي تعديل من أي جهاز بيظهر على التاني في ثواني.', act:'settings', actL:'الإعدادات' },
     { q:'النت قطع وأنا بأسجّل؟', a:'كمّل عادي — كل تعديل بيتسجل بختم وقت وبيرفع <b>لوحده</b> أول ما النت يرجع، حتى لو قفلت المنصة.' },
-    { q:'إيه الحكاية في «أمّن البيانات»؟', a:'خطوة اختيارية بتخلي بيانات الطلاب محدش يشوفها غيرك — المنصة بتسجّل نفسها لوحدها في فايربيز (مفيش كلمة سر تكتبها) والقواعد بتتقفل. الخطوات كلها جوه الإعدادات في 3 خطوات.', act:'authWizard', actL:'أمّن البيانات' },
+    { q:'إيه الحكاية في «أمّن البيانات»؟', a:'تأمين بيانات الإدارة بالدخول الصامت، وتقارير أولياء الأمور بحساب Google مطابق لبريد ولي الأمر في ملف الطالب. لازم نشر قواعد RTDB المحكمة؛ ما تستخدمش قواعد مفتوحة. الخطوات جوه الإعدادات.', act:'authWizard', actL:'أمّن البيانات' },
     { q:'فتحت المنصة على جهاز جديد وطلب مني تسجيل دخول؟', a:'ده طبيعي — أي جهاز جديد لازم المستر يوافق عليه. اكتب اسم الجهاز ودوس <b>«ابعت طلب انضمام للمستر»</b>، وهيوصلك إشعار على المنصة عند المستر، وهو <b>يقبل (ويحدد دورك: مالك أو مدرس) أو يرفض</b>. الصفحة هتفتحلك لوحدها أول ما يوافق — من غير ما تعمل أي حاجة. ولو معاك <b>كود دعوة</b> من المستر، اكتبه واضغط «ادخل بالكود» على طول.', act:'rolesOpen', actL:'شوف الصلاحيات' },
     { q:'فتحت المنصة على جهاز جديد وطلع «جهاز غير مصرّح»؟', a:'ده طبيعي عشان الأمان: أي جهاز جديد محتاج اعتماد من المالك. هتلاقي على الشاشة <b>كود الجهاز</b> — انسخه وابعته للمستر، وهو من <b>الإعدادات ← الأدوار والصلاحيات ← اعتماد جهاز تاني</b> يلزقه ويعتمدك (مالك أو مدرس). أو لو معاك المدرس، يبعتلك <b>رابط دعوة</b> من نفس الشاشة.', act:'rolesOpen', actL:'شوف الصلاحيات والأعضاء' },
-    { q:'إيه الأدوار الموجودة في المنصة؟', a:'تلات أدوار بس: <b>المالك</b> (إنت — كل حاجة، ومن غير أي تسجيل دخول) · <b>مدرس</b> (يسجّل حضور ويدخّل درجات ويكتب ملاحظات ويضيف طلاب — <b>وممنوع من أي حذف</b>) · <b>ولي أمر</b> (رابط متابعة لابنه — قراءة فقط).', act:'rolesOpen', actL:'شوف الصلاحيات والأعضاء' },
+    { q:'إيه الأدوار الموجودة في المنصة؟', a:'تلات أدوار بس: <b>المالك</b> (إنت — كل حاجة، ومن غير أي تسجيل دخول) · <b>مدرس</b> (يسجّل حضور ويدخّل درجات ويكتب ملاحظات ويضيف طلاب — <b>وممنوع من أي حذف</b>) · <b>ولي أمر</b> (رابط تقرير قراءة فقط، ولا يظهر إلا لحساب Google المطابق للبريد المسجّل في ملف الطالب).', act:'rolesOpen', actL:'شوف الصلاحيات والأعضاء' },
     { q:'عايز أضيف مدرس يساعدني؟', a:'من الإعدادات ← <b>الأدوار والصلاحيات</b> ← «دعوة مدرس» ← اكتب اسمه وإيمهيله ← ابعتله الرابط. بيفتحه مرة واحدة ويعمل لنفسه باسورد، وبعدها الجهاز بتاعه فاكر — ومن أي جهاز تاني بيدخل بالإيميل والباسورد. تقدر تلغي صلاحيته في أي وقت بضغطة.', act:'memberInvite', actL:'اعمل دعوة مدرس' },
-    { q:'عايز ولي الأمر يتابع ابنه بنفسه؟', a:'من ملف الطالب ← <b>رابط متابعة ولي الأمر</b> ← «إنشاء الرابط» ← ابعت الرابط لولي الأمر على واتساب. الرابط ده بيشوف منه <b>حضور ابنه ودرجاته وملاحظاتك</b> بس، ومش شايف أي طالب تاني، و<b>قراءة فقط</b> (مش بيعدّل أي حاجة)، وبيتحدّث لوحده أول ما تعدّل أي حاجة.', act:'refreshAllLinks', actL:'حدّث روابط المتابعة' },
+    { q:'عايز ولي الأمر يتابع ابنه بنفسه؟', a:'سجّل أولًا <b>بريد Google لولي الأمر</b> في ملف الطالب، ثم أنشئ رابط المتابعة وأرسله. بعد فتحه يسجّل Google، ولا يظهر له <b>حضور ابنه ودرجاته وملاحظاتك</b> إلا إذا طابق البريد المسجّل. التقرير قراءة فقط وبيتحدّث تلقائيًا.', act:'refreshAllLinks', actL:'حدّث روابط المتابعة' },
     { q:'عايز رابط ثابت أفتح منه المنصة من أي جهاز؟', a:'المنصة تنشر على <b>فايربيز</b> نفسه (مجانًا بالكامل) — بيبقى لك رابط ثابت تفتحه من أي موبايل أو كمبيوتر في أي وقت، وكل حاجة تفضل متزامنة. الخطوات جاهزة في زر واحد.', act:'deployOpen', actL:'رابط ثابت للمنصة' },
     { q:'عايز نسخة تشتغل من غير إنترنت خالص؟', a:'فيه زر بينزّلك <b>نسخة مستقلة</b> (ملف واحد) — دوس عليها مرتين وبتفتح على أي جهاز، شغالة أوفلاين وبترجع تتزامن مع فايربيز أول ما النت يفتح.', act:'deployOpen', actL:'حمّل نسخة مستقلة' },
     { q:'عايز أعرف كل حاجة عن السحابة دلوقتي؟', a:'الإعدادات ← <b>حالة المزامنة والنسخ</b>: السيرفر المتصل، سرعته، أي تعديل لسه مرفوع، آخر نسخة احتياطية، وحجم الاستهلاك من الخطة المجانية.', act:'fbStatus', actL:'حالة المزامنة' }
@@ -5644,7 +5653,7 @@ Views.settings = function(){
 
         <div class="sep"></div>
         <div class="flex wrap" style="gap:10px;align-items:center">
-          <b>${icon('check-square')} تأمين البيانات <span class="small muted">(من غير أي تسجيل دخول)</span></b>
+          <b>${icon('check-square')} تأمين البيانات <span class="small muted">(دخول الجهاز الصامت + تحقق Google لولي الأمر)</span></b>
           <span class="sp"></span>
           <span class="badge ${st.auth === false ? 'b-gray' : (S.fb.auth === 'on' ? 'b-ok' : (S.fb.auth === 'fail' ? 'b-bad' : 'b-warn'))}">
             ${st.auth === false ? '⏸️ مقفول بإيدك' : S.fb.auth === 'on' ? 'الدخول الصامت شغال ✅' : S.fb.auth === 'fail' ? 'محتاج خطوة' : 'خطوة واحدة ويتظبط'}
@@ -6204,19 +6213,26 @@ function nextCode(){
    روابط متابعة أولياء الأمور
    • كل طالب له رابط خاص (توكن عشوائي طويل) — ولي الأمر يفتحه على موبايله
      ويشوف ابنه لوحده: الحضور + الدرجات + الملاحظات. الرابط قراءة فقط.
-   • اللينك فيه كود المنصة، ومفتاح فايربيز (لو متاح) عشان جهاز ولي الأمر
-     يعمل الدخول الصامت لوحده من غير أي كتابة.
+   • اللينك فيه كود المنصة ومفتاح Firebase العام لتسجيل Google؛ قراءة التقرير
+     لا تبدأ إلا بعد مطابقة البريد المسجل في ملف الطالب.
    ============================================================ */
 const Parent = {
   map(){ if (!S.data.ptokens || typeof S.data.ptokens !== 'object') S.data.ptokens = {}; return S.data.ptokens; },
   of(sid){ const t = this.map()[sid]; return (t && t.token) || ''; },
   rec(sid){ return this.map()[sid] || null; },
+  emailOf(sid){ return String((student(sid)||{}).guardianEmail||'').trim().toLowerCase(); },
+  hasEmail(sid){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.emailOf(sid)); },
+  needsSync(sid){
+    if(!this.of(sid))return true;
+    const row=this.rec(sid)||{};
+    try{return row.authEmail!==this.emailOf(sid)||row.hash!==this.hash(this.snapshot(sid));}catch(e){return true;}
+  },
   rnd(){
     const a = new Uint8Array(16);
     try{ (window.crypto || {}).getRandomValues(a); }catch(e){ for (let i = 0; i < a.length; i++) a[i] = Math.floor(Math.random() * 256); }
     return Array.prototype.map.call(a, b => ('0' + (b & 255).toString(16)).slice(-2)).join('');
   },
-  hash(o){ let h = 5381; const t = JSON.stringify(o || ''); for (let i = 0; i < t.length; i++) h = ((h * 33) ^ t.charCodeAt(i)) >>> 0; return h.toString(36); },
+  hash(o){ let h = 5381; const pack=o&&typeof o==='object'?Object.assign({},o):o||''; if(pack&&typeof pack==='object')delete pack.at; const t = JSON.stringify(pack); for (let i = 0; i < t.length; i++) h = ((h * 33) ^ t.charCodeAt(i)) >>> 0; return h.toString(36); },
   base(){ try{ return platformBase(); }catch(e){ return PLATFORM_URL_DEFAULT; } },
   link(token){
     const cfg = Cloud.cfgNow() || FB_DEFAULT;
@@ -6251,29 +6267,49 @@ const Parent = {
     abs.sort((a, b) => (a.d < b.d ? 1 : -1));
     const from = (att[0] || {}).d || (ex[0] || {}).d || '';
     const to = (att[att.length - 1] || {}).d || (ex[ex.length - 1] || {}).d || '';
-    return { v: 3, at: new Date().toISOString(),
-      sid: sid, name: s.name || '', stage: s.stage || '', group: g.name || '', gid: s.groupId || '',
+    return { v: 4, at: new Date().toISOString(),
+      sid: sid, name: s.name || '', stage: s.stage || '', group: g.name || '', gid: s.groupId || '', guardianEmail:this.emailOf(sid),
       tname: st.teacherName || 'أحمد فتحي', tphone: st.phone || '',
       period: { from: from, to: to, year: (typeof currentYearLabel === 'function' ? currentYearLabel() : '') },
       n: { att: att.length, ex: ex.length, notes: notes.length, abs: abs.length },
       tot: { present: t.present, absent: t.absent, late: t.late, rate: t.rate, total: t.total },
       att: att, ex: ex, notes: notes, abs: abs };
   },
-  async put(sid, token){
-    const snap = this.snapshot(sid);
+  async put(sid, token, givenSnap){
+    if(!this.hasEmail(sid)) throw new Error('guardian_email_required');
+    const snap = givenSnap || this.snapshot(sid);
+    const access = { email:snap.guardianEmail, sid:sid, updatedAt:snap.at };
+    await Cloud.rtdb('PUT', Cloud.rootPath() + '/parentAccess/' + token, access);
     await Cloud.rtdb('PUT', Cloud.rootPath() + '/parents/' + token, snap);
-    const r = this.map()[sid]; if (r) r.hash = this.hash(snap);
+    const r = this.map()[sid]; if (r){ r.hash = this.hash(snap); r.authEmail = snap.guardianEmail; }
+    try{saveLocal();}catch(e){}
     return snap;
+  },
+  async syncAccess(sid){
+    const row=this.map()[sid], token=row&&row.token;
+    if(!token)return false;
+    const email=this.hasEmail(sid)?this.emailOf(sid):'';
+    const previous=typeof row.authEmail==='string'?row.authEmail:null;
+    if(previous===email)return false;
+    if(email) await Cloud.rtdb('PUT',Cloud.rootPath()+'/parentAccess/'+token,{email:email,sid:sid,updatedAt:new Date().toISOString()});
+    else await Cloud.rtdb('DELETE',Cloud.rootPath()+'/parentAccess/'+token);
+    row.authEmail=email;
+    return true;
+  },
+  async syncAccessAll(){
+    const ids=Object.keys(this.map());
+    for(let i=0;i<ids.length;i++){try{await this.syncAccess(ids[i]);}catch(e){}}
   },
   /* ذيل المتابعة اللي بيتحط في آخر كل رسالة لولي الأمر: الكود + رابط المنصة + لينك ابنه */
   follow(sid){
     const s = student(sid) || {};
-    const t = this.of(sid), L = [];
+    const t = this.hasEmail(sid) ? this.of(sid) : '', L = [];
     L.push('━━━━━━━━━━━━━');
     if (t){
       // الأهم الأول: الجملة + اللينك اللي بيفتح صفحة ابنه على طول
       L.push('لمتابعة تفاصيل ابنك، يرجى الدخول على صفحة ابنك من اللينك ده:');
       L.push(this.link(t));
+      L.push('بعد فتحه، سجّل بحساب Google المطابق للبريد المسجل عند المستر.');
       L.push('');
       L.push('واحفظ اللينك عندك وارجع له في أي وقت — بيتحدّث لوحده أول ما يحصل أي جديد ✅');
       L.push('');
@@ -6288,7 +6324,7 @@ const Parent = {
   /* بلوك رسالة الطالب: لينك صفحته عشان يبقى عارف مستواه */
   followStudent(sid){
     const s = student(sid) || {};
-    const t = this.of(sid), L = [];
+    const t = this.hasEmail(sid) ? this.of(sid) : '', L = [];
     L.push('━━━━━━━━━━━━━');
     if (t){
       L.push('لمتابعة مستواك ودرجاتك وحضورك، ادخل على صفحتك من اللينك ده:');
@@ -6303,8 +6339,13 @@ const Parent = {
   /* نجهّز كود المتابعة لوحده (من غير إزعاج) — بنستخدمه قبل أي رسالة تتبعت لولي الأمر */
   async ensure(sid, quiet){
     if (!student(sid)) return '';
+    if (!this.hasEmail(sid)){ if (!quiet) toast('أضف بريد Google لولي الأمر في ملف الطالب قبل إنشاء رابط المتابعة', 'warn', 'رابط المتابعة'); return ''; }
     const have = this.of(sid);
-    if (have) return have;
+    if (have){
+      const snap=this.snapshot(sid);
+      if(this.needsSync(sid)){try{await this.put(sid,have,snap);}catch(e){if(!quiet)toast('تعذر تحديث قيد بريد ولي الأمر أو التقرير على السيرفر — جرّب عند عودة الاتصال','bad','رابط المتابعة');return '';}}
+      return have;
+    }
     if (typeof Cloud === 'undefined' || !Cloud.dbUrl() || (S.fb && S.fb.status !== 'live')) return '';
     const m = this.map(), token = this.rnd(), at = new Date().toISOString();
     m[sid] = { token: token, at: at };
@@ -6316,11 +6357,10 @@ const Parent = {
     return token;
   },
   async ensureAll(sids){
-    const list = (sids || []).filter(id => student(id) && !this.of(id));
+    const list = (sids || []).filter(id => student(id) && this.hasEmail(id) && this.needsSync(id));
     if (!list.length) return 0;
     let n = 0;
     for (let i = 0; i < list.length && i < 40; i++){
-      if (this.of(list[i])) continue;
       const t = await this.ensure(list[i], true);
       if (t) n++;
     }
@@ -6329,6 +6369,7 @@ const Parent = {
   },
   async make(sid){
     const s = student(sid); if (!s){ toast('الطالب مش موجود', 'bad'); return ''; }
+    if (!this.hasEmail(sid)){ toast('أضف بريد Google لولي الأمر في ملف الطالب الأول', 'warn', 'رابط المتابعة'); return ''; }
     const m = this.map();
     let token = this.of(sid);
     if (!token){ token = this.rnd(); m[sid] = { token: token, at: new Date().toISOString() }; }
@@ -6341,11 +6382,12 @@ const Parent = {
   },
   async reset(sid){
     const s = student(sid); if (!s) return;
+    if (!this.hasEmail(sid)){ toast('أضف بريد Google لولي الأمر في ملف الطالب الأول', 'warn', 'رابط المتابعة'); return ''; }
     const m = this.map(), old = this.of(sid), token = this.rnd();
     m[sid] = { token: token, at: new Date().toISOString() };
     try{
       await this.put(sid, token);
-      if (old){ try{ await Cloud.rtdb('DELETE', Cloud.rootPath() + '/parents/' + old); }catch(e){} }
+      if (old){ try{ await Promise.all([Cloud.rtdb('DELETE', Cloud.rootPath() + '/parents/' + old), Cloud.rtdb('DELETE', Cloud.rootPath() + '/parentAccess/' + old)]); }catch(e){} }
     }catch(e){ toast('مش قادر أرفع الرابط — جرّب تاني', 'bad', 'رابط المتابعة'); return; }
     commit({ silent:true });
     try{ if(typeof Learning!=='undefined')Learning.syncParentProgressForStudent(sid).catch(()=>{}); }catch(e){}
@@ -6353,25 +6395,26 @@ const Parent = {
   },
   msg(sid){
     const s = student(sid) || {}, st = S.data.settings || {};
-    const t = this.of(sid);
+    const t = this.hasEmail(sid) ? this.of(sid) : '';
     return 'السلام عليكم ' + (s.guardian || '') + '،\n'
       + 'تحياتي أ. ' + (st.teacherName || 'أحمد فتحي') + ' — ' + (st.platformName || 'منصة المستر') + '.\n'
       + 'تحب تتابع مستوى ' + (s.name || 'الطالب') + '؟\n\n'
       + 'كود المتابعة بتاعك:\n' + t + '\n\n'
       + 'رابط المنصة:\n' + this.base() + '\n\n'
       + 'أو افتح لينك ابنك على طول (أسهل حاجة):\n' + this.link(t) + '\n\n'
-      + 'الدخول بالكود: افتح رابط المنصة ← «عندك كود متابعة؟» ← اكتب الكود، وهتفتحلك صفحة ' + (s.name || 'ابنك') + ' على طول.\n'
+      + 'الدخول بالكود: افتح رابط المنصة ← «عندك كود متابعة؟» ← اكتب الكود، وبعدها سجّل بحساب Google المسجل في ملف الطالب عشان يظهر التقرير.\n'
       + 'تقدر تحفظ اللينك عندك وترجع له في أي وقت — بيتحدّث لوحده أول ما يحصل أي جديد.';
   },
   wa(sid){
     const s = student(sid) || {}, ph = s.parentPhone || s.phone;
+    if (!this.hasEmail(sid)){ toast('سجّل بريد Google لولي الأمر في ملف الطالب الأول', 'warn', 'رابط المتابعة'); return; }
     if (!this.of(sid)){ toast('اعمل الرابط الأول', 'warn'); return; }
     if (!ph){ toast('مفيش رقم ولي أمر مسجّل للطالب ده', 'warn', 'رابط المتابعة'); return; }
     window.open(waLink(ph, this.msg(sid)), '_blank');
   },
   /* تحديث كل روابط المتابعة على السحابة (بس اللي اتغيّر فعلًا) */
   async refreshAll(manual){
-    const m = this.map(), ids = Object.keys(m).filter(sid => m[sid] && m[sid].token);
+    const m = this.map(), ids = Object.keys(m).filter(sid => m[sid] && m[sid].token && this.hasEmail(sid));
     if (!ids.length){ if (manual) toast('لسه مفيش روابط متابعة — اعمل رابط من ملف الطالب', 'info', 'روابط المتابعة'); return 0; }
     if (this._busy){ return -1; }
     this._busy = true; this._last = Date.now();
@@ -6382,7 +6425,7 @@ const Parent = {
       let snap; try{ snap = this.snapshot(sid); }catch(e){ continue; }
       const h = this.hash(snap);
       if (!manual && m[sid].hash === h) continue;
-      try{ await Cloud.rtdb('PUT', Cloud.rootPath() + '/parents/' + t, snap); m[sid].hash = h; m[sid].at = new Date().toISOString(); n++; }
+      try{ await this.put(sid, t, snap); m[sid].hash = h; m[sid].at = new Date().toISOString(); n++; }
       catch(e){ fail++; }
     }
     this._busy = false;
@@ -6396,26 +6439,39 @@ const Parent = {
   /* بعد أي تعديل: نحدّث الروابط لوحدنا (مرة كل شوية وبس اللي اتغيّر) */
   touch(){
     if (!Object.keys(this.map()).length) return;
+    this.syncAccessAll().catch(()=>{});
     clearTimeout(this._t);
     this._t = setTimeout(() => {
       if (Date.now() - (this._last || 0) < 45000) { this.touch(); return; }
       this.refreshAll(false);
     }, 8000);
   },
-  count(){ return Object.keys(this.map()).filter(sid => this.of(sid)).length; },
+  count(){ return Object.keys(this.map()).filter(sid => this.of(sid) && this.hasEmail(sid)).length; },
   open(sid, retry){
     const s = student(sid); if (!s){ toast('الطالب مش موجود', 'bad'); return; }
+    if (!this.hasEmail(sid)){
+      Modal.open({ title:'سجّل بريد ولي الأمر أولًا', sub:s.name, size:'sm',
+        body:`<div class="help warn" style="line-height:1.9">لا يمكن إنشاء رابط تقرير محمي قبل تسجيل <b>بريد Google لولي الأمر</b> في ملف الطالب. سيُسمح فقط للحساب المطابق بفتح التقرير.</div>`,
+        footer:`<button class="btn pri" data-act="editStudent" data-id="${sid}">${icon('edit')} تعديل ملف الطالب</button><button class="btn ghost" data-close>إغلاق</button>` });
+      return;
+    }
     const token = this.of(sid);
+    const row=this.rec(sid)||{};
+    if (token && !retry && this.needsSync(sid)){
+      toast('بنحدّث حماية الرابط وبيانات التقرير...', 'info', 'رابط المتابعة');
+      this.put(sid,token).then(()=>this.open(sid,true)).catch(()=>toast('تعذر تحديث حماية الرابط على السيرفر — اتأكد من اتصال السحابة','bad','رابط المتابعة'));
+      return;
+    }
+    if(token&&retry&&row.authEmail!==this.emailOf(sid)){toast('تعذر تحديث قيد بريد ولي الأمر — اتأكد من اتصال السحابة ثم جرّب مرة أخرى','bad','رابط المتابعة');return;}
     if (!token && !retry){
-      // بنعمله لوحده على طول (القواعد بتسمح للمالك والمدرس بالكتابة في مسار الروابط)
+      // بنعمله لوحده على طول (قواعد RTDB بتسمح للمالك والمدرس بكتابة الرابط وقيد البريد)
       toast('بنجهّز رابط المتابعة...', 'info', 'رابط المتابعة');
       this.ensure(sid, true).then(() => this.open(sid, true)).catch(() => this.open(sid, true));
       return;
     }
     if (!token){
       Modal.open({ title:'رابط متابعة ولي الأمر', sub:s.name, size:'md',
-        body:`<div class="help info" style="line-height:1.95">اعمل لولي أمر <b>${esc(s.name)}</b> رابط خاص بيه — يفتحه على موبايله ويشوف
-          <b>الحضور والدرجات والملاحظات</b> أول بأول، ومش شايف أي طالب تاني. الرابط <b>قراءة فقط</b> ومش بيعدّل أي حاجة.</div>`,
+        body:`<div class="help info" style="line-height:1.95">اعمل لولي أمر <b>${esc(s.name)}</b> رابط خاص بيه — يفتحه على موبايله، ثم يسجّل بحساب Google المطابق للبريد المسجّل في ملف الطالب. بعد المطابقة فقط يظهر له <b>الحضور والدرجات والملاحظات</b>، والرابط قراءة فقط.</div>`,
         footer:`<button class="btn pri" data-act="pLinkMake" data-id="${sid}">${icon('link')} إنشاء الرابط</button>
           <button class="btn ghost" data-close>إغلاق</button>` });
       return;
@@ -6424,7 +6480,8 @@ const Parent = {
     const r = this.rec(sid) || {};
     Modal.open({ title:'رابط متابعة ولي الأمر', sub:s.name, size:'md',
       body:`
-        <div class="help ok" style="line-height:1.95">الرابط شغال ✅ — ولي الأمر بيشوف منه <b>حضور ${esc(s.name)} ودرجاته وملاحظاتك</b> بس.
+        <div class="help ok" style="line-height:1.95">الرابط محمي ✅ — لا يظهر التقرير إلا لحساب Google المطابق لبريد ولي الأمر المسجل: <b>${esc(this.emailOf(sid))}</b>.
+          <br>بعد المطابقة، يشوف <b>حضور ${esc(s.name)} ودرجاته وملاحظاتك</b> بس. ولي الأمر يحتاج يسجّل الدخول قبل العرض.
           <br>ومش محتاج تنسخ حاجة: <b>لينك صفحة الطالب بيتحط لوحده في آخر كل رسالة لولي الأمر</b>
           (بجملة «لمتابعة تفاصيل ابنك، يرجى الدخول على صفحة ابنك»)، وكمان <b>رسالة الطالب</b> بيبقى فيها لينك صفحته.
           ${r.at ? '<br>آخر تحديث للبيانات: ' + esc(String(r.at).slice(0, 10)) : ''}</div>
@@ -6438,13 +6495,12 @@ const Parent = {
             <code class="code" style="direction:ltr;font-size:12.5px;padding:8px 11px;background:var(--bg);border-radius:9px;flex:1;overflow:auto">${esc(this.base())}</code>
             <button class="btn sm" data-act="pLinkPlatCopy" data-id="${sid}">${icon('copy')} انسخ</button>
           </div>
-          <div class="small muted" style="margin-top:6px;line-height:1.9">الدخول بالكود: يفتح رابط المنصة ← «عندك كود متابعة؟» ← يكتب الكود.</div></div>
+          <div class="small muted" style="margin-top:6px;line-height:1.9">الدخول بالكود: يفتح رابط المنصة ← «عندك كود متابعة؟» ← يكتب الكود، ثم يسجّل بحساب Google المسجل في ملف الطالب.</div></div>
         <div class="field"><label>لينك ابنك المباشر</label>
           <code class="code" style="display:block;direction:ltr;text-align:left;font-size:12px;padding:9px 11px;background:var(--bg);border-radius:9px;word-break:break-all">${esc(link)}</code>
           <div class="small muted" style="margin-top:7px;line-height:1.9">لو فتحته من متصفح أي موبايل هتشوف صفحة المتابعة على طول — جرّبه بنفسك الأول لو حبيت.</div></div>
         ${noKey ? `<div class="role-strip" style="background:var(--warn-bg);color:var(--warn);line-height:1.9">
-          ملاحظة: مفتاح المشروع مش على الجهاز ده. لو ولي الأمر فتح على جهاز جديد ومش عارف يدخل،
-          افتح <b>الإعدادات ← المزامنة ← «أمّن البيانات»</b> مرة واحدة، وبعدها ابعتله الرسالة تاني.
+          ملاحظة: مفتاح Firebase غير موجود في الرابط. افتح <b>الإعدادات ← المزامنة ← «أمّن البيانات»</b> لتجهيزه، ثم أنشئ الرابط أو أعد إرساله.
         </div>` : ''}`,
       footer:`<button class="btn sm" data-act="pLinkCopy" data-id="${sid}">${icon('copy')} انسخ</button>
         <button class="btn sm pri" data-act="pLinkWa" data-id="${sid}">${icon('whatsapp')} ابعت لولي الأمر</button>
@@ -6533,10 +6589,10 @@ const Requests = {
 
 /* رابط دخول ولي الأمر بكود المتابعة (بيستخدم رابط المنصة الرسمي) */
 function parentEntryUrl(code){
-  let c = '', k = '';
-  try{ c = Cloud.cfgNow().code || ''; }catch(e){}
+  let c = '', k = '', pid = '', db = '';
+  try{ const cfg=Cloud.cfgNow(); c=cfg.code||'';pid=cfg.projectId||'';db=String(cfg.dbUrl||'').replace(/\/+$/,''); }catch(e){}
   try{ k = Cloud.authKeyOf() || ''; }catch(e){ k = ''; }
-  return platformBase() + '?p=' + encodeURIComponent(code) + (c ? '&c=' + encodeURIComponent(c) : '') + (k ? '&k=' + encodeURIComponent(k) : '');
+  return platformBase() + '?p=' + encodeURIComponent(code) + (c ? '&c=' + encodeURIComponent(c) : '') + (pid ? '&pid=' + encodeURIComponent(pid) : '') + (db ? '&db=' + encodeURIComponent(db) : '') + (k ? '&k=' + encodeURIComponent(k) : '');
 }
 
 /* ============================================================
@@ -6613,19 +6669,8 @@ const LMode = {
     const inp = $('#lPCode', this.node), btn = $('#lPGo', this.node);
     const code = (inp ? inp.value : '').trim().toLowerCase().replace(/[^0-9a-f]/g, '');
     if (code.length < 8){ toast('اكتب كود المتابعة كامل', 'warn', 'متابعة ولي الأمر'); return; }
-    if (btn){ btn.disabled = true; btn.textContent = 'بنتأكد من الكود...'; }
-    let found = null;
-    try{ found = await Cloud.rtdb('GET', Cloud.rootPath() + '/parents/' + code, null, false, '?t=' + Date.now()); }catch(e){}
-    if (!found || typeof found !== 'object'){
-      if (btn){ btn.disabled = false; btn.innerHTML = 'اعرض متابعة ابني'; }
-      const strip = document.createElement('div');
-      strip.className = 'role-strip';
-      strip.style.cssText = 'background:var(--bad-bg);color:var(--bad);margin-top:10px;line-height:1.9';
-      strip.textContent = 'الكود ده مش موجود — اتأكد منه أو اطلب من المستر يبعتهولك تاني.';
-      if (btn && btn.parentNode) btn.parentNode.parentNode.appendChild(strip);
-      return;
-    }
-    try{ PMode.remember(code); }catch(e){}
+    if (btn){ btn.disabled = true; btn.textContent = 'بنفتح شاشة تسجيل Google...'; }
+    // لا نقرأ التقرير هنا ولا نتحقق من وجوده قبل المصادقة؛ PMode يطلب Google أولًا.
     location.href = parentEntryUrl(code);
   },
   async send(){
@@ -6884,7 +6929,7 @@ function openStudentForm(id){
   const gid = s ? s.groupId : (S.ui.stuFilter.groupId || '');
   const g = groupOf(gid);
   const st = s || { name:'', code: nextCode(), stage:'', studySystem:'', type:'', level:'', groupId: gid, payMode: (g && g.payMode) || 'monthly',
-    phone:'', parentPhone:'', guardian:'', email:'', joinDate: today(), status:'active', notes:'' };
+    phone:'', parentPhone:'', guardian:'', guardianEmail:'', email:'', joinDate: today(), status:'active', notes:'' };
   const sysList = studySystemsFor(st.stage);
   Modal.open({
     title: id ? 'تعديل بيانات الطالب' : 'إضافة طالب جديد',
@@ -6924,9 +6969,14 @@ function openStudentForm(id){
         <div class="field"><label>هاتف ولي الأمر</label><input class="inp" id="fPPhone" value="${esc(st.parentPhone)}" placeholder="01xxxxxxxxx"></div>
         <div class="field"><label>اسم ولي الأمر</label><input class="inp" id="fGuardian" value="${esc(st.guardian)}"></div>
       </div>
-      <div class="field"><label>إيميل الطالب (لحساب بوابة الفيديوهات)</label>
-        <input class="inp" id="fEmail" type="email" value="${esc(st.email || '')}" placeholder="student@example.com" style="direction:ltr;text-align:left">
-        <span class="hint">بيستخدمه الطالب للدخول للبوابة — مش بيظهر للطلاب التانيين.</span></div>
+      <div class="frow">
+        <div class="field"><label>بريد Google لولي الأمر (لتأمين رابط المتابعة)</label>
+          <input class="inp" id="fGuardianEmail" type="email" value="${esc(st.guardianEmail || '')}" placeholder="parent@gmail.com" style="direction:ltr;text-align:left">
+          <span class="hint">لازم يطابق حساب Google الذي سيفتح تقرير الطالب.</span></div>
+        <div class="field"><label>إيميل الطالب (لحساب بوابة الفيديوهات)</label>
+          <input class="inp" id="fEmail" type="email" value="${esc(st.email || '')}" placeholder="student@example.com" style="direction:ltr;text-align:left">
+          <span class="hint">بيستخدمه الطالب للدخول للبوابة — مش بيظهر للطلاب التانيين.</span></div>
+      </div>
       <div class="frow-3">
         <div class="field"><label>تاريخ الانضمام</label><input class="inp" type="date" id="fJoin" value="${st.joinDate || today()}"></div>
         <div class="field"><label>حالة الطالب</label><select class="inp" id="fStatus">
@@ -6969,11 +7019,13 @@ function openStudentForm(id){
         if (!name){ toast('اكتب اسم الطالب', 'warn'); return; }
         if (!stageEl.value){ toast('اختر المرحلة الدراسية', 'warn'); stageEl.focus(); return; }
         if (!$('#fSys', body).value){ toast('اختر نظام الدراسة', 'warn'); $('#fSys', body).focus(); return; }
+        const guardianEmail = ($('#fGuardianEmail', body).value || '').trim().toLowerCase();
+        if (guardianEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guardianEmail)){ toast('اكتب بريد Google صحيح لولي الأمر', 'warn'); $('#fGuardianEmail', body).focus(); return; }
         const data = {
           name: name, code: $('#fCode', body).value.trim(), stage: stageEl.value, studySystem: $('#fSys', body).value,
           type: $('#fType', body).value, level: $('#fLevel', body).value, groupId: $('#fGroup', body).value,
           payMode: $('#fPay', body).value, phone: $('#fPhone', body).value.trim(), parentPhone: $('#fPPhone', body).value.trim(),
-          guardian: $('#fGuardian', body).value.trim(), email: ($('#fEmail', body).value || '').trim().toLowerCase(), joinDate: $('#fJoin', body).value || today(),
+          guardian: $('#fGuardian', body).value.trim(), guardianEmail: guardianEmail, email: ($('#fEmail', body).value || '').trim().toLowerCase(), joinDate: $('#fJoin', body).value || today(),
           status: $('#fStatus', body).value, notes: $('#fNotes', body).value.trim()
         };
         if (id){ Object.assign(student(id), data); toast('تم تحديث بيانات ' + name, 'ok'); }
@@ -8264,12 +8316,12 @@ document.addEventListener('click', function(e){
     case 'invCopy': copyText(id || '', 'الرابط اتنسخ ✅ ابعته للمدرس'); break;
     case 'invMsgCopy': copyText(id || '', 'الرسالة اتنسخت ✅ ابعتها واتساب'); break;
     case 'pLink': Parent.open(id); break;
-    case 'pLinkMake': Parent.make(id).then(t => { if (t) Parent.open(id); }); break;
+    case 'pLinkMake': Parent.make(id).then(t => { if (t) Parent.open(id, true); }); break;
     case 'pLinkCopy': copyText(Parent.link(Parent.of(id)), 'الرابط اتنسخ ✅ ابعته لولي الأمر'); break;
     case 'pLinkCodeCopy': copyText(Parent.of(id), 'كود المتابعة اتنسخ ✅'); break;
     case 'pLinkPlatCopy': copyText(Parent.base(), 'رابط المنصة اتنسخ ✅'); break;
     case 'pLinkWa': Parent.wa(id); break;
-    case 'pLinkNew': Parent.reset(id).then(() => Parent.open(id)); break;
+    case 'pLinkNew': Parent.reset(id).then(() => Parent.open(id, true)); break;
     case 'pRefreshAll': Parent.refreshAll(true); break;
     case 'refreshAllLinks': Parent.refreshAll(true); break;
     case 'deployZip': Deploy.makeZip(); break;
@@ -8491,11 +8543,17 @@ document.addEventListener('change', function(e){
   }
   if (t.id === 'darkToggle'){ setTheme(t.checked ? 'dark' : 'light'); return; }
   if (t.id === 'authToggle'){
+    const guardianData = (S.data.students || []).some(s => String(s.guardianEmail || '').trim()) || Parent.count() > 0;
+    if (!t.checked && guardianData){
+      t.checked = true;
+      toast('مينفعش توقف التأمين وفيه روابط تقارير لأولياء الأمور — ده ممكن يفتح بياناتهم لأي شخص. خلي الدخول الصامت مفعّل.', 'bad', 'حماية التقارير');
+      return;
+    }
     S.data.settings.auth = t.checked;
     if (!t.checked){ Cloud.clearTok(); S.fb.auth = 'off'; }
     else { S.fb.auth = Cloud.authKeyOf() ? 'ready' : 'no-key'; if (t.checked && S.fb.auth === 'ready') Cloud.signIn().then(() => { S.fb.auth = 'on'; paintCloud(); }).catch(e => { S.fb.auth = 'fail'; S.fb.authErr = e.message; }); }
     commit();
-    toast(t.checked ? 'التأمين مفعّل — المنصة بتسجّل الجهاز لوحدها ✅' : 'التأمين اتوقف — البيانات بقت مفتوحة لأي حد يعرف الرابط', t.checked ? 'ok' : 'warn', 'السحابة');
+    toast(t.checked ? 'التأمين مفعّل — المنصة بتسجّل الجهاز لوحدها، وتقارير ولي الأمر محمية ببريد Google ✅' : 'التأمين اتوقف', t.checked ? 'ok' : 'warn', 'السحابة');
     return;
   }
   if (t.id === 'cloudMirrorToggle'){ S.data.settings.fbMirror = t.checked; commit(); toast(t.checked ? 'المرآة شغالة — كل تعديل على السيرفرين ✅' : 'المرآة اتوقفت', t.checked ? 'ok' : 'info', 'السحابة'); return; }
@@ -8589,18 +8647,25 @@ window.addEventListener('resize', throttle(() => {
 /* ============================================================
    وضع ولي الأمر — شاشة المتابعة (بتفتح من الرابط اللي المستر بيبعته)
    • الرابط شكله: .../?p=التوكن&c=كود-المنصة&k=مفتاح-فايربيز
-   • الشاشة بتقرا ملف صغير جدًا من فايربيز فيه بيانات الطالب لوحده
+   • تظهر شاشة Google أولًا، وتقرأ تقرير الطالب فقط بعد مطابقة البريد المحفوظ في ملفه
    • مفيش أي كتابة ولا تعديل — قراءة بس، وبتتحدّث لوحدها
    ============================================================ */
 const PMode = {
   token:'', code:'', key:'', pid:'', db:'', rec:null, videoProgress:{}, es:null, videoEs:null, timer:null, progressReloadTimer:null, busy:false,
+  authApp:null, auth:null, authUser:null, authReady:false, authErrorText:'', authAppName:'', redirectKey:'mostar_parent_google_redirect', portalKey:'mostar_parent_portal_state',
   lsGet(k){ try{ return localStorage.getItem(k) || ''; }catch(e){ return ''; } },
   qp(n){ try{ return (new URLSearchParams(String(location.search || ''))).get(n) || ''; }catch(e){ return ''; } },
+  redirectState(){ try{ return JSON.parse(sessionStorage.getItem(this.redirectKey)||'null') || {}; }catch(e){ return {}; } },
+  portalState(){ try{ return JSON.parse(sessionStorage.getItem(this.portalKey)||'null') || {}; }catch(e){ return {}; } },
   fromUrl(){
     let t = this.qp('p');
     if (!t){ const h = String(location.hash || ''); if (h.indexOf('#p=') === 0) t = h.slice(3).split('&')[0]; }
     if (t) return t;
-    return this.remembered();          // نفس الجهاز: بيفتح على صفحة ابنه على طول
+    const pending=this.redirectState();
+    if(pending.token)return pending.token;
+    const portal=this.portalState();
+    if(portal.token)return portal.token;
+    return this.remembered();          // الرابط المحفوظ لا يعرض التقرير قبل تسجيل Google
   },
   remembered(){
     try{
@@ -8614,24 +8679,133 @@ const PMode = {
       const role = localStorage.getItem('mostar_role') || '';
       if (role === 'owner' || role === 'teacher') return;
       localStorage.setItem('mostar_ptok', token);
-      const c = this.qp('c'); if (c) localStorage.setItem('mostar_pcode', c);
-      const k = this.qp('k'); if (k) localStorage.setItem('mostar_pkey', k);
+      const c = this.qp('c') || this.code; if (c) localStorage.setItem('mostar_pcode', c);
+      const k = this.qp('k') || this.key; if (k) localStorage.setItem('mostar_pkey', k);
       if (this.pid) localStorage.setItem('mostar_ppid', this.pid);
       if (this.db) localStorage.setItem('mostar_pdb', this.db);
     }catch(e){}
   },
-  forget(){
+  loadScript(src){
+    return new Promise((resolve,reject)=>{
+      const s=document.createElement('script');s.src=src;s.async=true;
+      s.onload=()=>resolve();s.onerror=()=>reject(new Error('تعذر تحميل مكتبة تسجيل Google'));
+      document.head.appendChild(s);
+    });
+  },
+  authMessage(err){
+    const code=String(err&&err.code||''),msg=String(err&&err.message||err||'');
+    if(code==='auth/operation-not-allowed')return 'تسجيل Google غير مفعّل في إعدادات Firebase Authentication للمشروع.';
+    if(code==='auth/unauthorized-domain')return 'نطاق المنصة غير مضاف إلى Authorized domains في Firebase Authentication.';
+    if(code==='auth/popup-closed-by-user')return 'تم إغلاق نافذة Google قبل اكتمال تسجيل الدخول.';
+    if(/permission.?denied|unauthorized|401|403/i.test(msg))return 'الحساب غير مطابق لبريد ولي الأمر، أو قواعد RTDB المحمية لم تُنشر بعد.';
+    return msg ? 'تعذر تسجيل الدخول إلى Google: '+msg.slice(0,180) : 'تعذر تسجيل الدخول إلى Google. حاول مرة أخرى.';
+  },
+  async initGoogleAuth(){
+    const apiKey=this.key||Cloud.authKeyOf({projectId:this.pid});
+    if(!apiKey)throw new Error('مفتاح Firebase غير موجود في الرابط أو الإعدادات المحفوظة.');
+    this.key=apiKey;
+    if(!window.firebase||!window.firebase.initializeApp)await this.loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
+    if(!window.firebase||!window.firebase.auth)await this.loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js');
+    if(!window.firebase||!window.firebase.auth)throw new Error('مكتبة Firebase Authentication غير متاحة.');
+    this.authAppName='mostar-parent-'+String(this.pid||'platform').replace(/[^a-zA-Z0-9_-]/g,'-');
+    const config={apiKey:apiKey,authDomain:(this.pid||'')+'.firebaseapp.com',databaseURL:this.db,projectId:this.pid};
+    try{this.authApp=window.firebase.app(this.authAppName);}catch(e){this.authApp=window.firebase.initializeApp(config,this.authAppName);}
+    this.auth=this.authApp.auth();
+    let redirectResult=null;
+    try{redirectResult=await this.auth.getRedirectResult();}catch(e){this.authErrorText=this.authMessage(e);}
+    const redirected=redirectResult&&redirectResult.user;
+    if(redirected){
+      await this.auth.setPersistence(window.firebase.auth.Auth.Persistence.NONE);
+      this.authUser=redirected;
+      try{sessionStorage.removeItem(this.redirectKey);}catch(e){}
+      this.authReady=true;
+      return redirected;
+    }
+    await this.auth.setPersistence(window.firebase.auth.Auth.Persistence.NONE);
+    if(this.auth.currentUser){try{await this.auth.signOut();}catch(e){}}
+    this.authUser=null;this.authReady=true;
+    try{sessionStorage.removeItem(this.redirectKey);}catch(e){}
+    return null;
+  },
+  async rtdb(method,path,body,query){
+    const user=this.authUser||(this.auth&&this.auth.currentUser);
+    if(!user)throw new Error('يلزم تسجيل الدخول بحساب Google أولًا.');
+    const token=await user.getIdToken();
+    const base=String(this.db||'').replace(/\/+$/,'');
+    if(!base)throw new Error('رابط Realtime Database غير موجود.');
+    let url=base+'/'+path+'.json'+(query||'');
+    url+=(query?(query.indexOf('?')>=0?'&':'?'):'?')+'auth='+encodeURIComponent(token);
+    const res=await fetch(url,{method:method||'GET',cache:'no-store',headers:body!=null?{'Content-Type':'application/json'}:undefined,body:body!=null?JSON.stringify(body):undefined});
+    const text=await res.text();let data=null;try{data=text?JSON.parse(text):null;}catch(e){}
+    if(!res.ok||(data&&data.error)){
+      const message=typeof data==='string'?data:(data&&data.error&&data.error.message)||data&&data.error||('HTTP '+res.status);
+      throw Object.assign(new Error(String(message)),{http:res.status});
+    }
+    return data;
+  },
+  async signInGoogle(){
+    if(!this.authReady||!this.auth){this.renderLogin(this.authErrorText||'تسجيل Google غير جاهز. حدّث الصفحة وحاول مرة أخرى.');return;}
+    if(this.busy)return;
+    this.busy=true;this.renderLogin('جارٍ فتح نافذة Google…');
+    const provider=new window.firebase.auth.GoogleAuthProvider();
+    provider.setCustomParameters({prompt:'select_account'});
+    try{
+      if(this.auth.currentUser)await this.auth.signOut();
+      const result=await this.auth.signInWithPopup(provider);
+      await this.acceptGoogleUser(result&&result.user);
+    }catch(e){
+      const code=String(e&&e.code||'');
+      if(code==='auth/popup-blocked'||code==='auth/operation-not-supported-in-this-environment'||code==='auth/web-storage-unsupported'){
+        try{
+          await this.auth.setPersistence(window.firebase.auth.Auth.Persistence.SESSION);
+          sessionStorage.setItem(this.redirectKey,JSON.stringify({token:this.token,code:this.code,pid:this.pid,db:this.db,key:this.key}));
+          this.loading('بنحوّلك لتسجيل Google…');
+          await this.auth.signInWithRedirect(provider);
+          return;
+        }catch(redirectError){e=redirectError;}
+      }
+      this.busy=false;this.renderLogin(this.authMessage(e));
+    }
+  },
+  async acceptGoogleUser(user){
+    if(!user){this.busy=false;this.renderLogin('Google لم يرجع حسابًا صالحًا. حاول مرة أخرى.');return;}
+    this.authUser=user;this.rec=null;this.videoProgress={};this.busy=false;
+    try{await this.load();if(this.rec)this.watch();}
+    catch(e){this.fail(this.authMessage(e));}
+  },
+  renderLogin(message){
+    if(!this.node)return;
+    this.rec=null;this.videoProgress={};
+    document.title='تسجيل ولي الأمر — منصة المستر';
+    const note=message?`<div class="pm-alert" role="alert">${esc(message)}</div>`:'';
+    this.node.innerHTML=`<div class="pm-head"><img src="logo.jpg" alt="" onerror="this.style.display='none'"><div><div class="pm-plat">منصة المستر</div><div class="pm-sub">بوابة ولي الأمر · متابعة آمنة</div></div></div>
+      <div class="pm-card pm-login"><div class="pm-login-mark">G</div><h2>تسجيل دخول وليّ الأمر</h2>
+        <p>قبل عرض أي بيانات، سجّل بحساب Google نفسه الذي سجّله المستر في ملف الطالب. البريد لازم يطابق المسجّل بالضبط.</p>
+        ${note}
+        <button class="btn pri pm-login-btn" data-pm="google" ${this.authReady&&this.auth?'':'disabled'}><span class="pm-google-g">G</span> تسجيل الدخول باستخدام Google</button>
+        ${!this.authReady||!this.auth?'<button class="btn ghost pm-login-btn" data-pm="retry">إعادة تحميل صفحة الدخول</button>':''}
+        <div class="pm-login-note">لو الرابط مفتوح داخل واتساب ولم تظهر نافذة Google، افتحه في Chrome أو Safari. بيانات التقرير لا تُحمّل قبل التحقق من الحساب.</div></div>`;
+    this.hook();
+  },
+  async forget(){
+    this.stop();
+    try{ if(this.auth) await this.auth.signOut(); }catch(e){}
+    this.authUser=null; this.rec=null; this.videoProgress={}; this.busy=false;
     try{ localStorage.removeItem('mostar_ptok'); localStorage.removeItem('mostar_pcode'); localStorage.removeItem('mostar_pkey'); localStorage.removeItem('mostar_ppid'); localStorage.removeItem('mostar_pdb'); }catch(e){}
-    try{ const u = String(location.href).split('?')[0]; location.replace(u); }catch(e){ try{ location.reload(); }catch(err){} }
+    try{ sessionStorage.removeItem(this.redirectKey);sessionStorage.setItem(this.portalKey,JSON.stringify({token:this.token,code:this.code,pid:this.pid,db:this.db,key:this.key})); }catch(e){}
+    try{ history.replaceState(null,'',location.pathname); }catch(e){}
+    this.renderLogin('تم تسجيل الخروج. لعرض التقرير من جديد، سجّل بحساب Google المطابق لبريد ولي الأمر المسجل.');
   },
   async start(){
     const token = this.fromUrl(); if (!token) return false;
-    this.token = token;
-    this.code = this.qp('c') || this.lsGet('mostar_pcode') || FB_DEFAULT.code || FB_DEFAULT.projectId;
-    this.pid = this.qp('pid') || this.lsGet('mostar_ppid') || this.code;
+    const redirect=this.redirectState(), portal=this.portalState();
+    this.token = token; this.rec=null; this.videoProgress={}; this.authErrorText='';
+    if(this.qp('p')){try{sessionStorage.removeItem(this.portalKey);}catch(e){}}
+    this.code = this.qp('c') || redirect.code || portal.code || this.lsGet('mostar_pcode') || FB_DEFAULT.code || FB_DEFAULT.projectId;
+    this.pid = this.qp('pid') || redirect.pid || portal.pid || this.lsGet('mostar_ppid') || this.code;
     const pdef = FB_PROJECTS.filter(p => p.projectId === this.pid || p.code === this.code)[0] || FB_DEFAULT;
-    this.db = this.qp('db') || this.lsGet('mostar_pdb') || pdef.dbUrl || FB_DEFAULT.dbUrl;
-    this.key = this.qp('k') || this.lsGet('mostar_pkey') || '';
+    this.db = this.qp('db') || redirect.db || portal.db || this.lsGet('mostar_pdb') || pdef.dbUrl || FB_DEFAULT.dbUrl;
+    this.key = this.qp('k') || redirect.key || portal.key || this.lsGet('mostar_pkey') || '';
     this.remember(token);
     try{
       let th = ''; try{ th = localStorage.getItem(LS_KEY + '_theme') || ''; }catch(e){}
@@ -8639,18 +8813,21 @@ const PMode = {
       document.documentElement.dataset.theme = th;
     }catch(e){}
     document.body.classList.add('pmode');
+    const old=document.getElementById('pview');if(old)old.remove();
     this.node = document.createElement('div'); this.node.id = 'pview';
     document.body.appendChild(this.node);
-    this.loading('بنجهّز لك متابعة ابنك...');
+    this.loading('بنجهّز صفحة تسجيل دخول ولي الأمر...');
     try{
       const pid = this.pid || this.code;
       Cloud._active = Object.assign({}, FB_DEFAULT, { projectId: pid, code: this.code || pid, authDomain: pid + '.firebaseapp.com', dbUrl: this.db || FB_DEFAULT.dbUrl, apiKey: this.key || '' });
       Cloud._key = null;
       if (this.key){ try{ Cloud.saveKeyFor(pid, this.key); }catch(e){} }
     }catch(e){}
-    try{ await Cloud.ensureTok(); }catch(e){}
-    await this.load();
-    this.watch();
+    try{
+      const user=await this.initGoogleAuth();
+      if(user){await this.load();if(this.rec)this.watch();}
+      else this.renderLogin(this.authErrorText);
+    }catch(e){this.authReady=false;this.authErrorText=this.authMessage(e);this.renderLogin(this.authErrorText);}
     return true;
   },
   loading(t){
@@ -8659,19 +8836,21 @@ const PMode = {
   },
   async load(){
     if (this.busy) return;
-    this.busy = true;
+    if(!this.authUser){this.renderLogin('سجّل بحساب Google المطابق قبل عرض التقرير.');return;}
+    this.busy = true; this.rec=null; this.videoProgress={};
     let rec = null, err = '';
-    try{ rec = await Cloud.rtdb('GET', Cloud.rootPath() + '/parents/' + this.token, null, false, '?t=' + Date.now()); }
+    try{ rec = await this.rtdb('GET', Cloud.rootPath() + '/parents/' + this.token, null, '?t=' + Date.now()); }
     catch(e){ err = (e && e.message) || 'مشكلة في الاتصال'; }
     if (rec && typeof rec === 'object'){
+      const registered=String(rec.guardianEmail||'').trim().toLowerCase();
+      const signed=String((this.authUser&&this.authUser.email)||'').trim().toLowerCase();
+      if(!registered||!signed||registered!==signed){this.busy=false;this.fail('guardian_email_mismatch');return;}
       this.rec = rec;
-      try{ this.videoProgress = await Cloud.rtdb('GET', Cloud.rootPath() + '/learning/parentProgress/' + this.token, null, false, '?t=' + Date.now()) || {}; }
-      catch(e){ this.videoProgress = this.videoProgress || {}; }
-      this.busy = false;
-      this.render(); return;
+      try{ this.videoProgress = await this.rtdb('GET', Cloud.rootPath() + '/learning/parentProgress/' + this.token, null, '?t=' + Date.now()) || {}; }
+      catch(e){ this.videoProgress = {}; }
+      this.busy=false;this.render(); return;
     }
-    this.busy = false;
-    if (this.rec) return;                       // عندنا نسخة قديمة → نفضل عليها
+    this.busy=false;
     if (err) this.fail(err); else this.gone();
   },
   queueProgressReload(){
@@ -8694,6 +8873,10 @@ const PMode = {
   hook(){
     const btn = this.node && this.node.querySelector('[data-pm="reload"]');
     if (btn) btn.onclick = () => { this.loading('بنحدّث البيانات...'); this.load(); };
+    const google = this.node && this.node.querySelector('[data-pm="google"]');
+    if (google) google.onclick = () => this.signInGoogle();
+    const retry = this.node && this.node.querySelector('[data-pm="retry"]');
+    if (retry) retry.onclick = () => location.reload();
     const fg = this.node && this.node.querySelector('[data-pm="forget"]');
     if (fg) fg.onclick = e => { e.preventDefault(); this.forget(); };
   },
@@ -8714,13 +8897,16 @@ const PMode = {
   },
   fail(err){
     const msg = String(err || '');
+    const mismatch = msg === 'guardian_email_mismatch';
     const perm = /permission|denied|401|403|unauthorized/i.test(msg);
+    this.rec=null;this.videoProgress={};
     this.node.innerHTML = this.header() + `
       <div class="pm-card">
-        <div class="pm-alert"><b>مش قادرين نعرض البيانات دلوقتي</b><br>
-        ${perm ? 'الرابط ده محتاج يتجدّد من جهاز المستر. اطلب من المستر يفتح ملف الطالب ← «رابط متابعة ولي الأمر» ← «رابط جديد» ويبعتهولك تاني.'
-               : 'اتأكد إن النت شغال وجرّب تاني بعد شوية.'}</div>
-        <div class="pm-btns"><button class="btn pri" data-pm="reload">${icon('refresh')} جرّب تاني</button></div>
+        <div class="pm-alert"><b>${mismatch?'حساب Google غير مطابق':'مش قادرين نعرض البيانات دلوقتي'}</b><br>
+        ${mismatch ? 'التقرير لم يُحمّل. لازم تدخل بحساب Google المطابق لبريد ولي الأمر المسجل عند المستر؛ اختَر الحساب الصحيح أو تواصل معه لتحديث البريد في ملف الطالب.'
+          : perm ? 'قد يكون الحساب غير مطابق، أو لم تُنشر قواعد RTDB المحمية بعد. اطلب من المستر التأكد من بريد Google في ملف الطالب ونشر قواعد الحماية.'
+          : 'اتأكد إن النت شغال وإعدادات تسجيل Google للمشروع صحيحة، ثم جرّب تاني.'}</div>
+        <div class="pm-btns"><button class="btn pri" data-pm="google">${mismatch?'اختيار حساب Google آخر':'تسجيل Google / المحاولة مرة أخرى'}</button><button class="btn ghost" data-pm="reload">${icon('refresh')} تحديث</button></div>
       </div>
       <div class="pm-foot">${esc(msg)}</div>`;
     this.hook();
@@ -8831,43 +9017,45 @@ const PMode = {
       <div class="pm-foot">
         آخر تحديث: ${this.ago(r.at)} · البيانات بتتحدّث لوحدها أول ما يحصل أي جديد
         <br>الصفحه دي للقراءة فقط — مفيش أي تعديل ممكن منها
-        <br><a href="#" data-pm="forget" style="color:var(--muted)">مش ده جهازي؟ ارجع لصفحة المنصة</a>
+        <br><a href="#" data-pm="forget" style="color:var(--muted)">مش ده جهازي؟ سجّل خروج وارجع لشاشة دخول Google</a>
       </div>`;
     this.hook();
   },
   watch(){
     this.stop();
+    if(!this.authUser){this.renderLogin('سجّل بحساب Google قبل متابعة التقرير.');return;}
     const self = this;
     (async () => {
       let tok = '';
-      try{ tok = await Cloud.ensureTok(); }catch(e){ tok = ''; }
-      if (typeof EventSource !== 'undefined'){
-        let url = Cloud.dbUrl() + '/' + Cloud.rootPath() + '/parents/' + this.token + '.json';
-        if (tok) url += '?auth=' + encodeURIComponent(tok);
+      try{ tok = await this.authUser.getIdToken(); }catch(e){ this.fail(this.authMessage(e)); return; }
+      const base=String(this.db||'').replace(/\/+$/,'');
+      if (typeof EventSource !== 'undefined' && tok){
+        let url = base + '/' + Cloud.rootPath() + '/parents/' + this.token + '.json?auth=' + encodeURIComponent(tok);
         let es = null;
         try{ es = new EventSource(url); }catch(e){ es = null; }
         if (es){
           self.es = es;
           const on = ev => {
             let d = null; try{ d = JSON.parse(ev.data); }catch(e){ return; }
-            if (!d || d.data == null || typeof d.data !== 'object') return;
-            self.rec = d.data; self.load();
+            if (!d) return;
+            if(d.data==null){self.rec=null;self.videoProgress={};self.load();return;}
+            if(typeof d.data !== 'object')return;
+            self.load();
           };
           es.addEventListener('put', on);
           es.addEventListener('patch', on);
           es.addEventListener('open', () => {});
-          es.addEventListener('error', () => { if (!self.timer) self.poll(); });
+          es.addEventListener('error', () => { self.load(); if (!self.timer) self.poll(); });
         }
-        if (tok){
-          let vurl = Cloud.dbUrl() + '/' + Cloud.rootPath() + '/learning/parentProgress/' + this.token + '.json?auth=' + encodeURIComponent(tok);
-          let ves = null;
-          try{ ves = new EventSource(vurl); }catch(e){ ves = null; }
-          if (ves){
-            self.videoEs = ves;
-            const onProgress = () => self.queueProgressReload();
-            ves.addEventListener('put', onProgress);
-            ves.addEventListener('patch', onProgress);
-          }
+        let vurl = base + '/' + Cloud.rootPath() + '/learning/parentProgress/' + this.token + '.json?auth=' + encodeURIComponent(tok);
+        let ves = null;
+        try{ ves = new EventSource(vurl); }catch(e){ ves = null; }
+        if (ves){
+          self.videoEs = ves;
+          const onProgress = () => self.queueProgressReload();
+          ves.addEventListener('put', onProgress);
+          ves.addEventListener('patch', onProgress);
+          ves.addEventListener('error', () => self.load());
         }
       }
       self.poll();
