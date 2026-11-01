@@ -1027,7 +1027,7 @@ function platformBase(){
   }catch(e){}
   return PLATFORM_URL_DEFAULT;
 }
-const APP_V = 'v2.17.1';
+const APP_V = 'v2.17.2';
 const ERR_KEY = 'mostar_errlog';
 const SAFE_KEY = 'mostar_safe';      // نسخة محلية خفية — لو المتصفح مسح بياناته نرجّعها في ثانية
 let SAFE_AT = 0, SAFE_SIG = '';
@@ -1495,7 +1495,20 @@ const Cloud = {
      فالقواعد تقدر تقول «مفيش وصول غير من المنصة»، والمستر ما بيكتب ولا بيسجّل أي حاجة. */
   keyFor(pid){ try{ const k = JSON.parse(localStorage.getItem('mostar_key_' + pid) || 'null'); return k || ''; }catch(e){ return ''; } },
   saveKeyFor(pid, k){ try{ k ? localStorage.setItem('mostar_key_' + pid, JSON.stringify(k)) : localStorage.removeItem('mostar_key_' + pid); }catch(e){} },
-  authKeyOf(cfg){ const c = cfg || this.cfgNow(); if (c && c.apiKey) return c.apiKey; return this.keyFor(c.projectId); },
+  authKeyOf(cfg){
+    const c = cfg || this.cfgNow();
+    if (c && c.apiKey) return c.apiKey;
+    const pid = c && c.projectId;
+    const localKey = pid ? this.keyFor(pid) : '';
+    if (localKey) return localKey;
+    // بعض الإعدادات القديمة احتفظت بالـ apiKey داخل firebaseConfig فقط، من غير نسخة mostar_key_<pid>.
+    // استرجعه من الإعدادات المحفوظة لنفس المشروع؛ مهم عند فتح رابط ولي الأمر على نفس الجهاز.
+    try{
+      const saved = this.readCfg();
+      if (saved && saved.gen === FB_GEN && saved.projectId === pid && saved.apiKey) return saved.apiKey;
+    }catch(e){}
+    return '';
+  },
   saveAuthKey(k, pid){ this.saveKeyFor(pid || this.cfgNow().projectId, k); },
   loadTokFor(pid){ try{ return JSON.parse(localStorage.getItem('mostar_tok_' + pid) || 'null'); }catch(e){ return null; } },
   saveTokFor(pid, t){ try{ localStorage.setItem('mostar_tok_' + pid, JSON.stringify(t)); }catch(e){} return t; },
@@ -6459,6 +6472,7 @@ const Parent = {
     const s = student(sid) || {}, ph = s.parentPhone || s.phone;
     if (!this.hasEmail(sid)){ toast('سجّل بريد Google لولي الأمر في ملف الطالب الأول', 'warn', 'رابط المتابعة'); return; }
     if (!this.of(sid)){ toast('اعمل الرابط الأول', 'warn'); return; }
+    if (!Cloud.authKeyOf(Cloud.cfgNow() || FB_DEFAULT)){ toast('مفتاح Firebase غير محفوظ؛ جهّز تسجيل Google وأعد إرسال الرابط قبل مشاركة التقرير', 'warn', 'رابط المتابعة'); return; }
     if (!ph){ toast('مفيش رقم ولي أمر مسجّل للطالب ده', 'warn', 'رابط المتابعة'); return; }
     window.open(waLink(ph, this.msg(sid)), '_blank');
   },
@@ -6538,23 +6552,23 @@ const Parent = {
         <div class="field" style="margin-top:12px"><label>كود المتابعة (بيتبعت لولي الأمر)</label>
           <div class="flex wrap" style="gap:8px;align-items:center">
             <code class="code" style="direction:ltr;font-size:12.5px;padding:8px 11px;background:var(--bg);border-radius:9px;flex:1;overflow:auto">${esc(token)}</code>
-            <button class="btn sm" data-act="pLinkCodeCopy" data-id="${sid}">${icon('copy')} انسخ الكود</button>
+            <button class="btn sm" data-act="pLinkCodeCopy" data-id="${sid}" ${noKey?'disabled title="جهّز مفتاح Firebase أولًا"':''}>${icon('copy')} انسخ الكود</button>
           </div></div>
         <div class="field"><label>رابط المنصة</label>
           <div class="flex wrap" style="gap:8px;align-items:center">
             <code class="code" style="direction:ltr;font-size:12.5px;padding:8px 11px;background:var(--bg);border-radius:9px;flex:1;overflow:auto">${esc(this.base())}</code>
-            <button class="btn sm" data-act="pLinkPlatCopy" data-id="${sid}">${icon('copy')} انسخ</button>
+            <button class="btn sm" data-act="pLinkPlatCopy" data-id="${sid}" ${noKey?'disabled title="جهّز مفتاح Firebase أولًا"':''}>${icon('copy')} انسخ</button>
           </div>
           <div class="small muted" style="margin-top:6px;line-height:1.9">الدخول بالكود: يفتح رابط المنصة ← «عندك كود متابعة؟» ← يكتب الكود، ثم يسجّل بحساب Google المسجل في ملف الطالب.</div></div>
         <div class="field"><label>لينك ابنك المباشر</label>
           <code class="code" style="display:block;direction:ltr;text-align:left;font-size:12px;padding:9px 11px;background:var(--bg);border-radius:9px;word-break:break-all">${esc(link)}</code>
           <div class="small muted" style="margin-top:7px;line-height:1.9">لو فتحته من متصفح أي موبايل هتشوف صفحة المتابعة على طول — جرّبه بنفسك الأول لو حبيت.</div></div>
         ${noKey ? `<div class="role-strip" style="background:var(--warn-bg);color:var(--warn);line-height:1.9">
-          ملاحظة: مفتاح Firebase غير موجود في الرابط. افتح <b>الإعدادات ← المزامنة ← «أمّن البيانات»</b> لتجهيزه، ثم أنشئ الرابط أو أعد إرساله.
+          مفتاح Firebase مش موجود؛ تسجيل Google مش هيشتغل من الرابط ده. <b>متبعتوش دلوقتي</b>. جهّز تسجيل Google من <b>الإعدادات ← المزامنة ← «أمّن البيانات»</b>، وبعدها افتح الرابط تاني وابعت نسخة جديدة.
         </div>` : ''}`,
-      footer:`<button class="btn sm" data-act="pLinkCopy" data-id="${sid}">${icon('copy')} انسخ</button>
-        <button class="btn sm pri" data-act="pLinkWa" data-id="${sid}">${icon('whatsapp')} ابعت لولي الأمر</button>
-        <button class="btn sm ghost" data-act="pLinkNew" data-id="${sid}">${icon('refresh')} رابط جديد</button>
+      footer:`<button class="btn sm" data-act="pLinkCopy" data-id="${sid}" ${noKey?'disabled title="جهّز مفتاح Firebase أولًا"':''}>${icon('copy')} انسخ</button>
+        <button class="btn sm pri" data-act="pLinkWa" data-id="${sid}" ${noKey?'disabled title="جهّز مفتاح Firebase أولًا"':''}>${icon('whatsapp')} ابعت لولي الأمر</button>
+        <button class="btn sm ghost" data-act="pLinkNew" data-id="${sid}" ${noKey?'disabled title="جهّز مفتاح Firebase أولًا"':''}>${icon('refresh')} رابط جديد</button>
         <button class="btn ghost" data-close>إغلاق</button>` });
   }
 };
@@ -8774,7 +8788,7 @@ const PMode = {
   },
   async initGoogleAuth(){
     const apiKey=this.key||Cloud.authKeyOf({projectId:this.pid});
-    if(!apiKey)throw new Error('مفتاح Firebase غير موجود في الرابط أو الإعدادات المحفوظة.');
+    if(!apiKey)throw new Error('مفتاح Firebase مش موجود في الرابط ولا إعدادات المشروع على الجهاز. لو ده رابط قديم، اطلب من المستر يبعته من جديد بعد تجهيز إعدادات تسجيل Google.');
     this.key=apiKey;
     if(!window.firebase||!window.firebase.initializeApp)await this.loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
     if(!window.firebase||!window.firebase.auth)await this.loadScript('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js');
@@ -8849,14 +8863,19 @@ const PMode = {
     if(!this.node)return;
     this.rec=null;this.videoProgress={};
     document.title='تسجيل ولي الأمر — منصة المستر';
+    const text=String(message||''),missingKey=/مفتاح Firebase/i.test(text);
     const note=message?`<div class="pm-alert" role="alert">${esc(message)}</div>`:'';
+    const retry=(!this.authReady||!this.auth)&&!missingKey?'<button class="btn ghost pm-login-btn" data-pm="retry">إعادة تحميل صفحة الدخول</button>':'';
+    const help=missingKey
+      ? 'الرابط ده ناقص إعداد Firebase، وإعادة التحميل مش هتضيف المفتاح. اطلب من المستر إرسال رابط جديد بعد تجهيز تسجيل Google. التقرير لم يُحمّل.'
+      : 'لو الرابط مفتوح داخل واتساب ولم تظهر نافذة Google، افتحه في Chrome أو Safari. بيانات التقرير لا تُحمّل قبل التحقق من الحساب.';
     this.node.innerHTML=`<div class="pm-head"><img src="logo.jpg" alt="" onerror="this.style.display='none'"><div><div class="pm-plat">منصة المستر</div><div class="pm-sub">بوابة ولي الأمر · متابعة آمنة</div></div></div>
       <div class="pm-card pm-login"><div class="pm-login-mark">G</div><h2>تسجيل دخول وليّ الأمر</h2>
         <p>قبل عرض أي بيانات، سجّل بحساب Google نفسه الذي سجّله المستر في ملف الطالب. البريد لازم يطابق المسجّل بالضبط.</p>
         ${note}
         <button class="btn pri pm-login-btn" data-pm="google" ${this.authReady&&this.auth?'':'disabled'}><span class="pm-google-g">G</span> تسجيل الدخول باستخدام Google</button>
-        ${!this.authReady||!this.auth?'<button class="btn ghost pm-login-btn" data-pm="retry">إعادة تحميل صفحة الدخول</button>':''}
-        <div class="pm-login-note">لو الرابط مفتوح داخل واتساب ولم تظهر نافذة Google، افتحه في Chrome أو Safari. بيانات التقرير لا تُحمّل قبل التحقق من الحساب.</div></div>`;
+        ${retry}
+        <div class="pm-login-note">${help}</div></div>`;
     this.hook();
   },
   async forget(){
@@ -8878,6 +8897,8 @@ const PMode = {
     const pdef = FB_PROJECTS.filter(p => p.projectId === this.pid || p.code === this.code)[0] || FB_DEFAULT;
     this.db = this.qp('db') || redirect.db || portal.db || this.lsGet('mostar_pdb') || pdef.dbUrl || FB_DEFAULT.dbUrl;
     this.key = this.qp('k') || redirect.key || portal.key || this.lsGet('mostar_pkey') || '';
+    // رابط قديم ممكن يكون من غير k؛ جرّب مفتاح نفس المشروع المحفوظ في إعدادات Firebase على الجهاز.
+    if(!this.key){try{this.key=Cloud.authKeyOf({projectId:this.pid})||'';}catch(e){}}
     this.remember(token);
     try{
       let th = ''; try{ th = localStorage.getItem(LS_KEY + '_theme') || ''; }catch(e){}
