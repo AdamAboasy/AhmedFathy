@@ -132,6 +132,7 @@ a{color:inherit}
 .install-btn svg{width:17px;height:17px}
 
 .main{flex:1;min-width:0;margin-inline-start:var(--sb);display:flex;flex-direction:column}
+.mobile-nav{display:none}
 .topbar{position:sticky;top:0;z-index:40;background:var(--card);
   border-bottom:1px solid var(--line);padding:10px 18px;display:flex;align-items:center;gap:11px;min-height:66px}
 .burger{display:none;width:40px;height:40px;border-radius:11px;border:1px solid var(--line);background:var(--card);cursor:pointer;align-items:center;justify-content:center}
@@ -387,18 +388,49 @@ select{appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns=
   .sched{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 @media (max-width:640px){
-  .content{padding:12px}
-  .topbar{padding:9px 12px;gap:8px}
-  .g-4{grid-template-columns:minmax(0,1fr)}
-  .frow,.frow-3{grid-template-columns:minmax(0,1fr)}
-  .stat .val{font-size:22px}
+  .shell{min-height:100vh;min-height:100dvh}
+  .content{padding:12px 12px calc(86px + env(safe-area-inset-bottom,0px))}
+  .topbar{padding:calc(8px + env(safe-area-inset-top,0px)) 12px 8px;gap:7px;min-height:60px}
+  .ptitle{flex:1}
   .ptitle h1{font-size:16px} .ptitle p{display:none}
+  .tb-actions{gap:6px}
+  .g-4{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  .frow,.frow-3{grid-template-columns:minmax(0,1fr)}
+  .stat{padding:11px 12px}
+  .stat .val{font-size:20px}
+  .card-h{padding:12px}
+  .card-b{padding:13px}
   .searchbox{display:none}
-  .overlay{padding:0;align-items:flex-end}
-  .modal{max-width:100%;border-radius:18px 18px 0 0;margin:0}
-  .modal-b{max-height:none}
-  .toasts{inset-inline:12px;bottom:12px;max-width:none}
+  .burger{width:44px;height:44px;flex:0 0 44px}
+  .overlay{padding:env(safe-area-inset-top,0px) 0 0;align-items:flex-end}
+  .modal{display:flex;flex-direction:column;max-width:100%;width:100%;max-height:calc(100vh - 8px - env(safe-area-inset-top,0px));max-height:calc(100dvh - 8px - env(safe-area-inset-top,0px));border-radius:18px 18px 0 0;margin:0;overflow:hidden}
+  .modal-h{flex:0 0 auto;padding:12px 15px;background:var(--card)}
+  .modal-b{max-height:none;min-height:0;flex:1 1 auto;padding:14px 15px;overscroll-behavior:contain}
+  .modal-f{flex:0 0 auto;padding:10px 15px calc(10px + env(safe-area-inset-bottom,0px));background:var(--card)}
+  .toasts{inset-inline:10px;bottom:calc(74px + env(safe-area-inset-bottom,0px));max-width:560px;margin-inline:auto;gap:7px}
+  .toast{padding:10px 12px}
+  .toast .tt span{line-height:1.55}
   .sched{grid-template-columns:minmax(0,1fr)}
+  .mobile-nav{position:fixed;inset-inline:0;bottom:0;z-index:45;display:flex;align-items:stretch;justify-content:space-around;gap:3px;padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));background:var(--card);border-top:1px solid var(--line);box-shadow:0 -5px 22px rgba(16,24,40,.09)}
+  .mobile-nav button{flex:1;min-width:0;min-height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:4px 2px;border:0;border-radius:11px;background:transparent;color:var(--muted);font-size:10.5px;font-weight:700;line-height:1.15;cursor:pointer;touch-action:manipulation}
+  .mobile-nav button svg{width:20px;height:20px;opacity:.78}
+  .mobile-nav button.on{background:var(--brand-soft);color:var(--brand-3)}
+  [data-theme="dark"] .mobile-nav button.on{color:var(--brand)}
+  .mobile-nav button.on svg{opacity:1}
+  .mobile-nav button:focus-visible{outline:2px solid var(--brand-3);outline-offset:-2px}
+  .sidebar{padding-bottom:env(safe-area-inset-bottom,0px)}
+  .btn{min-height:44px}
+  .btn.sm{min-height:40px}
+  .btn.icon{width:44px;height:44px;padding:0}
+  .btn.icon.sm{width:40px;height:40px;min-height:40px}
+  .tbl-wrap{overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin}
+  .tbl-wrap table.tbl{min-width:620px}
+  .seg button{min-height:40px}
+  input,select,textarea{font-size:16px}
+}
+@media (max-width:380px){
+  #quickAddBtn{width:44px;padding:0}
+  #quickAddBtn .nowrap{display:none}
 }
 
 /* ==========================================================
@@ -741,7 +773,7 @@ window.AF_logoNext=function(img){
   <!-- ============ MAIN ============ -->
   <div class="main">
     <header class="topbar">
-      <button class="burger" id="burger" title="القائمة"><svg><use href="#i-menu"/></svg></button>
+      <button class="burger" id="burger" type="button" title="القائمة" aria-label="فتح القائمة" aria-controls="sidebar" aria-expanded="false"><svg><use href="#i-menu"/></svg></button>
       <div class="ptitle">
         <h1 id="pageTitle">لوحة التحكم</h1>
         <p id="pageSub">منصة المستر — متابعة الطلاب والحصص</p>
@@ -751,16 +783,23 @@ window.AF_logoNext=function(img){
           <svg><use href="#i-search"/></svg>
           <input type="text" id="globalSearch" placeholder="ابحث باسم الطالب أو الهاتف...">
         </div>
-        <button class="btn icon" id="themeBtn" title="الوضع الليلي"><svg><use href="#i-moon"/></svg></button>
-        <button class="btn pri" id="quickAddBtn"><svg><use href="#i-plus"/></svg><span class="nowrap">إضافة طالب</span></button>
+        <button class="btn icon" id="themeBtn" type="button" title="الوضع الليلي" aria-label="تبديل الوضع الليلي"><svg><use href="#i-moon"/></svg></button>
+        <button class="btn pri" id="quickAddBtn" type="button" title="إضافة طالب" aria-label="إضافة طالب"><svg><use href="#i-plus"/></svg><span class="nowrap">إضافة طالب</span></button>
       </div>
     </header>
     <main class="content" id="content"></main>
   </div>
+  <nav class="mobile-nav" id="mobileNav" aria-label="التنقل السريع">
+    <button type="button" data-view="dashboard" aria-label="لوحة التحكم"><svg aria-hidden="true"><use href="#i-dash"/></svg><span>الرئيسية</span></button>
+    <button type="button" data-view="students" aria-label="الطلاب"><svg aria-hidden="true"><use href="#i-users"/></svg><span>الطلاب</span></button>
+    <button type="button" data-view="attendance" aria-label="الحضور والغياب"><svg aria-hidden="true"><use href="#i-check-square"/></svg><span>الحضور</span></button>
+    <button type="button" data-view="exams" aria-label="الامتحانات والدرجات"><svg aria-hidden="true"><use href="#i-award"/></svg><span>الدرجات</span></button>
+    <button type="button" id="mobileMore" title="باقي الأقسام" aria-label="فتح باقي الأقسام" aria-controls="sidebar" aria-expanded="false" aria-pressed="false"><svg aria-hidden="true"><use href="#i-menu"/></svg><span>المزيد</span></button>
+  </nav>
 </div>
 
 <div id="modalRoot"></div>
-<div class="toasts" id="toasts"></div>
+<div class="toasts" id="toasts" aria-live="polite" aria-relevant="additions text"></div>
 <div id="printArea"></div>
 <input type="file" id="impFile" accept=".csv,.txt,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="display:none">
 <input type="file" id="fileInput" accept=".json,application/json" class="hide">
@@ -863,15 +902,25 @@ function waLink(phone, text){
 /* ---------------- Toast ---------------- */
 function toast(msg, type, title, withUndo){
   const box = $('#toasts'); if (!box) return;
+  const kind = type || 'info';
+  const heading = title || ({ok:'تم بنجاح',bad:'خطأ',warn:'تنبيه',info:'معلومة'})[kind] || 'معلومة';
+  const message = String(msg == null ? '' : msg);
+  // منع تكديس نفس الإشعار لو وصلت النتيجة من طلبات متزامنة أو إعادة محاولة.
+  const key = JSON.stringify([kind, heading, message, !!withUndo]);
+  const existing = Array.from(box.children).find(x => x.dataset.toastKey === key);
+  if (existing) return existing;
   const t = document.createElement('div');
   const icons = { ok:'check', bad:'alert', warn:'alert', info:'bell' };
-  t.className = 'toast ' + (type || 'info');
-  t.innerHTML = `<span class="ti">${icon(icons[type] || 'bell')}</span>
-    <span class="tt"><b>${esc(title || ({ok:'تم بنجاح',bad:'خطأ',warn:'تنبيه',info:'معلومة'})[type] || 'معلومة')}</b><span>${esc(msg)}</span></span>` +
+  t.className = 'toast ' + kind;
+  t.dataset.toastKey = key;
+  t.setAttribute('role', kind === 'bad' || kind === 'warn' ? 'alert' : 'status');
+  t.innerHTML = `<span class="ti">${icon(icons[kind] || 'bell')}</span>
+    <span class="tt"><b>${esc(heading)}</b><span>${esc(message)}</span></span>` +
     (withUndo ? `<button class="btn sm pri" data-act="undoLast" style="margin-inline-start:8px">${icon('refresh')} رجّع</button>` : '');
   box.appendChild(t);
-  const life = withUndo ? 10000 : (type === 'bad' ? 6000 : 3600);
+  const life = withUndo ? 10000 : (kind === 'bad' ? 6000 : 3600);
   setTimeout(() => { t.style.transition = '.3s'; t.style.opacity = '0'; t.style.transform = 'translateY(10px)'; setTimeout(() => t.remove(), 320); }, life);
+  return t;
 }
 
 /* ---------------- Modal ---------------- */
@@ -978,7 +1027,7 @@ function platformBase(){
   }catch(e){}
   return PLATFORM_URL_DEFAULT;
 }
-const APP_V = 'v2.17.0';
+const APP_V = 'v2.17.1';
 const ERR_KEY = 'mostar_errlog';
 const SAFE_KEY = 'mostar_safe';      // نسخة محلية خفية — لو المتصفح مسح بياناته نرجّعها في ثانية
 let SAFE_AT = 0, SAFE_SIG = '';
@@ -1768,8 +1817,9 @@ const Cloud = {
             headers: job.body ? { 'Content-Type':'application/json' } : undefined,
             body: job.body ? JSON.stringify(job.body) : undefined });
           if (res.status === 401 || res.status === 403){
+            const firstAuthFailure = S.fb.mirrorAuth !== 'need-key';
             S.fb.mirrorAuth = 'need-key';
-            if (S.fb.status === 'live') toast('السيرفر التاني (المرآة) قافل القواعد ومحتاج مفتاحه — الإعدادات ← «أمّن البيانات» ← الصق إعدادات السيرفر التاني', 'warn', 'السحابة');
+            if (firstAuthFailure && S.fb.status === 'live') toast('السيرفر التاني (المرآة) قافل القواعد ومحتاج مفتاحه — الإعدادات ← «أمّن البيانات» ← الصق إعدادات السيرفر التاني', 'warn', 'السحابة');
             throw new Error('HTTP ' + res.status);
           }
           if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -7657,7 +7707,20 @@ function render(){
   $('#pageSub').textContent = t[1];
   $('#content').innerHTML = Views[v]();
 
-  $$('#nav a').forEach(a => a.classList.toggle('on', a.dataset.view === v));
+  $$('#nav a').forEach(a => {
+    const on = a.dataset.view === v;
+    a.classList.toggle('on', on);
+    if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+  });
+  const mobileViews = ['dashboard','students','attendance','exams'];
+  $$('#mobileNav [data-view]').forEach(b => {
+    const on = b.dataset.view === v;
+    b.classList.toggle('on', on);
+    if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+  });
+  const mobileMore = $('#mobileMore'), moreOn = !mobileViews.includes(v);
+  mobileMore.classList.toggle('on', moreOn);
+  mobileMore.setAttribute('aria-pressed', String(moreOn));
   try{ Roles.apply(); }catch(e){}
   const al = alerts().length;
   const pill = $('#navAlertsPill'); pill.textContent = al; pill.classList.toggle('hide', !al);
@@ -7684,7 +7747,15 @@ function go(view, extra){
   try { if (location.hash.slice(1) !== view) history.replaceState(null, '', '#' + view); } catch (e) {}
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
-function closeDrawer(){ $('#sidebar').classList.remove('open'); $('#scrim').classList.remove('on'); }
+function setDrawer(open){
+  const state = !!open;
+  $('#sidebar').classList.toggle('open', state);
+  $('#scrim').classList.toggle('on', state);
+  $('#burger').setAttribute('aria-expanded', String(state));
+  $('#mobileMore').setAttribute('aria-expanded', String(state));
+}
+function toggleDrawer(){ setDrawer(!$('#sidebar').classList.contains('open')); }
+function closeDrawer(){ setDrawer(false); }
 function refreshAttCounts(){
   if (!attDraft) return;
   const ss = studentsOfGroup(attDraft.groupId).filter(s => s.status !== 'stopped');
@@ -7952,7 +8023,7 @@ async function waAllList(){
 document.addEventListener('click', function(e){
   const closeBtn = e.target.closest('[data-close]');
   if (closeBtn){ Modal.close(closeBtn.getAttribute('data-close')); return; }
-  const nav = e.target.closest('#nav a[data-view]');
+  const nav = e.target.closest('#nav a[data-view], #mobileNav button[data-view]');
   if (nav){ go(nav.dataset.view); return; }
   const el = e.target.closest('[data-act]');
   if (!el) return;
@@ -8597,7 +8668,8 @@ document.addEventListener('input', debounce(function(e){
   if (t.id === 'attNote' && attDraft){ attDraft.note = t.value; return; }
 }, 250));
 
-$('#burger').onclick = () => { $('#sidebar').classList.toggle('open'); $('#scrim').classList.toggle('on'); };
+$('#burger').onclick = toggleDrawer;
+$('#mobileMore').onclick = () => setDrawer(true);
 $('#scrim').onclick = closeDrawer;
 $('#quickAddBtn').onclick = () => openStudentForm();
 $('#installBtn').onclick = () => PWA.install();
@@ -9565,7 +9637,7 @@ const JitsiRoom = {
 };
 
 const Live = {
-  sessions:{}, _at:0, _promise:null, _timer:null, _roomApi:null, _roomId:'', _roomModalId:'', _responses:{}, _responseTimer:null, _observer:null, _cleanupTimers:{}, 
+  sessions:{}, _at:0, _promise:null, _timer:null, _roomApi:null, _roomId:'', _roomModalId:'', _responses:{}, _responseTimer:null, _observer:null, _cleanupTimers:{},
   root(){return Cloud.rootPath()+'/learning';},
   async refresh(force){
     if(this._promise)return this._promise;
@@ -9916,7 +9988,7 @@ const LearningPortal = {
     await this.loadLiveSessions();
     if(this.mode==='home'&&before!==JSON.stringify(this.liveSessions||{}))this.renderHome();
   },
-  renderLivePanel(){ 
+  renderLivePanel(){
     const rows=Object.values(this.liveSessions||{}).filter(s=>s&&s.status==='live');
     if(!rows.length)return '';
     return `<section class="lp-live-list"><div class="lp-live-list-head"><span class="lp-live-dot"></span><div><b>حصة مباشرة الآن</b><small>المستر بدأ لايف لمجموعتك</small></div></div>${rows.map(s=>`<article class="lp-live-card"><div><b>${esc(s.title||'حصة مباشرة')}</b><span>${esc(s.groupName||'')}</span></div><button class="lp-btn" data-lp-act="joinLive" data-id="${esc(s.id)}">${icon('play')} دخول اللايف</button></article>`).join('')}</section>`;
