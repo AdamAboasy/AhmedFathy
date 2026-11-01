@@ -1027,7 +1027,7 @@ function platformBase(){
   }catch(e){}
   return PLATFORM_URL_DEFAULT;
 }
-const APP_V = 'v2.17.2';
+const APP_V = 'v2.17.3';
 const ERR_KEY = 'mostar_errlog';
 const SAFE_KEY = 'mostar_safe';      // نسخة محلية خفية — لو المتصفح مسح بياناته نرجّعها في ثانية
 let SAFE_AT = 0, SAFE_SIG = '';
@@ -8740,12 +8740,22 @@ const PMode = {
   token:'', code:'', key:'', pid:'', db:'', rec:null, videoProgress:{}, es:null, videoEs:null, timer:null, progressReloadTimer:null, busy:false,
   authApp:null, auth:null, authUser:null, authReady:false, authErrorText:'', authAppName:'', redirectKey:'mostar_parent_google_redirect', portalKey:'mostar_parent_portal_state',
   lsGet(k){ try{ return localStorage.getItem(k) || ''; }catch(e){ return ''; } },
-  qp(n){ try{ return (new URLSearchParams(String(location.search || ''))).get(n) || ''; }catch(e){ return ''; } },
+  qp(n){
+    try{
+      const search = new URLSearchParams(String(location.search || ''));
+      const value = search.get(n);
+      if (value) return value;
+      // روابط المتابعة القديمة قد تضع p/c/pid/db/k داخل fragment بعد # بدل query string.
+      const fragment = String(location.hash || '').replace(/^#/, '').replace(/^\?/, '');
+      const params = new URLSearchParams(fragment);
+      if (['p','c','pid','db','k'].some(key => params.has(key))) return params.get(n) || '';
+    }catch(e){}
+    return '';
+  },
   redirectState(){ try{ return JSON.parse(sessionStorage.getItem(this.redirectKey)||'null') || {}; }catch(e){ return {}; } },
   portalState(){ try{ return JSON.parse(sessionStorage.getItem(this.portalKey)||'null') || {}; }catch(e){ return {}; } },
   fromUrl(){
-    let t = this.qp('p');
-    if (!t){ const h = String(location.hash || ''); if (h.indexOf('#p=') === 0) t = h.slice(3).split('&')[0]; }
+    const t = this.qp('p');
     if (t) return t;
     const pending=this.redirectState();
     if(pending.token)return pending.token;
