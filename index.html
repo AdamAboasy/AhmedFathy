@@ -870,6 +870,20 @@ function esc(s){
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
+function normalizeEmail(value){
+  let s=String(value==null?'':value);
+  try{s=s.normalize('NFKC');}catch(e){}
+  return s.replace(/[\u200B-\u200F\uFEFF\u202A-\u202E\u2066-\u2069]/g,'').trim().toLowerCase();
+}
+function isValidEmail(value){
+  const s=normalizeEmail(value);
+  return s.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s);
+}
+function normalizeDigits(value){
+  let s=String(value==null?'':value);
+  try{s=s.normalize('NFKC');}catch(e){}
+  return s.replace(/[٠-٩]/g,c=>String(c.charCodeAt(0)-1632)).replace(/[۰-۹]/g,c=>String(c.charCodeAt(0)-1776)).trim();
+}
 function icon(name, cls){ return `<svg class="${cls || ''}"><use href="#i-${name}"/></svg>`; }
 function uid(p){ return (p || 'id') + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 function debounce(fn, ms){ let t; return function(){ const a = arguments, c = this; clearTimeout(t); t = setTimeout(() => fn.apply(c, a), ms); }; }
@@ -1073,7 +1087,7 @@ function platformBase(){
   }catch(e){}
   return PLATFORM_URL_DEFAULT;
 }
-const APP_V = 'v2.18.2';
+const APP_V = 'v2.18.4';
 const ERR_KEY = 'mostar_errlog';
 const SAFE_KEY = 'mostar_safe';      // نسخة محلية خفية — لو المتصفح مسح بياناته نرجّعها في ثانية
 let SAFE_AT = 0, SAFE_SIG = '';
@@ -1144,7 +1158,7 @@ function migrate(d){
   });
   out.groups = (out.groups || []).map(g => Object.assign({ id: uid('g'), name:'', stage:'', day: 6, from:'16:00', to:'18:00', payMode:'monthly', level:'', note:'' }, g));
   out.students = (out.students || []).map(s => Object.assign({
-    id: uid('s'), code:'', name:'', stage:'', studySystem:'', type:'', level:'', groupId:'',
+    id: uid('s'), code:'', name:'', stage:'', studySystem:'', type:'', level:'', nationalId:'', groupId:'',
     payMode:'monthly', phone:'', parentPhone:'', guardian:'', guardianEmail:'', email:'', joinDate: today(), status:'active', notes:''
   }, s));
   out.exams = (out.exams || []).map(e => Object.assign({ id: uid('e'), name:'', stage:'', groupId:'', date: today(), max: 20, hw:'', note:'' }, e));
@@ -1244,17 +1258,17 @@ const FB_RULES_RTDB = `{
     "platforms": {
       "$code": {
         "members": {
-          ".read": "auth != null && (root.child('platforms/'+$code+'/members').exists() == false || root.child('platforms/'+$code+'/members/'+auth.uid).exists())",
+          ".read": "auth != null && (root.child('platforms/'+$code+'/members').exists() == false || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner')",
           "$uid": {
-            ".read": "auth != null && (auth.uid == $uid || root.child('platforms/'+$code+'/members/'+auth.uid).exists())",
-            ".write": "auth != null && (root.child('platforms/'+$code+'/members').exists() == false && auth.uid == $uid && newData.child('role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || (auth.uid == $uid && newData.child('role').val() == 'teacher' && root.child('platforms/'+$code+'/invites/'+newData.child('via').val()+'/used/uid').val() == auth.uid))"
+            ".read": "auth != null && (auth.uid == $uid || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner')",
+            ".write": "auth != null && ((root.child('platforms/'+$code+'/members').exists() == false && auth.uid == $uid && newData.child('role').val() == 'owner') || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || (auth.uid == $uid && !data.exists() && newData.child('role').val() == 'teacher' && root.child('platforms/'+$code+'/invites/'+newData.child('via').val()+'/used/uid').val() == auth.uid))"
           }
         },
         "requests": {
-          ".read": "auth != null && (root.child('platforms/'+$code+'/members').exists() == false || root.child('platforms/'+$code+'/members/'+auth.uid).exists())",
+          ".read": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher')",
           "$uid": {
-            ".read": "auth != null && (auth.uid == $uid || root.child('platforms/'+$code+'/members/'+auth.uid).exists())",
-            ".write": "auth != null && (auth.uid == $uid || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner')"
+            ".read": "auth != null && (auth.uid == $uid || (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher'))",
+            ".write": "auth != null && ((auth.uid == $uid && root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() != 'revoked') || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner')"
           }
         },
         "invites": {
@@ -1281,13 +1295,13 @@ const FB_RULES_RTDB = `{
         "learning": {
           "accounts": {
             "$uid": {
-              ".read": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid).exists() || auth.uid == $uid)",
+              ".read": "auth != null && ((root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher') || auth.uid == $uid)",
               ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher' && newData.exists()))"
             }
           },
           "invites": {
             "$token": {
-              ".read": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid).exists() || !data.child('used').val() || data.child('claimedBy').val() == auth.uid)",
+              ".read": "auth != null && ((root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher') || !data.child('used').val() || data.child('claimedBy').val() == auth.uid)",
               ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher' && newData.exists()))",
               "claimedBy": {
                 ".write": "auth != null && auth.token.email_verified == true && auth.token.email == root.child('platforms/'+$code+'/learning/invites/'+$token+'/email').val() && auth.uid == newData.val() && !data.exists() && !root.child('platforms/'+$code+'/learning/accounts/'+auth.uid).exists() && root.child('platforms/'+$code+'/learning/invites/'+$token+'/used').val() != true"
@@ -1298,21 +1312,21 @@ const FB_RULES_RTDB = `{
             ".read": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher')",
             "$uid": {
               ".read": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher' || auth.uid == $uid)",
-              ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher' && newData.exists() && newData.child('uid').val() == $uid) || (auth.uid == $uid && !root.child('platforms/'+$code+'/learning/accounts/'+auth.uid).exists() && newData.child('status').val() == 'pending' && newData.child('uid').val() == auth.uid && ((auth.token.email_verified == true && auth.token.email == newData.child('email').val() && !data.exists() && root.child('platforms/'+$code+'/learning/invites/'+newData.child('inviteToken').val()+'/studentId').val() == newData.child('studentId').val() && root.child('platforms/'+$code+'/learning/invites/'+newData.child('inviteToken').val()+'/email').val() == newData.child('email').val() && root.child('platforms/'+$code+'/learning/invites/'+newData.child('inviteToken').val()+'/claimedBy').val() == auth.uid && root.child('platforms/'+$code+'/learning/invites/'+newData.child('inviteToken').val()+'/used').val() != true) || (newData.child('kind').val() == 'self_signup' && auth.token.email == newData.child('email').val() && newData.child('loginName').exists() && newData.child('profile').exists() && (!data.exists() || data.child('status').val() == 'rejected')))))"
+              ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher' && newData.exists() && newData.child('uid').val() == $uid) || (auth.uid == $uid && !root.child('platforms/'+$code+'/learning/accounts/'+auth.uid).exists() && newData.child('status').val() == 'pending' && newData.child('uid').val() == auth.uid && ((auth.token.email_verified == true && auth.token.email == newData.child('email').val() && !data.exists() && root.child('platforms/'+$code+'/learning/invites/'+newData.child('inviteToken').val()+'/studentId').val() == newData.child('studentId').val() && root.child('platforms/'+$code+'/learning/invites/'+newData.child('inviteToken').val()+'/email').val() == newData.child('email').val() && root.child('platforms/'+$code+'/learning/invites/'+newData.child('inviteToken').val()+'/claimedBy').val() == auth.uid && root.child('platforms/'+$code+'/learning/invites/'+newData.child('inviteToken').val()+'/used').val() != true) || (newData.child('kind').val() == 'self_signup' && auth.token.email == newData.child('email').val() && newData.child('loginName').exists() && newData.child('profile').exists() && newData.child('profile/phone').isString() && newData.child('profile/phone').val().length > 0 && newData.child('profile/nationalId').isString() && newData.child('profile/nationalId').val().matches(/^[0-9]{14}$/) && (!data.exists() || data.child('status').val() == 'rejected')))))"
             }
           },
           "courseProgress": {
             "$courseId": {
-              ".read": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid).exists()",
+              ".read": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher')",
               "$sid": {
-                ".read": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid).exists() || (root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/status').val() == 'active' && root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/studentId').val() == $sid && root.child('platforms/'+$code+'/sec/learningAssignments/v/'+$sid+'/'+$courseId).val() == true))",
+                ".read": "auth != null && ((root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher') || (root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/status').val() == 'active' && root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/studentId').val() == $sid && root.child('platforms/'+$code+'/sec/learningAssignments/v/'+$sid+'/'+$courseId).val() == true))",
                 ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher' && newData.exists()) || (root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/status').val() == 'active' && root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/studentId').val() == $sid && root.child('platforms/'+$code+'/sec/learningAssignments/v/'+$sid+'/'+$courseId).val() == true))"
               }
             }
           },
           "parentProgress": {
             "$token": {
-              ".read": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid).exists() || (auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && auth.token.email == root.child('platforms/'+$code+'/parentAccess/'+$token+'/email').val()))",
+              ".read": "auth != null && ((root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher') || (auth.token.firebase.sign_in_provider == 'google.com' && auth.token.email_verified == true && auth.token.email == root.child('platforms/'+$code+'/parentAccess/'+$token+'/email').val()))",
               ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher' && newData.exists()) || (root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/status').val() == 'active' && root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/studentId').val() == root.child('platforms/'+$code+'/parentAccess/'+$token+'/sid').val()))"
             }
           },
@@ -1363,12 +1377,12 @@ const FB_RULES_RTDB = `{
           },
           "deviceLocks": {
             "$uid": {
-              ".read": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid).exists() || (auth.uid == $uid && root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/status').val() == 'active'))",
+              ".read": "auth != null && ((root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher') || (auth.uid == $uid && root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/status').val() == 'active'))",
               ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || (auth.uid == $uid && root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/status').val() == 'active'))"
             }
           },
           "studentReports": {
-            ".read": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid).exists())",
+            ".read": "auth != null && ((root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher'))",
             ".write": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner'",
             "$sid": {
               ".read": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher' || (root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/status').val() == 'active' && root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/studentId').val() == $sid))",
@@ -1377,38 +1391,38 @@ const FB_RULES_RTDB = `{
           }
         },
         "meta": {
-          ".read": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid).exists()",
+          ".read": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher')",
           ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher' && newData.exists()))"
         },
         "main": {
-          ".read": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid).exists()",
+          ".read": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher')",
           ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher' && newData.exists()))"
         },
         "attendance": {
-          ".read": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid).exists()",
+          ".read": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher')",
           ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher' && newData.exists()))"
         },
         "ts": {
-          ".read": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid).exists()",
+          ".read": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher')",
           ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher' && newData.exists()))"
         },
         "logo": {
-          ".read": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid).exists()",
+          ".read": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher')",
           ".write": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner'"
         },
         "sec": {
-          ".read": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid).exists()",
+          ".read": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher')",
           "$sk": {
             ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || ($sk != 'settings' && $sk != 'members' && $sk != 'invites' && $sk != 'requests' && root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher' && newData.exists()))",
             "$wrap": {
               "$id": {
-                ".read": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid).exists() || ($sk == 'learningAssignments' && $wrap == 'v' && $id == root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/studentId').val() && root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/status').val() == 'active') || ($sk == 'learningCourses' && $wrap == 'v' && root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/status').val() == 'active' && root.child('platforms/'+$code+'/sec/learningAssignments/v/'+root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/studentId').val()+'/'+$id).val() == true))"
+                ".read": "auth != null && ((root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher') || ($sk == 'learningAssignments' && $wrap == 'v' && $id == root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/studentId').val() && root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/status').val() == 'active') || ($sk == 'learningCourses' && $wrap == 'v' && root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/status').val() == 'active' && root.child('platforms/'+$code+'/sec/learningAssignments/v/'+root.child('platforms/'+$code+'/learning/accounts/'+auth.uid+'/studentId').val()+'/'+$id).val() == true))"
               }
             }
           }
         },
         "att": {
-          ".read": "auth != null && root.child('platforms/'+$code+'/members/'+auth.uid).exists()",
+          ".read": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher')",
           "$mo": {
             ".write": "auth != null && (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'owner' || (root.child('platforms/'+$code+'/members/'+auth.uid+'/role').val() == 'teacher' && newData.exists()))"
           }
@@ -3757,6 +3771,7 @@ const Import = {
 const IMP_FIELDS = [
   { k:'name',        label:'الاسم',            need:true,  aliases:['الاسم','اسم','اسم الطالب','الطالب','الاسم كامل','الاسم بالكامل','name','student','الاسم رباعي'] },
   { k:'code',        label:'الكود',            aliases:['الكود','كود','كود الطالب','code','id','رقم الطالب','الرقم'] },
+  { k:'nationalId',  label:'الرقم القومي',     need:true,  aliases:['الرقم القومي','رقم قومي','الرقم الوطني','national id','nationalId','national_id','ssn'] },
   { k:'stage',       label:'المرحلة',          aliases:['المرحلة','الصف','المرحلة الدراسية','الصف الدراسي','stage','grade','class'] },
   { k:'studySystem', label:'نظام الدراسة',      aliases:['نظام الدراسة','النظام','نظام','study','system'] },
   { k:'type',        label:'نوع الطالب',        aliases:['نوع الطالب','النوع','نوع','type'] },
@@ -3972,6 +3987,7 @@ function runImport(){
   const map = {};
   $$('[data-impcol]').forEach(sel => { if (sel.value) map[sel.value] = Number(sel.dataset.impcol); });
   if (map.name == null){ toast('حدّد عمود «الاسم» الأول', 'bad'); return; }
+  if (map.nationalId == null){ toast('اربط عمود «الرقم القومي» — الرقم مطلوب لكل طالب جديد أو محدّث.', 'bad'); return; }
   const dupMode = ($('#impDup') && $('#impDup').value) || 'skip';
   const mkGroups = !$('#impNewGroups') || $('#impNewGroups').checked;
   const mkMeta = !$('#impNewMeta') || $('#impNewMeta').checked;
@@ -3984,14 +4000,16 @@ function runImport(){
     const found = arr.filter(x => impNorm(x) === impNorm(v))[0];
     return found || (mkMeta ? v : '');
   };
-  let added = 0, updated = 0, skipped = 0, groupsMade = 0, noName = 0, twins = 0;
+  let added = 0, updated = 0, skipped = 0, groupsMade = 0, noName = 0, twins = 0, invalidNationalId = 0;
   rows.forEach(r => {
     const get = k => (map[k] == null ? '' : String(r[map[k]] == null ? '' : r[map[k]]).trim());
     const name = get('name');
     if (!name){ noName++; return; }
+    const nationalId = normalizeDigits(get('nationalId')).replace(/[\s-]/g, '');
+    if (!/^\d{14}$/.test(nationalId)){ invalidNationalId++; return; }
     const parentPhone = get('parentPhone').replace(/[^0-9+]/g, '');
     const phone = get('phone').replace(/[^0-9+]/g, '');
-    const guardianEmail = get('guardianEmail').toLowerCase();
+    const guardianEmail = normalizeEmail(get('guardianEmail'));
     const groupName = get('group');
     let groupId = '';
     if (groupName){
@@ -4013,15 +4031,16 @@ function runImport(){
         if (get('studySystem')) exist.studySystem = addMeta('studySystems', get('studySystem'));
         if (get('type')) exist.type = addMeta('studentTypes', get('type'));
         if (get('level')) exist.level = addMeta('levels', get('level'));
+        exist.nationalId = nationalId;
         if (phone) exist.phone = phone;
         if (parentPhone) exist.parentPhone = parentPhone;
-        if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guardianEmail)) exist.guardianEmail = guardianEmail;
+        if (isValidEmail(guardianEmail)) exist.guardianEmail = guardianEmail;
         if (groupId) exist.groupId = groupId;
         exist._t = Date.now();
         updated++; return;
       }
     }
-    const rec = { id: uid('s'), name: name, status: 'active', created: today() };
+    const rec = { id: uid('s'), name: name, nationalId: nationalId, status: 'active', created: today() };
     if (get('code')) rec.code = get('code');
     rec.stage = addMeta('stages', get('stage')) || (S.data.settings.stages || [])[0] || '';
     if (get('studySystem')) rec.studySystem = addMeta('studySystems', get('studySystem'));
@@ -4029,7 +4048,7 @@ function runImport(){
     if (get('level')) rec.level = addMeta('levels', get('level'));
     if (phone) rec.phone = phone;
     if (parentPhone) rec.parentPhone = parentPhone;
-    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guardianEmail)) rec.guardianEmail = guardianEmail;
+    if (isValidEmail(guardianEmail)) rec.guardianEmail = guardianEmail;
     if (groupId) rec.groupId = groupId;
     rec._t = Date.now();
     S.data.students.push(rec);
@@ -4043,6 +4062,7 @@ function runImport(){
   if (skipped) bits.push('تخطّي ' + addAr(skipped) + ' مكرر');
   if (groupsMade) bits.push(addAr(groupsMade) + ' حصة جديدة (ظبط مواعيدها من شاشة الحصص)');
   if (noName) bits.push(addAr(noName) + ' سطر من غير اسم');
+  if (invalidNationalId) bits.push(addAr(invalidNationalId) + ' سجل اتخطّى لرقم قومي غير صحيح (المطلوب 14 رقمًا)');
   if (twins && dupMode !== 'add') bits.push('فيه ' + addAr(twins) + ' اسم متطابق — لو دول طلاب مختلفين اختار «أضِفه كطالب جديد» واستورد تاني');
   toast(bits.length ? bits.join(' · ') : 'مفيش حاجة اتضافت', bits.length ? 'ok' : 'warn', 'نتيجة الاستيراد');
   if (groupsMade) S.ui.impNote = 'فيه ' + addAr(groupsMade) + ' حصة اتعملت من الملف ومحتاجة تظبط مواعيدها';
@@ -5943,6 +5963,8 @@ const ROLE_INFO = {
   teacher: { ar:'مدرس',    chip:'b-info',  ic:'users', note:'طلاب · حسابات بوابة · مراجعة التسجيلات · فيديوهات واختبارات' },
   parent:  { ar:'ولي أمر', chip:'b-gray',  ic:'eye',   note:'يشوف ابنه بس — قراءة فقط' },
   pending: { ar:'بانتظار الموافقة', chip:'b-warn', ic:'clock', note:'طلبك عند المستر' },
+  revoked: { ar:'جهاز ملغي', chip:'b-bad', ic:'shield', note:'المالك ألغى صلاحية هذا الجهاز' },
+  unverified: { ar:'جارٍ التحقق', chip:'b-warn', ic:'clock', note:'لا يمكن فتح الإدارة قبل تأكيد صلاحية الجهاز' },
   guest:   { ar:'جهاز غير مسجّل', chip:'b-warn', ic:'alert', note:'محتاج تسجيل دخول' }
 };
 /* الأقسام اللي المالك بس يقدر يرفعها على السحابة (نفس قواعد فايربيز) */
@@ -5955,10 +5977,117 @@ const OWNER_ONLY = ['delStudent','delGroup','delExam','delExamAll','delLearningV
   'seed','fbPickServer','fbTryNext','authWizard','fbPaste','fbClear','dataReset',
   ];
 
+
+const DeviceRoleLock = {
+  KEY:'mostar_device_role_lock',
+  read(){
+    try{
+      const d=JSON.parse(localStorage.getItem(this.KEY)||'null');
+      return d&&typeof d==='object'&&typeof d.role==='string'?d:null;
+    }catch(e){return null;}
+  },
+  set(role, data){
+    if(!role)return null;
+    const src=data||{}, out={role:String(role),uid:String(src.uid||''),at:new Date().toISOString()};
+    ['code','pid','db','key','token'].forEach(k=>{if(src[k]!=null&&String(src[k]))out[k]=String(src[k]);});
+    try{localStorage.setItem(this.KEY,JSON.stringify(out));}catch(e){}
+    return out;
+  },
+  clear(role){
+    const cur=this.read();
+    if(role&&cur&&cur.role!==role)return false;
+    try{localStorage.removeItem(this.KEY);}catch(e){}
+    return true;
+  },
+  activeStudentSession(){
+    try{
+      for(let i=0;i<sessionStorage.length;i++){
+        const key=sessionStorage.key(i)||'';
+        if(key.indexOf('mostar_learning_session_')!==0)continue;
+        const d=JSON.parse(sessionStorage.getItem(key)||'null');
+        if(d&&d.uid&&(d.idToken||d.refreshToken))return {uid:d.uid,code:(FB_DEFAULT&&FB_DEFAULT.code)||''};
+      }
+    }catch(e){}
+    return null;
+  },
+  base(){return String(location.href||'').split('#')[0].split('?')[0];},
+  studentUrl(d){
+    let u=this.base()+'?student=login';
+    if(d.code)u+='&c='+encodeURIComponent(d.code);
+    if(d.pid)u+='&pid='+encodeURIComponent(d.pid);
+    if(d.db)u+='&db='+encodeURIComponent(d.db);
+    if(d.key)u+='&k='+encodeURIComponent(d.key);
+    return u;
+  },
+  parentUrl(d){
+    let u=this.base()+'?p='+encodeURIComponent(d.token||'');
+    if(d.code)u+='&c='+encodeURIComponent(d.code);
+    if(d.pid)u+='&pid='+encodeURIComponent(d.pid);
+    if(d.db)u+='&db='+encodeURIComponent(d.db);
+    if(d.key)u+='&k='+encodeURIComponent(d.key);
+    return u;
+  },
+  enforce(){
+    let lock=this.read();
+    if(!lock){
+      const activeStudent=this.activeStudentSession();
+      if(activeStudent)lock=this.set('student',activeStudent);
+      if(!lock){
+        let saved='',uid='',signedOut='';
+        try{saved=localStorage.getItem('mostar_role')||'';uid=localStorage.getItem('mostar_uid')||'';signedOut=localStorage.getItem('mostar_roles_signed_out_uid')||'';}catch(e){}
+        if(!uid){try{uid=Cloud.uid()||'';}catch(e){}}
+        let signedOutMatch=signedOut===uid;
+        try{const so=JSON.parse(signedOut||'null');if(so&&so.uid===uid)signedOutMatch=true;}catch(e){}
+        if((saved==='owner'||saved==='teacher')&&!signedOutMatch)lock=this.set(saved,{uid:uid});
+        else if(saved==='revoked')lock=this.set('revoked',{uid:uid});
+      }
+    }
+    if(!lock)return false;
+    const q=new URLSearchParams(location.search||'');
+    const rawFragment=String(location.hash||'').replace(/^#/,'');const fragment=rawFragment.charAt(0)==='?'?rawFragment.slice(1):rawFragment;
+    const fq=new URLSearchParams(fragment);
+    const hasRouteParam=name=>q.has(name)||fq.has(name);
+    if(lock.role==='student'){
+      const requestedCode=q.get('c')||((FB_DEFAULT&&FB_DEFAULT.code)||'');
+      const sameProject=!lock.code||requestedCode===lock.code||requestedCode===lock.pid;
+      const studentRoute=(q.get('student')==='login'||q.get('student')==='signup')&&sameProject;
+      const matchingLearn=!!lock.token&&q.get('learn')===lock.token&&sameProject;
+      if(studentRoute||matchingLearn)return false;
+      location.replace(this.studentUrl(lock));return true;
+    }
+    if(lock.role==='parent'){
+      const requestedCode=q.get('c')||fq.get('c')||((FB_DEFAULT&&FB_DEFAULT.code)||'');
+      const requestedToken=q.get('p')||fq.get('p')||'';
+      const conflictingRoute=['student','learn','j'].some(hasRouteParam);
+      if(lock.token&&requestedToken===lock.token&&(!lock.code||requestedCode===lock.code||requestedCode===lock.pid)&&!conflictingRoute)return false;
+      if(!lock.token){return false;}
+      location.replace(this.parentUrl(lock));return true;
+    }
+    if(lock.role==='owner'||lock.role==='teacher'||lock.role==='revoked'){
+      const conflictingRoute=['student','learn','p','j'].some(hasRouteParam);
+      if(q.get('admin')==='1'&&!conflictingRoute)return false;
+      location.replace(this.base()+'?admin=1');return true;
+    }
+    return false;
+  }
+};
+
 const Roles = {
   KEY:'mostar_role', UIDK:'mostar_uid',
   ls(k){ try{ return localStorage.getItem(k) || ''; }catch(e){ return ''; } },
   lsSet(k, v){ try{ v ? localStorage.setItem(k, v) : localStorage.removeItem(k); }catch(e){} },
+  signedOut(uid,record){
+    if(!uid)return false;
+    const raw=this.ls('mostar_roles_signed_out_uid');if(!raw)return false;
+    let state=null;try{state=JSON.parse(raw);}catch(e){}
+    if(!state||typeof state!=='object')return raw===uid;
+    if(state.uid!==uid)return false;
+    if(record&&(record.role==='owner'||record.role==='teacher')){
+      const savedAt=Date.parse(state.memberAt||'')||0,remoteAt=Date.parse(record.updatedAt||record.at||'')||0;
+      if(remoteAt>savedAt){this.lsSet('mostar_roles_signed_out_uid','');return false;}
+    }
+    return true;
+  },
   uid(){ const s = this.ls(this.UIDK); if (s) return s; let u = ''; try{ u = Cloud.uid(); }catch(e){} return u || this.devId(); },
   devId(){
     let d = this.ls('mostar_dev_id');
@@ -5969,21 +6098,15 @@ const Roles = {
   invites(){ if (!S.data.invites || typeof S.data.invites !== 'object' || Array.isArray(S.data.invites)) S.data.invites = {}; return S.data.invites; },
   count(){ return Object.keys(this.members()).length; },
   role(){
-    const saved = this.ls(this.KEY);
-    const m = this.members(), u = this.uid();
-    if (m[u] && m[u].role) return m[u].role;
-    if (saved === 'pending') return 'pending';                    // بعت طلب وبيستنى الموافقة
-    if (saved === 'guest') return 'guest';
-    if (saved === 'teacher'){
-      if (S.fb && S.fb.denied) return 'guest';      // فايربيز رفضت الوصول → الصلاحية مش سارية
-      // جهاز المدرس: لو القايمة الحالية جاية من السحابة وهو مش فيها → الصلاحية اتلغت
-      if (Object.keys(m).length && !m[u] && S.fb && S.fb.status === 'live') return 'guest';
-      return 'teacher';
-    }
-    if (saved === 'owner' && this.hasLocalData()) return 'owner';  // جهاز المستر (حتى لو شهادته اتجددت)
-    if (!Object.keys(m).length) return 'owner';    // أول جهاز = المالك
-    if (this.hasData()) return 'owner';            // جهاز قديم فيه بيانات المستر
-    return 'guest';                                 // جهاز جديد من غير تسجيل
+    const saved=this.ls(this.KEY),u=this.uid(),m=this.members();
+    if(this.signedOut(u))return 'guest';
+    if(this._verifiedUid===u&&this._verifiedRole)return this._verifiedRole;
+    if((m[u]&&m[u].role==='revoked')||saved==='revoked')return 'revoked';
+    if(saved==='pending')return 'pending';
+    if(saved==='guest')return 'guest';
+    const lock=DeviceRoleLock.read();
+    if(saved==='owner'||saved==='teacher'||(lock&&(lock.role==='owner'||lock.role==='teacher')))return 'unverified';
+    return 'guest';
   },
   /* فيه بيانات المنصة على الجهاز؟ (أي بيانات) */
   hasLocalData(){
@@ -6005,33 +6128,88 @@ const Roles = {
   },
   /* نجيب قايمة الأعضاء من السحابة (بتنجح بس لو إحنا من الأعضاء) — وده اللي بيدخّل
      الجهاز المعتمد لوحده بعد ما المستر يوافق على طلبه، وبيشيل صلاحية اللي اترفض */
-  async syncMembers(){
-    const u = this.uid(), m = this.members(), saved = this.ls(this.KEY);
-    let d = null;
-    try{ d = await Cloud.rtdb('GET', Cloud.rootPath() + '/members'); }
-    catch(e){
-      // فايربيز رفضت قايمة الأعضاء ومعانا دور مدرس محفوظ → يعني المستر شال صلاحيتنا
-      if (saved === 'teacher' && S.fb && S.fb.denied){
-        delete m[u]; this.lsSet(this.KEY, 'guest');
-        try{ commit({ silent:true }); saveLocal(); }catch(x){}
-        try{ this.apply(); }catch(x){}
-      }
-      return false;
+  async setVerifiedRole(uid,role,record){
+    const u=uid||this.uid(),m=this.members();
+    this._verifiedUid=u;this._verifiedRole=role;this._authError=null;this._memAt=Date.now();
+    if(record&&typeof record==='object')m[u]=record;
+    if(role==='teacher'||role==='revoked')S.data.members=record&&typeof record==='object'?{[u]:record}:{};
+    else if(role==='guest'||role==='pending')S.data.members={};
+    this.lsSet(this.UIDK,u);this.lsSet(this.KEY,role);
+    if(role==='owner'||role==='teacher'){
+      this.lsSet('mostar_roles_signed_out_uid','');
+      DeviceRoleLock.set(role,{uid:u});
+    }else if(role==='revoked'){
+      DeviceRoleLock.set('revoked',{uid:u});
+    }else if(role==='guest'||role==='pending'){
+      DeviceRoleLock.clear('owner');DeviceRoleLock.clear('teacher');
     }
-    if (!d || typeof d !== 'object') return false;
-    Object.keys(d).forEach(k => { if (!m[k]) m[k] = d[k]; });
-    if (d[u] && d[u].role){
-      if (d[u].role !== saved){ this.lsSet(this.KEY, d[u].role); this.lsSet(this.UIDK, u); try{ commit({ silent:true }); }catch(e){} }
+    try{saveLocal();}catch(e){}
+    return role;
+  },
+  async syncMembers(){
+    let u=this.uid();
+    // تأكد من هوية Firebase قبل اختيار مفتاح العضوية؛ أول دخول قد ينشئ الشهادة الصامتة هنا.
+    try{if(Cloud.mode()==='rtdb')await Cloud.ensureTok();}catch(e){}
+    const authUid=(()=>{try{return Cloud.uid()||'';}catch(e){return '';}})();
+    const storedUid=this.ls(this.UIDK);
+    if(authUid&&(!storedUid||storedUid.indexOf('dev-')===0))this.lsSet(this.UIDK,authUid);
+    u=this.uid();
+    const m=this.members(),saved=this.ls(this.KEY),lock=DeviceRoleLock.read();
+    let db='';try{db=Cloud.dbUrl();}catch(e){}
+    if(!db){
+      this._authError=new Error('إعداد قاعدة البيانات غير متاح.');this._verifiedUid=u;this._verifiedRole='unverified';this._memAt=Date.now();return false;
+    }
+    let own=null;
+    try{own=await Cloud.rtdb('GET',Cloud.rootPath()+'/members/'+encodeURIComponent(u),null,false,'?t='+Date.now());}
+    catch(e){
+      this._authError=e;this._verifiedUid=u;this._verifiedRole=(saved==='owner'||saved==='teacher'||(lock&&(lock.role==='owner'||lock.role==='teacher')))?'unverified':(saved==='pending'?'pending':'guest');this._memAt=Date.now();return false;
+    }
+    if(own&&own.role==='revoked'){
+      await this.setVerifiedRole(u,'revoked',own);return false;
+    }
+    if(this.signedOut(u,own)){
+      await this.setVerifiedRole(u,'guest',null);return false;
+    }
+    if(own&&(own.role==='owner'||own.role==='teacher')){
+      const before=this._verifiedRole;
+      await this.setVerifiedRole(u,own.role,own);
+      if(own.role==='owner'){
+        try{
+          const all=await Cloud.rtdb('GET',Cloud.rootPath()+'/members',null,false,'?t='+Date.now());
+          if(all&&typeof all==='object'&&!Array.isArray(all)){
+            const fresh=Object.assign({},all);fresh[u]=own;S.data.members=fresh;
+            try{saveLocal();}catch(e){}
+          }
+        }catch(e){} // يكفي التحقق من عضوية الجهاز نفسه حتى لو تأخر تحميل القائمة.
+      }
       return true;
     }
-    if (saved === 'teacher' && Object.keys(d).length){
-      // القايمة اتقرات فعلًا وإحنا مش فيها → المستر شال صلاحية الجهاز ده
-      delete m[u]; this.lsSet(this.KEY, 'guest');
-      try{ commit({ silent:true }); saveLocal(); }catch(e){}
-      try{ this.apply(); }catch(e){}
+    if(own&&typeof own==='object'){
+      const revoked=Object.assign({},own,{role:'revoked',revokedAt:own.revokedAt||new Date().toISOString()});
+      await this.setVerifiedRole(u,'revoked',revoked);return false;
+    }
+    // وجود دور إداري محفوظ مع غياب العضوية من السيرفر يعني أن الصلاحية انتهت؛ لا نعيد ترقية هذا الجهاز من بياناته المحلية.
+    const hadAdmin=saved==='owner'||saved==='teacher'||saved==='revoked'||!!(m[u]&&['owner','teacher','revoked'].includes(m[u].role))||!!(lock&&(lock.role==='owner'||lock.role==='teacher'||lock.role==='revoked'));
+    if(hadAdmin){
+      const old=m[u]||{};
+      const revoked=Object.assign({},old,{role:'revoked',revokedAt:old.revokedAt||new Date().toISOString()});
+      await this.setVerifiedRole(u,'revoked',revoked);return false;
+    }
+    if(saved==='guest'||saved==='pending'){
+      this._verifiedUid=u;this._verifiedRole=saved;this._authError=null;this._memAt=Date.now();return false;
+    }
+    // جهاز جديد أو جهاز قديم بلا دور محفوظ: المالك الأول فقط يستطيع تأسيس العضوية تلقائيًا.
+    let all=null;
+    try{all=await Cloud.rtdb('GET',Cloud.rootPath()+'/members',null,false,'?t='+Date.now());}
+    catch(e){
+      this._authError=e;this._verifiedUid=u;this._verifiedRole=(e&&e.kind==='rules')?'guest':'unverified';this._memAt=Date.now();
+      if(this._verifiedRole==='guest')this.lsSet(this.KEY,'guest');
       return false;
     }
-    return false;
+    if(all&&typeof all==='object'&&!Array.isArray(all)&&Object.keys(all).length){
+      this._verifiedUid=u;this._verifiedRole='guest';this._authError=null;this._memAt=Date.now();this.lsSet(this.KEY,'guest');return false;
+    }
+    return await this.becomeOwner('');
   },
   code(){ return this.uid(); },
   isOwner(){ return this.role() === 'owner'; },
@@ -6041,123 +6219,125 @@ const Roles = {
   device(){ try{ return (typeof devKind === 'function') ? devKind() : 'جهاز'; }catch(e){ return 'جهاز'; } },
   /* اعتماد الجهاز كمالك — ونتأكد إن فايربيز قبلت (القواعد هي الحكم) */
   async becomeOwner(msg){
-    const m = this.members(), u = this.uid();
-    m[u] = Object.assign({}, m[u] || {}, { role:'owner', name:(S.data.settings.teacherName || 'المستر'),
-      at:(m[u] && m[u].at) || new Date().toISOString(), device:this.device() });
-    this.lsSet(this.UIDK, u); this.lsSet(this.KEY, 'owner'); this._claimed = true;
-    try{ commit({ silent:true }); }catch(e){}
-    let okWrite = true;
-    try{ await Cloud.rtdb('PUT', Cloud.rootPath() + '/members/' + u, m[u]); }
-    catch(e){ okWrite = false; }
-    if (!okWrite){
-      // فايربيز رفضت: يعني فيه أعضاء بالفعل والجهاز ده مش منهم → جهاز جديد محتاج تسجيل
-      delete m[u]; this.lsSet(this.KEY, 'guest');
-      try{ Roles.apply(); }catch(e){}
-      return false;
-    }
-    if (msg) setTimeout(() => toast(msg, 'ok', 'الأدوار'), 1200);
+    const m=this.members(),u=this.uid();
+    if(this.signedOut(u)||((m[u]||{}).role==='revoked'))return false;
+    const now=new Date().toISOString();
+    const record=Object.assign({},m[u]||{},{role:'owner',name:(S.data.settings.teacherName||'المستر'),at:(m[u]&&m[u].at)||now,updatedAt:now,device:this.device()});
+    try{await Cloud.rtdb('PUT',Cloud.rootPath()+'/members/'+encodeURIComponent(u),record);}
+    catch(e){this._authError=e;this._verifiedUid=u;this._verifiedRole='unverified';this._memAt=Date.now();return false;}
+    await this.setVerifiedRole(u,'owner',record);
+    if(msg)setTimeout(()=>toast(msg,'ok','الأدوار'),1200);
     return true;
   },
-  /* أول جهاز بياخد دور المالك لوحده — وأي جهاز تاني فيه بيانات المستر بيتعتمد كمان
-     ملاحظة مهمة: جهاز جديد من غير بيانات ماياخدش المالك غير لو السحابة فاضية فعلًا */
-  async init(){
-    const savedRole = this.ls(this.KEY);
-    const m0 = this.members(), u0 = this.uid();
-    if (m0[u0] && m0[u0].role) return false;
-    if (savedRole === 'teacher'){
-      if (S.fb && S.fb.denied){ this.lsSet(this.KEY, 'guest'); try{ this.apply(); }catch(e){} return false; }
-      if (this._memAt && Date.now() - this._memAt < 60000) return false;    // فحص الأعضاء مرة كل دقيقة بالكتير
-      this._memAt = Date.now();
-      if (await this.syncMembers()){ if (this.ls(this.KEY) !== 'teacher'){ try{ this.apply(); }catch(e){} } }
-      return false;
-    }
-    if (savedRole === 'guest'){
-      // ممكن المستر وافق على الجهاز ده وهو واقف على صفحة الدخول → ناخد دورنا من السحابة
-      if (this._memAt && Date.now() - this._memAt < 5000) return false;
-      this._memAt = Date.now();
-      if (await this.syncMembers()){ try{ this.apply(); }catch(e){} return true; }
-      return false;
-    }
-    const m = this.members(), u = this.uid();
-    // جهاز المستر اللي شهادته اتجدّدت (أو عضويته اتشالت بالغلط) → نرجّعه مالك
-    if (this.ls(this.KEY) === 'owner' && this.hasLocalData()) return await this.becomeOwner('');
-    if (Object.keys(m).length){ for (const k in m){ if ((m[k] || {}).role) { if (this.hasData()) return await this.becomeOwner('تم اعتماد الجهاز ده كجهاز للمستر ✅'); return false; } } }
-    // جهاز المستر القديم (فيه بيانات المنصة) → مالك على طول
-    if (this.hasData()) return await this.becomeOwner('');
-    if (this._checking) return false;
-    this._checking = true;
-    let cloudMembers = null, cloudMeta = null;
-    try{ cloudMembers = await Cloud.rtdb('GET', Cloud.rootPath() + '/members'); }catch(e){}
-    try{ cloudMeta = await Cloud.rtdb('GET', Cloud.rootPath() + '/meta'); }catch(e){}
-    this._checking = false;
-    const cloudKnown = (cloudMembers && typeof cloudMembers === 'object' && Object.keys(cloudMembers).length)
-                    || (cloudMeta && typeof cloudMeta === 'object' && Object.keys(cloudMeta).length);
-    const denied = (S.fb && S.fb.denied);      // فايربيز رفضت القراءة = فيه أعضاء والجهاز ده مش منهم
-    if (cloudKnown || denied){
-      // المنصة موجودة على السحابة وجهازنا مش من أعضائها → محتاج اعتماد من المستر
-      if (cloudMembers && typeof cloudMembers === 'object'){
-        Object.keys(cloudMembers).forEach(k => { if (!m[k]) m[k] = cloudMembers[k]; });
+  async init(opts){
+    opts=opts||{};const u=this.uid(),before=this.role();
+    if(!opts.force&&this._verifiedUid===u&&this._memAt&&Date.now()-this._memAt<8000)return this._verifiedRole==='owner'||this._verifiedRole==='teacher';
+    if(this._checkingRole)return this._checkingRole;
+    this._checkingRole=(async()=>{
+      try{return await this.syncMembers();}
+      finally{
+        this._checkingRole=null;
+        const after=this.role();
+        if(after!==before){try{this.apply();}catch(e){}}
+        if(after==='owner'||after==='teacher')this.startAudit();
       }
-      this.lsSet(this.KEY, 'guest');
-      try{ Roles.apply(); }catch(e){}
-      return false;
+    })();
+    return this._checkingRole;
+  },
+  startAudit(){
+    if(this._auditTimer)return;
+    this._auditTimer=setInterval(()=>{
+      if(document.hidden||navigator.onLine===false)return;
+      this.init({force:true}).catch(()=>{});
+    },10000);
+  },
+  logout(){
+    const u=this.uid();
+    const member=this.members()[u]||{};
+    this.lsSet('mostar_roles_signed_out_uid',JSON.stringify({uid:u,role:this._verifiedRole||this.ls(this.KEY),memberAt:member.updatedAt||member.at||''}));
+    this.lsSet(this.KEY,'guest');
+    DeviceRoleLock.clear();
+    this._verifiedUid=u;this._verifiedRole='guest';this._authError=null;
+    try{saveLocal();}catch(e){}
+    const base=String(location.href||'').split('#')[0].split('?')[0];
+    try{location.replace(base);}catch(e){location.href=base;}
+  },
+  async setRole(uid,role,extra){
+    if(!uid)return false;
+    const m=this.members(),old=m[uid]&&typeof m[uid]==='object'?m[uid]:{};
+    const previousAt=Date.parse(old.updatedAt||old.at||'')||0,now=new Date(Math.max(Date.now(),previousAt+1)).toISOString();
+    let record;
+    if(role===null){
+      record=Object.assign({},old,{role:'revoked',revokedAt:now,revokedBy:this.uid(),updatedAt:now});
+    }else{
+      if(role!=='owner'&&role!=='teacher')throw new Error('الدور المطلوب غير صالح.');
+      record=Object.assign({},old,extra||{},{role:role,at:old.at||now,updatedAt:now});
+      delete record.revokedAt;delete record.revokedBy;
     }
-    return await this.becomeOwner('');
+    await Cloud.rtdb('PUT',Cloud.rootPath()+'/members/'+encodeURIComponent(uid),record);
+    m[uid]=record;
+    if(uid===this.uid()){
+      if(role===null)await this.setVerifiedRole(uid,'revoked',record);
+      else{
+        this.lsSet('mostar_roles_signed_out_uid','');
+        await this.setVerifiedRole(uid,role,record);
+      }
+    }else{try{saveLocal();}catch(e){}}
+    return record;
   },
-  setRole(uid, role, extra){
-    if (!uid) return;
-    const m = this.members();
-    if (role === null) delete m[uid];
-    else m[uid] = Object.assign({}, m[uid] || {}, extra || {}, { role: role, at:(m[uid] && m[uid].at) || new Date().toISOString() });
-    if (uid === this.uid()) this.lsSet(this.KEY, role === null ? '' : role);
-    try{ commit({ silent:true }); }catch(e){}
-    this.push(uid, role === null);
-  },
-  push(uid, del){
-    try{ Cloud.rtdb(del ? 'DELETE' : 'PUT', Cloud.rootPath() + '/members/' + uid, del ? undefined : this.members()[uid]); }catch(e){}
+  push(uid){
+    if(!uid||!this.members()[uid])return Promise.resolve(null);
+    return Cloud.rtdb('PUT',Cloud.rootPath()+'/members/'+encodeURIComponent(uid),this.members()[uid]);
   },
   /* اللي مسموح لكل دور */
   can(act){
-    if (!act) return true;
-    const r = this.role();
-    if (r === 'guest' || r === 'pending'){
-      // جهاز لسه مسجّلش: ممنوع من كل حاجة غير أزرار صفحة الدخول
-      return ['rolesOpen','guestCodeCopy','lSend','lGo','lCheck','lCancel','lAgain'].indexOf(act) >= 0;
-    }
-    if (r === 'owner') return true;
-    if (OWNER_ONLY.indexOf(act) >= 0) return false;
-    if (/^del|^trash/i.test(act)) return false;
+    if(!act)return true;
+    const r=this.role();
+    if(r==='owner')return true;
+    if(act==='roleLogout')return r==='teacher';
+    if(r==='guest'||r==='pending')return ['rolesOpen','guestCodeCopy','lSend','lGo','lCheck','lCancel','lAgain','lRetry'].indexOf(act)>=0;
+    if(r==='revoked')return ['rolesOpen','guestCodeCopy','lRetry'].indexOf(act)>=0;
+    if(r==='unverified')return ['lRetry'].indexOf(act)>=0;
+    if(r!=='teacher')return false;
+    if(OWNER_ONLY.indexOf(act)>=0)return false;
+    if(/^del|^trash/i.test(act))return false;
     return true;
   },
   deny(){
-    if (this.role() === 'guest') toast('الجهاز ده مش مصرّح — اطلب من المستر دعوة', 'warn', 'الصلاحيات');
-    else toast('الحاجة دي للمستر بس (إنت داخل كمدرس) — كلّم المستر لو محتاجها', 'warn', 'الصلاحيات');
+    const r=this.role();
+    if(r==='revoked')toast('المالك ألغى صلاحية الجهاز ده — اطلب منه اعتماده من جديد.','warn','الصلاحيات');
+    else if(r==='unverified')toast('لا يمكن فتح الإدارة قبل التحقق من صلاحية الجهاز.','warn','الصلاحيات');
+    else if(r==='guest')toast('الجهاز ده مش مصرّح — اطلب من المستر دعوة','warn','الصلاحيات');
+    else toast('الحاجة دي للمستر بس (إنت داخل كمدرس) — كلّم المستر لو محتاجها','warn','الصلاحيات');
     return false;
   },
   /* الشارة + إخفاء الأزرار الممنوعة + صفحة تسجيل الدخول للأجهزة الجديدة */
   apply(){
     try{
-      const r = this.role(), info = this.info(r), owner = this.isOwner();
-      const b = document.body;
-      if (b.dataset.role !== r) b.dataset.role = r;
-      b.classList.toggle('role-mem', !owner);
-      // أي جهاز مش مسجّل أو بانتظار الموافقة → صفحة تسجيل الدخول على الشاشة كاملة
-      if (r === 'guest' || r === 'pending'){ try{ LMode.show(r); }catch(e){} }
-      else { try{ LMode.hide(); }catch(e){} try{ localStorage.removeItem('mostar_ptok'); }catch(e){} }
-      const badge = $('#roleBadge');
-      if (badge){
-        let txt = info.ar;
-        try{ if (owner){ const n = Requests.pending().length; if (n) txt += ' · ' + n + ' طلب'; } }catch(e){}
-        badge.textContent = txt; badge.className = 'role-badge ' + info.chip;
+      const r=this.role(),info=this.info(r),active=r==='owner'||r==='teacher',owner=r==='owner',b=document.body;
+      if(b.dataset.role!==r)b.dataset.role=r;
+      b.classList.toggle('role-mem',!active);
+      if(!active){
+        if(r==='unverified')LMode.errorText=(this._authError&&this._authError.message)||'راجع اتصال الإنترنت أو إعدادات Firebase.';
+        try{LMode.show(r);}catch(e){}
+        const bar=$('#guestBar');if(bar)bar.remove();
+        return;
       }
-      try{ if (owner && (!this._reqAt || Date.now() - this._reqAt > 25000)){ this._reqAt = Date.now(); Requests.sync().then(n => { if (n){ try{ this.apply(); }catch(e){} } }); } }catch(e){}
-      try{ if (owner) Requests.notice(); }catch(e){}
-      if (owner){ document.querySelectorAll('.role-hide').forEach(x => x.classList.remove('role-hide')); return; }
-      OWNER_ONLY.forEach(a => {
-        document.querySelectorAll('[data-act="' + a + '"]').forEach(el => el.classList.add('role-hide'));
-      });
-      const st = $('#roleStrip'); if (st) st.textContent = info.ar + ' — ' + info.note;
-      const bar = $('#guestBar'); if (bar) bar.remove();
+      DeviceRoleLock.set(r,{uid:this.uid()});
+      try{LMode.hide();}catch(e){}
+      try{localStorage.removeItem('mostar_ptok');}catch(e){}
+      const badge=$('#roleBadge');
+      if(badge){
+        let txt=info.ar;
+        try{if(owner){const n=Requests.pending().length;if(n)txt+=' · '+n+' طلب';} }catch(e){}
+        badge.textContent=txt;badge.className='role-badge '+info.chip;
+      }
+      try{if(owner&&(!this._reqAt||Date.now()-this._reqAt>25000)){this._reqAt=Date.now();Requests.sync().then(n=>{if(n){try{this.apply();}catch(e){}}});}}catch(e){}
+      try{if(owner)Requests.notice();}catch(e){}
+      if(owner){document.querySelectorAll('.role-hide').forEach(x=>x.classList.remove('role-hide'));return;}
+      OWNER_ONLY.forEach(a=>document.querySelectorAll('[data-act="'+a+'"]').forEach(el=>el.classList.add('role-hide')));
+      const st=$('#roleStrip');if(st)st.textContent=info.ar+' — '+info.note;
+      const bar=$('#guestBar');if(bar)bar.remove();
       document.body.classList.remove('guest');
     }catch(e){}
   },
@@ -6178,7 +6358,7 @@ const Roles = {
         <span class="badge ${inf.chip}">${icon(inf.ic)} ${inf.ar}</span>
         <div style="flex:1;min-width:0"><div style="font-weight:700">${esc(x.name || x.email || 'عضو')}${isMe ? ' — إنت' : ''}</div>
           <div class="small muted">${esc(x.email || '')}${x.email ? ' · ' : ''}${esc(x.device || '')}${x.at ? ' · ' + String(x.at).slice(0, 10) : ''}</div></div>
-        ${(this.isOwner() && !isMe) ? `<button class="btn sm ghost" data-act="memberRevoke" data-id="${esc(k)}">${icon('trash')} الغي</button>` : ''}
+        ${(this.isOwner() && !isMe && x.role !== 'revoked') ? `<button class="btn sm ghost" data-act="memberRevoke" data-id="${esc(k)}">${icon('trash')} الغي</button>` : (this.isOwner() && !isMe && x.role === 'revoked') ? '<span class="small muted">الصلاحية ملغاة — أعد الاعتماد بالكود عند الحاجة</span>' : ''}
       </div>`;
     }).join('');
     Modal.open({ title:'الصلاحيات والأعضاء', sub:'مين معاك على المنصة وإيه المسموح لكل واحد', size:'lg',
@@ -6222,7 +6402,7 @@ const Roles = {
           <div><b class="small">المدرس يقدر يعمل إيه</b><ul class="small" style="line-height:2;padding-inline-start:18px;margin:6px 0">${yes.map(t => '<li>' + t + '</li>').join('')}</ul></div>
           <div><b class="small">المدرس ممنوع من إيه</b><ul class="small" style="line-height:2;padding-inline-start:18px;margin:6px 0">${no.map(t => '<li>' + t + '</li>').join('')}</ul></div>
         </div>`,
-      footer:`<button class="btn ghost" data-close>إغلاق</button>` });
+      footer:`${(this.isOwner() || this.role() === 'teacher') ? `<button class="btn bad" data-act="roleLogout">${icon('logout')} تسجيل الخروج من هذا الجهاز</button>` : ''}<button class="btn ghost" data-close>إغلاق</button>` });
   }
 };
 
@@ -6373,8 +6553,8 @@ const Parent = {
   map(){ if (!S.data.ptokens || typeof S.data.ptokens !== 'object') S.data.ptokens = {}; return S.data.ptokens; },
   of(sid){ const t = this.map()[sid]; return (t && t.token) || ''; },
   rec(sid){ return this.map()[sid] || null; },
-  emailOf(sid){ return String((student(sid)||{}).guardianEmail||'').trim().toLowerCase(); },
-  hasEmail(sid){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(this.emailOf(sid)); },
+  emailOf(sid){ return normalizeEmail((student(sid)||{}).guardianEmail||''); },
+  hasEmail(sid){ return isValidEmail(this.emailOf(sid)); },
   needsSync(sid){
     if(!this.of(sid))return true;
     const row=this.rec(sid)||{};
@@ -6678,7 +6858,7 @@ const Requests = {
   },
   async approve(uid, role){
     const req = this.of(uid) || {};
-    Roles.setRole(uid, role, { name:req.name || (role === 'owner' ? 'جهاز المستر' : 'مدرس'), device:req.device || 'جهاز', via:'request' });
+    await Roles.setRole(uid, role, { name:req.name || (role === 'owner' ? 'جهاز المستر' : 'مدرس'), device:req.device || 'جهاز', via:'request' });
     await this.put(uid, { status:'approved', role:role, at:new Date().toISOString() });
     try{ commit({ silent:true }); }catch(e){}
   },
@@ -6732,8 +6912,13 @@ const Requests = {
     let mem = null, req = null;
     try{ mem = await Cloud.rtdb('GET', Cloud.rootPath() + '/members/' + uid); }catch(e){}
     try{ req = await Cloud.rtdb('GET', Cloud.rootPath() + '/requests/' + uid); }catch(e){}
-    if (mem && mem.role){                       // اتقبل ✅
-      Roles.setRole(uid, mem.role, { name:mem.name, email:mem.email, device:mem.device });
+    if (mem && mem.role === 'revoked'){
+      await Roles.setVerifiedRole(uid, 'revoked', mem);
+      return 'revoked';
+    }
+    if(Roles.signedOut(uid,mem))return 'cancelled';
+    if (mem && (mem.role === 'owner' || mem.role === 'teacher')){
+      await Roles.setVerifiedRole(uid, mem.role, mem);
       return 'approved';
     }
     if (req && req.status) return req.status;    // pending / rejected / cancelled
@@ -6758,7 +6943,7 @@ function parentEntryUrl(code){
 const LMode = {
   node:null, shown:'', timer:null, busy:false, state:'none',
   show(role){
-    const st = (role === 'pending') ? 'pending' : 'none';
+    const st = ['pending','revoked','unverified','checking'].indexOf(role) >= 0 ? role : 'none';
     if (!this.node){
       this.node = document.createElement('div'); this.node.id = 'lview';
       document.body.appendChild(this.node);
@@ -6767,7 +6952,9 @@ const LMode = {
       this.render(st);
     }
     document.body.classList.add('lmode');
-    if (st === 'pending') this.watch(); else this.watch(9000);
+    if (st === 'pending') this.watch();
+    else if (st === 'none') this.watch(9000);
+    else this.stopWatch();
   },
   hide(){
     this.stopWatch();
@@ -6782,7 +6969,20 @@ const LMode = {
   },
   render(state){
     if (!this.node) return;
-    this.state = state; this.shown = state === 'pending' ? 'pending' : 'none';
+    this.state = state; this.shown = state || 'none';
+    if (state === 'checking'){
+      this.node.innerHTML=this.head()+`<div class="jv-card" style="text-align:center"><div class="pm-spin" style="margin:8px auto 12px"></div><b>بنتحقق من صلاحية الجهاز…</b><div class="small muted" style="margin-top:7px">صفحة الإدارة لن تفتح قبل التأكد من اعتماد هذا الجهاز.</div></div>`;
+      this.stopWatch();return;
+    }
+    if (state === 'revoked'){
+      this.node.innerHTML=this.head()+`<div class="jv-card"><div class="role-strip" style="background:var(--bad-bg);color:var(--bad);line-height:1.9"><b>صلاحية الجهاز ملغاة</b><br>المالك ألغى وصول هذا الجهاز، لذلك لن تفتح صفحة الإدارة. لو محتاج الدخول، تواصل مع المالك ليعتمد كود الجهاز من جديد.</div><div class="field"><label>كود الجهاز</label><div class="flex wrap" style="gap:8px"><code class="code" style="direction:ltr;flex:1;overflow:auto">${esc(Roles.code())}</code><button class="btn sm" data-act="guestCodeCopy">${icon('copy')} انسخ</button></div></div><button class="btn" id="lRetry">${icon('refresh')} تحقق من الاعتماد مرة أخرى</button></div>`;
+      const rb=$('#lRetry',this.node);if(rb)rb.onclick=()=>this.retryRole();this.stopWatch();return;
+    }
+    if (state === 'unverified'){
+      const msg=this.errorText||'تعذر الاتصال بخدمة التحقق.';
+      this.node.innerHTML=this.head()+`<div class="jv-card"><div class="role-strip" style="background:var(--warn-bg);color:var(--warn);line-height:1.9"><b>تعذر التحقق من صلاحية الجهاز</b><br>لن نفتح لوحة الإدارة حتى نتحقق من العضوية على الخادم. اتأكد من اتصال الإنترنت ثم جرّب مرة أخرى.</div><div class="small muted" style="margin:8px 0">${esc(msg)}</div><button class="btn pri" id="lRetry">${icon('refresh')} إعادة التحقق</button></div>`;
+      const rb=$('#lRetry',this.node);if(rb)rb.onclick=()=>this.retryRole();this.stopWatch();return;
+    }
     if (state === 'pending'){ this.renderPending(); this.watch(6000); return; }
     if (state === 'rejected') return this.renderRejected();
     this.node.innerHTML = this.head() + `
@@ -6880,6 +7080,20 @@ const LMode = {
       </div>`;
     const a = $('#lAgain', this.node); if (a) a.onclick = () => this.render('none');
   },
+  async retryRole(){
+    const b=$('#lRetry',this.node);if(b){b.disabled=true;b.textContent='جارٍ التحقق…';}
+    this.errorText='';
+    try{await Roles.init({force:true});}catch(e){this.errorText=(e&&e.message)||'تعذر التحقق.';}
+    const role=Roles.role();
+    if(role==='owner'||role==='teacher'){
+      const base=DeviceRoleLock.base();
+      try{location.replace(base);}catch(e){location.href=base;}
+      return;
+    }
+    if(role==='revoked'){this.render('revoked');return;}
+    if(role==='unverified'){this.errorText=this.errorText||((Roles._authError&&Roles._authError.message)||'راجع اتصال الإنترنت.');this.render('unverified');return;}
+    this.render(role==='pending'?'pending':'none');
+  },
   byCode(){
     const c = ($('#lCode', this.node) || {}).value || '';
     const t = c.trim();
@@ -6909,6 +7123,7 @@ const LMode = {
       setTimeout(() => { try{ const u = String(location.href).split('?')[0]; if (location.search) location.replace(u); else location.reload(); }catch(e){} }, 900);
       return;
     }
+    if (st === 'revoked'){ if (this.shown !== 'revoked') this.render('revoked'); return; }
     if (st === 'rejected'){ if (this.shown !== 'rejected'){ this.shown = 'rejected'; this.render('rejected'); } return; }
     if (st === 'pending'){ if (this.shown !== 'pending') this.render('pending'); return; }
     if (st === 'cancelled'){ if (this.shown !== 'none') this.render('none'); return; }
@@ -6981,8 +7196,10 @@ const JMode = {
     this.token = t; this.code = this.qp('c') || FB_DEFAULT.code || FB_DEFAULT.projectId; this.key = this.qp('k') || '';
     try{
       let th = ''; try{ th = localStorage.getItem(LS_KEY + '_theme') || ''; }catch(e){}
-      if (!th) th = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+      if (th !== 'dark' && th !== 'light') th = 'dark';
       document.documentElement.dataset.theme = th;
+      const themeColor = document.querySelector('meta[name="theme-color"]');
+      if (themeColor) themeColor.content = th === 'dark' ? '#0b0b0d' : '#fac518';
     }catch(e){}
     document.body.classList.add('jmode');
     this.node = document.createElement('div'); this.node.id = 'jview';
@@ -7062,8 +7279,12 @@ const JMode = {
       usedOk = true;
     }catch(e){ usedOk = false; }
     // نسجّل العضو (الدعوة نفسها هي الإذن — والقواعد بتتحقق منها على السيرفر)
-    try{ Roles.lsSet(Roles.UIDK, uid); Roles.lsSet(Roles.KEY, 'teacher'); }catch(e){}
-    try{ Roles.setRole(uid, 'teacher', { name:name || (this.inv && this.inv.name) || 'مدرس', email:email2, device:Roles.device(), via:this.token }); }catch(e){}
+    try{
+      Roles.lsSet(Roles.UIDK, uid);
+      await Roles.setRole(uid, 'teacher', { name:name || (this.inv && this.inv.name) || 'مدرس', email:email2, device:Roles.device(), via:this.token });
+    }catch(e){
+      this.busy=false;this.form('تعذر اعتماد هذا الجهاز على السيرفر. تأكد من الاتصال وصلاحية رابط الدعوة ثم حاول مرة أخرى.');return;
+    }
     if (!usedOk) toast('الرابط اتسجّل على الجهاز، بس مش قادر أوصّل السحابة دلوقتي — لو ما فتحش على طول، اضغط «تحديث»', 'warn', 'الدعوة');
     try{ saveLocal(); }catch(e){}
     // نعيد التحميل من غير رابط الدعوة → المنصة تفتح بوضع المدرس
@@ -7082,7 +7303,7 @@ function openStudentForm(id){
   const s = id ? student(id) : null;
   const gid = s ? s.groupId : (S.ui.stuFilter.groupId || '');
   const g = groupOf(gid);
-  const st = s || { name:'', code: nextCode(), stage:'', studySystem:'', type:'', level:'', groupId: gid, payMode: (g && g.payMode) || 'monthly',
+  const st = s || { name:'', code: nextCode(), stage:'', studySystem:'', type:'', level:'', nationalId:'', groupId: gid, payMode: (g && g.payMode) || 'monthly',
     phone:'', parentPhone:'', guardian:'', guardianEmail:'', email:'', joinDate: today(), status:'active', notes:'' };
   const sysList = studySystemsFor(st.stage);
   Modal.open({
@@ -7123,13 +7344,14 @@ function openStudentForm(id){
         <div class="field"><label>هاتف ولي الأمر</label><input class="inp" id="fPPhone" value="${esc(st.parentPhone)}" placeholder="01xxxxxxxxx"></div>
         <div class="field"><label>اسم ولي الأمر</label><input class="inp" id="fGuardian" value="${esc(st.guardian)}"></div>
       </div>
-      <div class="frow">
+      <div class="frow-3">
         <div class="field"><label>بريد Google لولي الأمر (لتأمين رابط المتابعة)</label>
           <input class="inp" id="fGuardianEmail" type="email" value="${esc(st.guardianEmail || '')}" placeholder="parent@gmail.com" style="direction:ltr;text-align:left">
           <span class="hint">لازم يطابق حساب Google الذي سيفتح تقرير الطالب.</span></div>
         <div class="field"><label>إيميل الطالب (لحساب بوابة الفيديوهات)</label>
           <input class="inp" id="fEmail" type="email" value="${esc(st.email || '')}" placeholder="student@example.com" style="direction:ltr;text-align:left">
           <span class="hint">بيستخدمه الطالب للدخول للبوابة — مش بيظهر للطلاب التانيين.</span></div>
+        <div class="field"><label>الرقم القومي <span class="req">*</span></label><input class="inp" id="fNationalId" type="text" inputmode="numeric" maxlength="14" autocomplete="off" required value="${esc(st.nationalId || '')}" placeholder="14 رقمًا" dir="ltr"><span class="hint">مطلوب — 14 رقمًا.</span></div>
       </div>
       <div class="frow-3">
         <div class="field"><label>تاريخ الانضمام</label><input class="inp" type="date" id="fJoin" value="${st.joinDate || today()}"></div>
@@ -7173,13 +7395,16 @@ function openStudentForm(id){
         if (!name){ toast('اكتب اسم الطالب', 'warn'); return; }
         if (!stageEl.value){ toast('اختر المرحلة الدراسية', 'warn'); stageEl.focus(); return; }
         if (!$('#fSys', body).value){ toast('اختر نظام الدراسة', 'warn'); $('#fSys', body).focus(); return; }
-        const guardianEmail = ($('#fGuardianEmail', body).value || '').trim().toLowerCase();
-        if (guardianEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guardianEmail)){ toast('اكتب بريد Google صحيح لولي الأمر', 'warn'); $('#fGuardianEmail', body).focus(); return; }
+        const guardianEmail = normalizeEmail($('#fGuardianEmail', body).value || '');
+        if (guardianEmail && !isValidEmail(guardianEmail)){ toast('راجع صيغة بريد Google لولي الأمر', 'warn'); $('#fGuardianEmail', body).focus(); return; }
+        const nationalId = normalizeDigits($('#fNationalId', body).value || '').replace(/[\s-]/g, '');
+        if (!nationalId){ toast('الرقم القومي مطلوب.', 'warn'); $('#fNationalId', body).focus(); return; }
+        if (!/^\d{14}$/.test(nationalId)){ toast('الرقم القومي يتكوّن من 14 رقمًا.', 'warn'); $('#fNationalId', body).focus(); return; }
         const data = {
           name: name, code: $('#fCode', body).value.trim(), stage: stageEl.value, studySystem: $('#fSys', body).value,
-          type: $('#fType', body).value, level: $('#fLevel', body).value, groupId: $('#fGroup', body).value,
+          type: $('#fType', body).value, level: $('#fLevel', body).value, nationalId: nationalId, groupId: $('#fGroup', body).value,
           payMode: $('#fPay', body).value, phone: $('#fPhone', body).value.trim(), parentPhone: $('#fPPhone', body).value.trim(),
-          guardian: $('#fGuardian', body).value.trim(), guardianEmail: guardianEmail, email: ($('#fEmail', body).value || '').trim().toLowerCase(), joinDate: $('#fJoin', body).value || today(),
+          guardian: $('#fGuardian', body).value.trim(), guardianEmail: guardianEmail, email: normalizeEmail($('#fEmail', body).value || ''), joinDate: $('#fJoin', body).value || today(),
           status: $('#fStatus', body).value, notes: $('#fNotes', body).value.trim()
         };
         if (id){ Object.assign(student(id), data); toast('تم تحديث بيانات ' + name, 'ok'); }
@@ -7549,6 +7774,7 @@ function openProfile(id){
         <dt>الحصة والمواعيد</dt><dd>${g ? esc(g.name) + ' — ' + AR_DAYS[g.day] + ' · ' + timeRange(g) : 'بدون حصة'}</dd>
         <dt>نظام الدفع</dt><dd>${esc(payLabel(s.payMode))}</dd>
         <dt>هاتف الطالب</dt><dd>${esc(s.phone || '—')}</dd>
+        <dt>الرقم القومي</dt><dd>${esc(s.nationalId || '—')}</dd>
         <dt>ولي الأمر</dt><dd>${esc(s.guardian || '—')} ${s.parentPhone ? '· ' + esc(s.parentPhone) : ''}</dd>
         <dt>تاريخ الانضمام</dt><dd>${fmtDate(s.joinDate)}</dd>
       </dl>
@@ -8455,15 +8681,20 @@ document.addEventListener('click', function(e){
     }
     case 'deployOpen': openDeploy(); break;
     case 'rolesOpen': Roles.open(); break;
+    case 'roleLogout': confirmDialog('تسجيل الخروج من هذا الجهاز','بعد الخروج ستعود للصفحة العامة، ولن تفتح لوحة الإدارة على هذا الجهاز إلا بعد اعتماد جديد.','تسجيل الخروج',()=>Roles.logout(),true); break;
     case 'memberInvite': openInvite(); break;
     case 'memberInviteMake': makeTeacherInvite(); break;
     case 'memberRevoke': {
       const mem = Roles.members()[id] || {};
-      confirmDialog('إلغاء صلاحية', 'متأكد إنك تشيل «' + (mem.name || mem.email || 'العضو') + '»؟\nهيفقد الوصول للمنصة على طول، وتقدر تدعوه تاني في أي وقت.', 'الغي', () => {
-        Roles.setRole(id, null);
-        try{ if (mem.via) Cloud.rtdb('DELETE', Cloud.rootPath() + '/invites/' + mem.via); }catch(e){}   // رابط دعوته يتلغي معاه
-        toast('اتشالت صلاحية «' + (mem.name || mem.email || 'العضو') + '»', 'ok', 'الصلاحيات');
-        Roles.open();
+      confirmDialog('إلغاء صلاحية', 'متأكد إنك تشيل «' + (mem.name || mem.email || 'العضو') + '»؟\nهيفقد الوصول للمنصة على طول، ولن تعود الصلاحية إلا إذا اعتمدت الجهاز من جديد.', 'الغي', async () => {
+        try{
+          await Roles.setRole(id, null);
+          if (mem.via && mem.via !== 'request'){
+            try{ await Cloud.rtdb('DELETE', Cloud.rootPath() + '/invites/' + mem.via); }catch(e){}
+          }
+          toast('اتلغت صلاحية «' + (mem.name || mem.email || 'العضو') + '» — الجهاز ملغي على السيرفر', 'ok', 'الصلاحيات');
+          Roles.open();
+        }catch(e){toast('تعذر إلغاء الجهاز على السيرفر — راجع الاتصال وحاول مرة أخرى.','bad','الصلاحيات');}
       }, true);
       break;
     }
@@ -8489,9 +8720,9 @@ document.addEventListener('click', function(e){
       const c = (($('#devCode') || {}).value || '').trim(), r = (($('#devRole') || {}).value) || 'owner';
       if (!c){ toast('الصق كود الجهاز', 'warn'); break; }
       if (c === Roles.uid()){ toast('ده كود الجهاز ده نفسه — إنت المالك بالفعل', 'info'); break; }
-      Roles.setRole(c, r, { name:(r === 'owner' ? 'جهاز المستر' : 'مدرس'), device:'جهاز معتمد' });
-      toast('تم اعتماد الجهاز ✅ هيفتح كـ' + (r === 'owner' ? 'مالك' : 'مدرس'), 'ok', 'الصلاحيات');
-      Roles.open();
+      Roles.setRole(c, r, { name:(r === 'owner' ? 'جهاز المستر' : 'مدرس'), device:'جهاز معتمد' }).then(() => {
+        toast('تم اعتماد الجهاز ✅ هيفتح كـ' + (r === 'owner' ? 'مالك' : 'مدرس'), 'ok', 'الصلاحيات');Roles.open();
+      }).catch(() => toast('تعذر اعتماد الجهاز على السيرفر — راجع الاتصال.','bad','الصلاحيات'));
       break;
     }
     case 'invCopy': copyText(id || '', 'الرابط اتنسخ ✅ ابعته للمدرس'); break;
@@ -8909,6 +9140,7 @@ const PMode = {
     if(redirected){
       await this.auth.setPersistence(window.firebase.auth.Auth.Persistence.NONE);
       this.authUser=redirected;
+      DeviceRoleLock.set('parent',{uid:redirected.uid,token:this.token,code:this.code,pid:this.pid,db:this.db,key:this.key});
       try{sessionStorage.removeItem(this.redirectKey);}catch(e){}
       this.authReady=true;
       return redirected;
@@ -8961,7 +9193,7 @@ const PMode = {
   },
   async acceptGoogleUser(user){
     if(!user){this.busy=false;this.renderLogin('Google لم يرجع حسابًا صالحًا. حاول مرة أخرى.');return;}
-    this.authUser=user;this.rec=null;this.videoProgress={};this.busy=false;
+    this.authUser=user;DeviceRoleLock.set('parent',{uid:user.uid,token:this.token,code:this.code,pid:this.pid,db:this.db,key:this.key});this.rec=null;this.videoProgress={};this.busy=false;
     try{await this.load();if(this.rec)this.watch();}
     catch(e){this.fail(this.authMessage(e));}
   },
@@ -8987,7 +9219,7 @@ const PMode = {
   async forget(){
     this.stop();
     try{ if(this.auth) await this.auth.signOut(); }catch(e){}
-    this.authUser=null;this.rec=null;this.videoProgress={};this.busy=false;
+    this.authUser=null;this.rec=null;this.videoProgress={};this.busy=false;DeviceRoleLock.clear('parent');
     try{localStorage.removeItem('mostar_ptok');localStorage.removeItem('mostar_pcode');localStorage.removeItem('mostar_pkey');localStorage.removeItem('mostar_ppid');localStorage.removeItem('mostar_pdb');}catch(e){}
     try{sessionStorage.removeItem(this.redirectKey);sessionStorage.removeItem(this.portalKey);}catch(e){}
     const home=String(location.href||'').split('#')[0].split('?')[0];
@@ -9007,9 +9239,11 @@ const PMode = {
     if(!this.key){try{this.key=Cloud.authKeyOf({projectId:this.pid})||'';}catch(e){}}
     this.remember(token);
     try{
-      let th = ''; try{ th = localStorage.getItem(LS_KEY + '_theme') || ''; }catch(e){}
-      if (!th) th = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+      let th = this.qp('theme') || ''; try{ th = th || localStorage.getItem(LS_KEY + '_theme') || ''; }catch(e){}
+      if (th !== 'dark' && th !== 'light') th = 'dark';
       document.documentElement.dataset.theme = th;
+      const themeColor = document.querySelector('meta[name="theme-color"]');
+      if (themeColor) themeColor.content = th === 'dark' ? '#0b0b0d' : '#fac518';
     }catch(e){}
     document.body.classList.add('pmode');
     const old=document.getElementById('pview');if(old)old.remove();
@@ -9024,7 +9258,7 @@ const PMode = {
     }catch(e){}
     try{
       const user=await this.initGoogleAuth();
-      if(user){await this.load();if(this.rec)this.watch();}
+      if(user){DeviceRoleLock.set('parent',{uid:user.uid,token:this.token,code:this.code,pid:this.pid,db:this.db,key:this.key});await this.load();if(this.rec)this.watch();}
       else this.renderLogin(this.authErrorText);
     }catch(e){this.authReady=false;this.authErrorText=this.authMessage(e);this.renderLogin(this.authErrorText);}
     return true;
@@ -9041,8 +9275,8 @@ const PMode = {
     try{ rec = await this.rtdb('GET', Cloud.rootPath() + '/parents/' + this.token, null, '?t=' + Date.now()); }
     catch(e){ err = (e && e.message) || 'مشكلة في الاتصال'; }
     if (rec && typeof rec === 'object'){
-      const registered=String(rec.guardianEmail||'').trim().toLowerCase();
-      const signed=String((this.authUser&&this.authUser.email)||'').trim().toLowerCase();
+      const registered=normalizeEmail(rec.guardianEmail||'');
+      const signed=normalizeEmail((this.authUser&&this.authUser.email)||'');
       if(!registered||!signed||registered!==signed){this.busy=false;this.fail('guardian_email_mismatch');return;}
       this.rec = rec;
       try{ this.videoProgress = await this.rtdb('GET', Cloud.rootPath() + '/learning/parentProgress/' + this.token, null, '?t=' + Date.now()) || {}; }
@@ -9106,6 +9340,7 @@ const PMode = {
           : perm ? 'قد يكون الحساب غير مطابق، أو لم تُنشر قواعد RTDB المحمية بعد. اطلب من المستر التأكد من بريد Google في ملف الطالب ونشر قواعد الحماية.'
           : 'اتأكد إن النت شغال وإعدادات تسجيل Google للمشروع صحيحة، ثم جرّب تاني.'}</div>
         <div class="pm-btns"><button class="btn pri" data-pm="google">${mismatch?'اختيار حساب Google آخر':'تسجيل Google / المحاولة مرة أخرى'}</button><button class="btn ghost" data-pm="reload">${icon('refresh')} تحديث</button></div>
+        <div class="pm-foot"><a href="#" data-pm="forget" style="color:var(--muted)">تسجيل الخروج والعودة للصفحة العامة</a></div>
       </div>
       <div class="pm-foot">${esc(msg)}</div>`;
     this.hook();
@@ -9469,8 +9704,8 @@ const Learning = {
   },
   async inviteMake(sid){
     const s = student(sid); if (!s) return;
-    const email = (($('#learnInviteEmail') || {}).value || '').trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ toast('اكتب إيميل صحيح للطالب', 'warn'); return; }
+    const email = normalizeEmail(($('#learnInviteEmail') || {}).value || '');
+    if (!isValidEmail(email)){ toast('اكتب إيميل صحيح للطالب', 'warn'); return; }
     if (!Cloud.authKeyOf()) { try{ await Cloud.findAuthKey(); }catch(e){} }
     if (!Cloud.authKeyOf()){ toast('مفتاح Firebase مش موجود — افتح الإعدادات ← أمّن البيانات الأول', 'bad', 'بوابة الطالب'); return; }
     let parentToken = Parent.of(sid) || '';
@@ -9564,6 +9799,8 @@ const Learning = {
     const sid=($('#learnPrivateStudent')||{}).value||'',username=(($('#learnPrivateUsername')||{}).value||'').trim().toLowerCase();
     const password=(($('#learnPrivatePassword')||{}).value||''),password2=(($('#learnPrivatePassword2')||{}).value||''),s=student(sid);
     if(!s){toast('اختار ملف طالب صحيحًا.','warn','حسابات الطلاب');return;}
+    const nationalId=normalizeDigits(s.nationalId||'').replace(/[\s-]/g,'');
+    if(!/^\d{14}$/.test(nationalId)){toast('الرقم القومي للطالب مطلوب وصحيح (14 رقمًا) قبل إنشاء الحساب. حدّث ملف الطالب أولًا.','warn','حسابات الطلاب');return;}
     if(!/^[a-z0-9][a-z0-9._-]{2,23}$/.test(username)){toast('اسم المستخدم من 3 إلى 24 حرفًا إنجليزيًا أو رقمًا.','warn','حسابات الطلاب');return;}
     if(password.length<6){toast('كلمة السر لازم تكون 6 أحرف على الأقل.','warn','حسابات الطلاب');return;}
     if(password!==password2){toast('تأكيد كلمة السر مش مطابق.','warn','حسابات الطلاب');return;}
@@ -9610,12 +9847,17 @@ const Learning = {
     const choices=(S.data.students||[]).filter(s=>s&&s.status!=='stopped'&&(!s.learningUid||s.learningUid===uid));
     const suggested=linked||(choices.find(s=>String(s.name||'').trim().toLowerCase()===String(r.name||'').trim().toLowerCase()&&s.stage===profile.stage)||null);
     const existingOptions=choices.map(s=>`<option value="${esc(s.id)}" ${suggested&&suggested.id===s.id?'selected':''}>${esc(s.name||'طالب')} — ${esc(s.stage||'')}${s.groupId?' · '+esc(groupName(s.groupId)):''}${s.learningUid===uid?' · ملف مرتبط بالطلب':''}</option>`).join('');
-    Modal.open({title:'مراجعة تسجيل طالب أونلاين',sub:r.name||'طالب جديد',size:'lg',body:`<div class="help info" style="line-height:1.95;margin-bottom:12px"><b>اسم المستخدم:</b> <code dir="ltr">${esc(r.loginName||'')}</code> · <b>المرحلة:</b> ${esc(profile.stage||'—')} · <b>النظام:</b> ${esc(profile.studySystem||'—')}<br><b>ولي الأمر:</b> ${esc(profile.guardian||'—')} · <b>الهاتف:</b> ${esc(profile.parentPhone||profile.phone||'—')}<br><b>بريد ولي الأمر:</b> ${esc(profile.guardianEmail||'غير مسجل')}<br>اختر ملفًا موجودًا أو أنشئ ملف طالب جديدًا. لن يدخل الطالب حتى يكتمل الربط والموافقة.</div><div class="field"><label><input type="radio" name="selfLinkMode" value="create" ${suggested?'':'checked'}> إنشاء ملف طالب جديد من البيانات المرسلة</label></div><div class="field"><label><input type="radio" name="selfLinkMode" value="existing" ${suggested?'checked':''} ${choices.length?'':'disabled'}> ربط الطلب بملف طالب موجود</label><select class="inp" id="selfStudentId" ${choices.length?'':'disabled'}>${existingOptions||'<option value="">لا توجد ملفات متاحة للربط</option>'}</select></div>`,footer:`<button class="btn" data-close>إلغاء</button><button class="btn pri" data-act="learnSelfApprove" data-id="${esc(uid)}">${icon('check')} حفظ الملف والموافقة</button>`,onMount(body){const radios=$$('input[name="selfLinkMode"]',body),sel=$('#selfStudentId',body);const sync=()=>{const ex=body.querySelector('input[name="selfLinkMode"]:checked');if(sel)sel.disabled=!choices.length||!ex||ex.value!=='existing';};radios.forEach(x=>x.addEventListener('change',sync));sync();}});
+    Modal.open({title:'مراجعة تسجيل طالب أونلاين',sub:r.name||'طالب جديد',size:'lg',body:`<div class="help info" style="line-height:1.95;margin-bottom:12px"><b>اسم المستخدم:</b> <code dir="ltr">${esc(r.loginName||'')}</code> · <b>المرحلة:</b> ${esc(profile.stage||'—')} · <b>النظام:</b> ${esc(profile.studySystem||'—')}<br><b>الرقم القومي:</b> ${esc(profile.nationalId||'—')} · <b>هاتف الطالب:</b> ${esc(profile.phone||'—')} · <b>هاتف ولي الأمر:</b> ${esc(profile.parentPhone||'—')}<br><b>ولي الأمر:</b> ${esc(profile.guardian||'—')} · <b>بريد ولي الأمر:</b> ${esc(profile.guardianEmail||'غير مسجل')}<br>اختر ملفًا موجودًا أو أنشئ ملف طالب جديدًا. لن يدخل الطالب حتى يكتمل الربط والموافقة.</div><div class="field"><label><input type="radio" name="selfLinkMode" value="create" ${suggested?'':'checked'}> إنشاء ملف طالب جديد من البيانات المرسلة</label></div><div class="field"><label><input type="radio" name="selfLinkMode" value="existing" ${suggested?'checked':''} ${choices.length?'':'disabled'}> ربط الطلب بملف طالب موجود</label><select class="inp" id="selfStudentId" ${choices.length?'':'disabled'}>${existingOptions||'<option value="">لا توجد ملفات متاحة للربط</option>'}</select></div>`,footer:`<button class="btn" data-close>إلغاء</button><button class="btn pri" data-act="learnSelfApprove" data-id="${esc(uid)}">${icon('check')} حفظ الملف والموافقة</button>`,onMount(body){const radios=$$('input[name="selfLinkMode"]',body),sel=$('#selfStudentId',body);const sync=()=>{const ex=body.querySelector('input[name="selfLinkMode"]:checked');if(sel)sel.disabled=!choices.length||!ex||ex.value!=='existing';};radios.forEach(x=>x.addEventListener('change',sync));sync();}});
   },
   async approveSelfSignup(authUid){
     if(!Roles.canManageLearning()){Roles.deny();return;}
     const r=(this.requests||{})[authUid];if(!r||r.status!=='pending'||r.kind!=='self_signup')return;
     const mode=(document.querySelector('input[name="selfLinkMode"]:checked')||{}).value||'create',profile=r.profile&&typeof r.profile==='object'?r.profile:{};
+    const nationalId=normalizeDigits(profile.nationalId||'').replace(/[\s-]/g,'');
+    if(!nationalId){toast('الرقم القومي مطلوب للموافقة على تسجيل الطالب.','warn','بوابة الطالب');return;}
+    if(!/^\d{14}$/.test(nationalId)){toast('الرقم القومي في الطلب لازم يكون 14 رقمًا.','warn','بوابة الطالب');return;}
+    const guardianEmail=normalizeEmail(profile.guardianEmail||'');
+    if(guardianEmail&&!isValidEmail(guardianEmail)){toast('راجع بريد ولي الأمر في الطلب قبل الموافقة.','warn','بوابة الطالب');return;}
     const username=String(r.loginName||'').trim().toLowerCase();
     if(!/^[a-z0-9][a-z0-9._-]{2,23}$/.test(username)||this.studentAlias(username)!==String(r.email||'').toLowerCase()){toast('بيانات اسم المستخدم في الطلب لا تطابق حساب Firebase.','bad','بوابة الطالب');return;}
     let s=null,createdHere=false,profileChanged=false,accountReady=false;
@@ -9629,17 +9871,24 @@ const Learning = {
         if(!name||!stage||!studySystem){toast('بيانات الاسم أو المرحلة أو نظام الدراسة ناقصة في الطلب.','warn','بوابة الطالب');return;}
         const allowedStages=(S.data.settings.stages&&S.data.settings.stages.length?S.data.settings.stages:DEFAULT_STAGES);
         if(!allowedStages.includes(stage)||!studySystemsFor(stage).includes(studySystem)){toast('المرحلة أو نظام الدراسة في الطلب غير معتمد. راجع البيانات قبل الموافقة.','warn','بوابة الطالب');return;}
-        s={id:uid('s'),code:nextCode(),name:name,stage:stage,studySystem:studySystem,type:'أونلاين',level:String(profile.level||'').trim().slice(0,40),groupId:'',phone:String(profile.phone||'').trim().slice(0,40),parentPhone:String(profile.parentPhone||'').trim().slice(0,40),guardian:String(profile.guardian||'').trim().slice(0,100),guardianEmail:String(profile.guardianEmail||'').trim().toLowerCase().slice(0,120),email:'',joinDate:today(),status:'active',notes:''};
+        s={id:uid('s'),code:nextCode(),name:name,stage:stage,studySystem:studySystem,type:'أونلاين',level:'',nationalId:nationalId,groupId:'',phone:normalizeDigits(profile.phone||'').slice(0,40),parentPhone:normalizeDigits(profile.parentPhone||'').slice(0,40),guardian:String(profile.guardian||'').trim().slice(0,100),guardianEmail:guardianEmail.slice(0,120),email:'',joinDate:today(),status:'active',notes:''};
         S.data.students.push(s);createdHere=true;
       }
     }
     if(s.learningUid&&s.learningUid!==authUid){if(createdHere)S.data.students=S.data.students.filter(x=>x.id!==s.id);toast('ملف الطالب مرتبط بحساب آخر بالفعل.','warn','بوابة الطالب');return;}
     const oldUid=s.learningUid||'',oldUsername=s.learningUsername||'';
+    const oldProfile={nationalId:s.nationalId,phone:s.phone,parentPhone:s.parentPhone,guardian:s.guardian,guardianEmail:s.guardianEmail};
     try{
       const accountPath=Cloud.rootPath()+'/learning/accounts/'+encodeURIComponent(authUid);
       let account=await Cloud.rtdb('GET',accountPath);
       if(account&&account.status==='active'&&account.studentId!==s.id)throw new Error('الحساب مرتبط بالفعل بملف طالب آخر؛ لم نغيّر ملف الطالب.');
       accountReady=!!(account&&account.status==='active'&&account.studentId===s.id);
+      if(mode==='existing'){
+        const incoming={nationalId:nationalId,phone:normalizeDigits(profile.phone||''),parentPhone:normalizeDigits(profile.parentPhone||''),guardian:String(profile.guardian||'').trim(),guardianEmail:guardianEmail};
+        Object.keys(incoming).forEach(k=>{if(!String(s[k]||'').trim()&&String(incoming[k]||'').trim())s[k]=incoming[k];});
+      }
+      const savedNationalId=normalizeDigits(s.nationalId||'').replace(/[\s-]/g,'');
+      if(!/^\d{14}$/.test(savedNationalId))s.nationalId=nationalId;
       let parentToken=Parent.of(s.id);if(!parentToken&&Parent.hasEmail(s.id)){try{parentToken=await Parent.ensure(s.id,true);}catch(e){}}
       s.learningUid=authUid;s.learningUsername=username;profileChanged=true;commit({silent:true});
       const synced=await Cloud.doPush(true);if(!synced)throw new Error('لم تكتمل مزامنة ملف الطالب؛ لم يتم تفعيل الحساب. أعد المحاولة قبل الموافقة.');
@@ -9658,6 +9907,7 @@ const Learning = {
       if(profileChanged&&!accountReady){
         if(oldUid)s.learningUid=oldUid;else delete s.learningUid;
         if(oldUsername)s.learningUsername=oldUsername;else delete s.learningUsername;
+        Object.keys(oldProfile).forEach(k=>{if(typeof oldProfile[k]==='undefined')delete s[k];else s[k]=oldProfile[k];});
         if(createdHere)S.data.students=S.data.students.filter(x=>x.id!==s.id);
         try{commit({silent:true});await Cloud.doPush(true);}catch(rollbackError){}
       }else if(createdHere&&!profileChanged){S.data.students=S.data.students.filter(x=>x.id!==s.id);}
@@ -9669,6 +9919,8 @@ const Learning = {
     const r=(this.requests||{})[uid];if(!r||r.status!=='pending')return;
     if(r.kind==='self_signup'){this.openSelfSignupApproval(uid);return;}
     const s=student(r.studentId);if(!s){toast('ملف الطالب المرتبط بالدعوة مش موجود — راجع الطلب','bad');return;}
+    const nationalId=normalizeDigits(s.nationalId||'').replace(/[\s-]/g,'');
+    if(!/^\d{14}$/.test(nationalId)){toast('لا يمكن اعتماد الطالب قبل إدخال رقم قومي صحيح من 14 رقمًا في ملفه.','warn','بوابة الطالب');return;}
     if(s.learningUid&&s.learningUid!==uid){toast('ملف الطالب مرتبط بحساب آخر بالفعل.','warn','بوابة الطالب');return;}
     const oldUid=s.learningUid||'',oldEmail=s.email||'';let profileChanged=false,accountReady=false;
     try{
@@ -10157,7 +10409,10 @@ const LearningPortal = {
     document.body.classList.add('learnmode');
     try{PWA.init();}catch(e){}
     document.title='بوابة الطالب التعليمية · منصة المستر';
-    document.documentElement.dataset.theme=document.documentElement.dataset.theme||'light';
+    let learnTheme=qget('theme')||'';try{learnTheme=learnTheme||localStorage.getItem(LS_KEY+'_theme')||'';}catch(e){}
+    if(learnTheme!=='dark'&&learnTheme!=='light')learnTheme='dark';
+    document.documentElement.dataset.theme=learnTheme;
+    const learnThemeColor=document.querySelector('meta[name="theme-color"]');if(learnThemeColor)learnThemeColor.content=learnTheme==='dark'?'#0b0b0d':'#fac518';
     this.rootEl=document.getElementById('learnview');
     if(!this.rootEl){this.rootEl=document.createElement('div');this.rootEl.id='learnview';document.body.appendChild(this.rootEl);}
     this.restore();
@@ -10198,7 +10453,7 @@ const LearningPortal = {
   },
   async signOutToHome(){
     try{await Promise.race([this.releaseDeviceSession(),new Promise(resolve=>setTimeout(resolve,1400))]);}catch(e){}
-    this.clearSession();
+    this.clearSession();DeviceRoleLock.clear('student');
     try{location.replace(this.homeUrl());}catch(e){location.href=this.homeUrl();}
   },
   deviceLockPath(){return this.root+'/learning/deviceLocks/'+encodeURIComponent(this.uid);},
@@ -10251,7 +10506,7 @@ const LearningPortal = {
   },
   forceDeviceLogout(){
     if(this._forcedDeviceLogout)return;this._forcedDeviceLogout=true;
-    this.clearSession();this._forcedDeviceLogout=false;
+    this.clearSession();DeviceRoleLock.clear('student');this._forcedDeviceLogout=false;
     try{location.replace(this.homeUrl());}catch(e){location.href=this.homeUrl();}
   },
   async authRequest(name,body){
@@ -10264,6 +10519,7 @@ const LearningPortal = {
   saveAuthResult(d){
     this.uid=d.localId||d.user_id||this.uid;this.idToken=d.idToken||d.access_token||this.idToken;this.refreshToken=d.refreshToken||this.refreshToken;
     this.expiresAt=Date.now()+Math.max(60,Number(d.expiresIn||3600)-60)*1000;this.email=(d.email||this.email||'').toLowerCase();this.persist();
+    DeviceRoleLock.set('student',{uid:this.uid,code:this.code,pid:this.projectId,db:this.dbUrl,key:this.apiKey,token:this.token});
   },
   async refreshIdToken(){
     if(!this.refreshToken)throw new Error('انتهت جلسة الدخول — سجّل دخولك من جديد.');
@@ -10293,12 +10549,13 @@ const LearningPortal = {
     if(this.busy)return;
     const inviteMode=!!this.token,signup=this.mode==='signup';
     const userEl=form.querySelector(inviteMode?'#lpEmail':'#lpUsername');
-    const identifier=(userEl&&userEl.value||'').trim().toLowerCase();
+    const enteredIdentifier=(userEl&&userEl.value||'').trim().toLowerCase();
+    const identifier=inviteMode?normalizeEmail(enteredIdentifier):enteredIdentifier;
     const pass=(form.querySelector('#lpPassword')&&form.querySelector('#lpPassword').value)||'';
     const name=(form.querySelector('#lpName')&&form.querySelector('#lpName').value||'').trim();
     let profile=null;
     if(!identifier||!pass){this.error=inviteMode?'اكتب الإيميل وكلمة السر.':'اكتب اسم المستخدم وكلمة السر.';this.render();return;}
-    if(inviteMode&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(identifier)){this.error='اكتب إيميل صحيحًا للدعوة.';this.render();return;}
+    if(inviteMode&&!isValidEmail(identifier)){this.error='اكتب إيميل صحيحًا للدعوة.';this.render();return;}
     if(signup&&!inviteMode&&identifier.indexOf('@')>=0){this.error='اختار اسم مستخدم من غير بريد إلكتروني.';this.render();return;}
     if(!inviteMode&&identifier.indexOf('@')<0&&!/^[a-z0-9][a-z0-9._-]{2,23}$/.test(identifier)){this.error='اسم المستخدم من 3 إلى 24 حرفًا أو رقمًا إنجليزيًا، ويمكن استخدام النقطة والشرطة.';this.render();return;}
     if(pass.length<6){this.error='كلمة السر لازم تكون 6 أحرف على الأقل.';this.render();return;}
@@ -10306,12 +10563,18 @@ const LearningPortal = {
     if(signup&&!inviteMode){
       const get=id=>(form.querySelector('#'+id)||{}).value||'';
       const pass2=get('lpPasswordConfirm');if(pass!==pass2){this.error='تأكيد كلمة السر مش مطابق.';this.render();return;}
-      const guardianEmail=get('lpGuardianEmail').trim().toLowerCase();
-      if(guardianEmail&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guardianEmail)){this.error='اكتب بريد Google صحيحًا لولي الأمر أو اتركه فارغًا.';this.render();return;}
-      profile={name:name,stage:get('lpStage').trim(),studySystem:get('lpStudySystem').trim(),level:get('lpLevel').trim(),phone:get('lpPhone').trim(),guardian:get('lpGuardian').trim(),parentPhone:get('lpParentPhone').trim(),guardianEmail:guardianEmail,type:'أونلاين'};
+      const guardianEmail=normalizeEmail(get('lpGuardianEmail'));
+      const phone=normalizeDigits(get('lpPhone'));
+      const parentPhone=normalizeDigits(get('lpParentPhone'));
+      const nationalId=normalizeDigits(get('lpNationalId')).replace(/[\s-]/g,'');
+      profile={name:name,stage:get('lpStage').trim(),studySystem:get('lpStudySystem').trim(),nationalId:nationalId,phone:phone,guardian:get('lpGuardian').trim(),parentPhone:parentPhone,guardianEmail:guardianEmail,type:'أونلاين'};
+      this.signupProfile=profile;
+      if(!profile.phone){this.error='اكتب رقم هاتف الطالب؛ الحقل مطلوب.';this.render();return;}
+      if(!nationalId){this.error='اكتب الرقم القومي؛ الحقل مطلوب.';this.render();return;}
+      if(guardianEmail&&!isValidEmail(guardianEmail)){this.error='راجع بريد ولي الأمر واكتبه بالصيغة name@gmail.com، أو اتركه فارغًا.';this.render();return;}
+      if(!/^\d{14}$/.test(nationalId)){this.error='الرقم القومي لازم يتكوّن من 14 رقمًا.';this.render();return;}
       if(!profile.stage||!profile.studySystem){this.error='اختار المرحلة ونظام الدراسة.';this.render();return;}
       if(!studySystemsFor(profile.stage).includes(profile.studySystem)){this.error='نظام الدراسة غير متاح للمرحلة المختارة. اختار النظام الصحيح.';this.render();return;}
-      this.signupProfile=profile;
     }
     this.busy=true;this.error='';this.render();
     try{
@@ -10530,9 +10793,9 @@ const LearningPortal = {
       <label class="lp-field"><span>الاسم الكامل للطالب</span><input id="lpName" type="text" maxlength="100" autocomplete="name" required value="${esc(this.displayName||'')}"></label>
       <label class="lp-field"><span>اسم المستخدم</span><input id="lpUsername" type="text" required minlength="3" maxlength="24" autocomplete="username" value="${esc(this.loginName||'')}" placeholder="مثال: ahmed2026" dir="ltr"><small class="lp-copy">استخدم حروفًا إنجليزية أو أرقامًا؛ مش محتاج بريد إلكتروني.</small></label>
       <div class="lp-two-col"><label class="lp-field"><span>المرحلة الدراسية</span><select id="lpStage" required><option value="">اختر المرحلة</option>${stageList.map(x=>`<option value="${esc(x)}" ${stageValue===x?'selected':''}>${esc(x)}</option>`).join('')}</select></label><label class="lp-field"><span>نظام الدراسة</span><select id="lpStudySystem" required><option value="">اختر النظام</option>${['عام','أزهر','بكالوريا'].map(x=>`<option value="${x}" ${this.signupProfile&&this.signupProfile.studySystem===x?'selected':''}>${x}</option>`).join('')}</select></label></div>
-      <div class="lp-two-col"><label class="lp-field"><span>هاتف الطالب (اختياري)</span><input id="lpPhone" type="tel" autocomplete="tel" value="${esc((this.signupProfile&&this.signupProfile.phone)||'')}" placeholder="01xxxxxxxxx" dir="ltr"></label><label class="lp-field"><span>المستوى الدراسي (اختياري)</span><input id="lpLevel" type="text" maxlength="40" value="${esc((this.signupProfile&&this.signupProfile.level)||'')}" placeholder="مثال: متقدم"></label></div>
-      <div class="lp-two-col"><label class="lp-field"><span>اسم ولي الأمر</span><input id="lpGuardian" type="text" maxlength="100" value="${esc((this.signupProfile&&this.signupProfile.guardian)||'')}"></label><label class="lp-field"><span>هاتف ولي الأمر</span><input id="lpParentPhone" type="tel" value="${esc((this.signupProfile&&this.signupProfile.parentPhone)||'')}" placeholder="01xxxxxxxxx" dir="ltr"></label></div>
-      <label class="lp-field"><span>بريد Google لولي الأمر (اختياري للتقرير)</span><input id="lpGuardianEmail" type="email" value="${esc((this.signupProfile&&this.signupProfile.guardianEmail)||'')}" placeholder="parent@gmail.com" dir="ltr"><small class="lp-copy">لو اتسجل، يظل تقرير ولي الأمر محميًا بمطابقة البريد نفسه.</small></label>`:'';
+      <div class="lp-two-col"><label class="lp-field"><span>هاتف الطالب <b class="req">*</b></span><input id="lpPhone" type="tel" inputmode="tel" autocomplete="tel" required value="${esc((this.signupProfile&&this.signupProfile.phone)||'')}" placeholder="01xxxxxxxxx" dir="ltr"></label><label class="lp-field"><span>الرقم القومي <b class="req">*</b></span><input id="lpNationalId" type="text" inputmode="numeric" maxlength="14" autocomplete="off" required value="${esc((this.signupProfile&&this.signupProfile.nationalId)||'')}" placeholder="14 رقمًا" dir="ltr"><small class="lp-copy">مطلوب — أرقام فقط، 14 رقمًا.</small></label></div>
+      <div class="lp-two-col"><label class="lp-field"><span>اسم ولي الأمر</span><input id="lpGuardian" type="text" maxlength="100" value="${esc((this.signupProfile&&this.signupProfile.guardian)||'')}"></label><label class="lp-field"><span>هاتف ولي الأمر (اختياري)</span><input id="lpParentPhone" type="tel" inputmode="tel" value="${esc((this.signupProfile&&this.signupProfile.parentPhone)||'')}" placeholder="01xxxxxxxxx" dir="ltr"></label></div>
+      <label class="lp-field"><span>بريد حساب Google لولي الأمر (اختياري للتقرير)</span><input id="lpGuardianEmail" type="email" autocomplete="email" value="${esc((this.signupProfile&&this.signupProfile.guardianEmail)||'')}" placeholder="parent@gmail.com" dir="ltr"><small class="lp-copy">مش لازم تكون مسجّل دخولًا بحساب Google أثناء التسجيل؛ فتح التقرير لاحقًا يتطلب نفس البريد بالضبط.</small></label>`:'';
     const loginField=invite?`<label class="lp-field"><span>الإيميل المسجل في الدعوة</span><input id="lpEmail" type="email" autocomplete="username" required value="${esc(this.email)}" placeholder="student@example.com" dir="ltr"></label>`:(!signup?`<label class="lp-field"><span>اسم المستخدم أو البريد الإلكتروني</span><input id="lpUsername" type="text" autocomplete="username" required value="${esc(this.loginName||'')}" placeholder="اسم المستخدم أو البريد" dir="ltr"></label>`:'');
     const legacyName=signup&&invite?`<label class="lp-field"><span>اسم الطالب</span><input id="lpName" type="text" maxlength="100" autocomplete="name" required value="${esc(this.displayName||'')}"></label>`:'';
     const confirm=signup&&!invite?`<label class="lp-field"><span>تأكيد كلمة السر</span><input id="lpPasswordConfirm" type="password" autocomplete="new-password" required minlength="6" placeholder="أعد كتابة كلمة السر"></label>`:'';
@@ -10606,7 +10869,7 @@ const LearningPortal = {
     if(act==='liveVote'){this.setLiveVote(b.dataset.value);return;}
     if(act==='liveHand'){this.toggleLiveHand();return;}
     if(act==='setMode'){this.error='';this.mode=b.dataset.mode==='signup'?'signup':'login';this.render();return;}
-    if(act==='goLogin'){this.clearSession();this.mode='login';this.error='';this.render();return;}
+    if(act==='goLogin'){DeviceRoleLock.clear('student');this.clearSession();this.mode='login';this.error='';this.render();return;}
     if(act==='goPublicHome'||act==='logout'){this.signOutToHome();return;}
     if(act==='verifyAgain'){this.verifyAgain();return;}
     if(act==='resendVerify'){this.sendVerification().then(ok=>{this.error=ok?'أرسلنا رسالة تحقق جديدة إلى '+this.email+'.':'تعذر إرسال الرسالة: '+(this.error||'حاول لاحقًا');this.render();});return;}
@@ -10779,7 +11042,9 @@ const PublicHome = {
   }
 };
 
-(function boot(){
+(async function boot(){
+  // دور الجلسة المثبّت يمنع رابطًا مباشرًا من تحويل هذا الجهاز لدور مختلف.
+  try{if(DeviceRoleLock.enforce())return;}catch(e){}
   // رابط الطالب القديم أو واجهة تسجيل الطالب العامة — لا تمر على أي واجهة إدارية.
   try{ const q=new URLSearchParams(location.search||'');const lt=q.get('learn');if(lt){LearningPortal.start(lt);return;}const sm=q.get('student');if(sm==='login'||sm==='signup'){LearningPortal.start('',sm);return;} }catch(e){}
   // لو الرابط رابط متابعة ولي أمر → شاشة المتابعة على طول.
@@ -10788,13 +11053,7 @@ const PublicHome = {
   // الصفحة الأولى عامة للزوار؛ جهاز إدارة معتمد يرجع مباشرةً للوحة من دون شاشة دخول.
   try{
     const q=new URLSearchParams(location.search||'');
-    if(q.get('admin')!=='1'){
-      let savedRole='';try{savedRole=localStorage.getItem(Roles.KEY)||'';}catch(e){}
-      if(savedRole==='owner'||savedRole==='teacher'){
-        const base=String(location.href||'').split('#')[0].split('?')[0];location.replace(base+'?admin=1');return;
-      }
-      PublicHome.start();return;
-    }
+    if(q.get('admin')!=='1'){PublicHome.start();return;}
   }catch(e){PublicHome.start();return;}
   let theme = localStorage.getItem(LS_KEY + '_theme');
   if (!theme) theme = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
@@ -10812,7 +11071,15 @@ const PublicHome = {
   const use = $('#themeBtn use'); if (use) use.setAttribute('href', theme === 'dark' ? '#i-sun' : '#i-moon');
   const mt = document.querySelector('meta[name=theme-color]');
   if (mt) mt.setAttribute('content', theme === 'dark' ? '#0b0b0d' : '#fac518');
-  try{ Roles.init(); }catch(e){}
+  // لا نعرض أي جزء من لوحة الإدارة قبل فحص العضوية الحية على الخادم.
+  LMode.show('checking');
+  try{await Roles.init({force:true});}catch(e){Roles._authError=e;Roles._verifiedUid=Roles.uid();Roles._verifiedRole='unverified';}
+  const entryRole=Roles.role();
+  if(entryRole!=='owner'&&entryRole!=='teacher'){
+    if(entryRole==='unverified')LMode.errorText=(Roles._authError&&Roles._authError.message)||'راجع اتصال الإنترنت أو إعدادات Firebase.';
+    Roles.apply();PWA.init();return;
+  }
+  LMode.hide();
   PWA.init();
   paintCloud(); paintLogo();
   const h = (location.hash || '').slice(1);
@@ -10829,10 +11096,14 @@ const PublicHome = {
   }
 
   /* فحص فوري لما ترجع للصفحة أو تفتحها تاني */
-  window.addEventListener('focus', () => { if (S.fb.status === 'live') Cloud.checkRemote(); });
+  window.addEventListener('focus', () => {
+    if (S.fb.status === 'live') Cloud.checkRemote();
+    if(Roles.role()==='owner'||Roles.role()==='teacher')Roles.init({force:true}).catch(()=>{});
+  });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) return;
     if (S.fb.status === 'live'){ Cloud.checkRemote(); Cloud.flushPending(false); }
+    if(Roles.role()==='owner'||Roles.role()==='teacher')Roles.init({force:true}).catch(()=>{});
     // لو البث وقف وهو بعيد: نوصّله تاني
     if (S.fb.status === 'live' && S.fb.stream !== 'live' && navigator.onLine !== false) Cloud.stream();
   });
