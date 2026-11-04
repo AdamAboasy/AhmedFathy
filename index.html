@@ -1073,7 +1073,7 @@ function platformBase(){
   }catch(e){}
   return PLATFORM_URL_DEFAULT;
 }
-const APP_V = 'v2.18.1';
+const APP_V = 'v2.18.2';
 const ERR_KEY = 'mostar_errlog';
 const SAFE_KEY = 'mostar_safe';      // نسخة محلية خفية — لو المتصفح مسح بياناته نرجّعها في ثانية
 let SAFE_AT = 0, SAFE_SIG = '';
@@ -1230,7 +1230,7 @@ function commit(opts){
    الاتنين شغالين على Realtime Database، والأوروبي أسرع من مصر فبيتجرّب الأول،
    ولو حصلت أي مشكلة بيحوّل للتاني لوحده. */
 const FB_PROJECTS = [
-  { projectId: 'ahmedfathy-def0f', dbUrl: 'https://ahmedfathy-def0f-default-rtdb.europe-west1.firebasedatabase.app',
+  { projectId: 'ahmedfathy-def0f', apiKey: 'AIzaSyAj-OGdWOPEWvBplyRPOfv755t7Awc2qg0', dbUrl: 'https://ahmedfathy-def0f-default-rtdb.europe-west1.firebasedatabase.app',
     authDomain: 'ahmedfathy-def0f.firebaseapp.com', code: 'ahmedfathy-def0f', nick: 'سيرفر أوروبا', region: 'بلجيكا (europe-west1)' },
   { projectId: 'ahmedfathy-95c10', dbUrl: 'https://ahmedfathy-95c10-default-rtdb.asia-southeast1.firebasedatabase.app',
     authDomain: 'ahmedfathy-95c10.firebaseapp.com', code: 'ahmedfathy-95c10', nick: 'سيرفر آسيا', region: 'سنغافورة (asia-southeast1)' }
@@ -1584,6 +1584,8 @@ const Cloud = {
     const pid = c && c.projectId;
     const localKey = pid ? this.keyFor(pid) : '';
     if (localKey) return localKey;
+    const embedded = pid ? FB_PROJECTS.find(p => p.projectId === pid) : null;
+    if (embedded && embedded.apiKey) return embedded.apiKey;
     // بعض الإعدادات القديمة احتفظت بالـ apiKey داخل firebaseConfig فقط، من غير نسخة mostar_key_<pid>.
     // استرجعه من الإعدادات المحفوظة لنفس المشروع؛ مهم عند فتح رابط ولي الأمر على نفس الجهاز.
     try{
